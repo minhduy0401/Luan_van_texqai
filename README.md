@@ -58,11 +58,25 @@ pip install -r requirements.txt
 
 ### Cấu hình
 
-1. Tạo database MySQL (xem chi tiết trong [Hướng dẫn cài đặt](docs/install_guide.md))
-2. Tạo file `.env` ở thư mục gốc:
+#### 1. Tạo database MySQL
+
+```sql
+CREATE DATABASE textqai CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'textqai_user'@'localhost' IDENTIFIED BY 'your_password';
+GRANT ALL PRIVILEGES ON textqai.* TO 'textqai_user'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+Hoặc chạy file có sẵn:
+
+```bash
+mysql -u root -p < database/init.sql
+```
+
+#### 2. Tạo file `.env` ở thư mục gốc
 
 ```env
-DATABASE_URI=mysql+mysqlconnector://user:password@localhost/textqai
+DATABASE_URI=mysql+mysqlconnector://textqai_user:your_password@localhost/textqai
 SECRET_KEY=your-secret-key
 
 # Chọn một AI provider
@@ -71,7 +85,27 @@ QUESTION_MODEL=google/gemini-2.5-flash-lite
 ANSWER_MODEL=google/gemini-2.5-flash-lite
 ```
 
-3. Khởi động ứng dụng:
+> Biến môi trường dùng tên **`DATABASE_URI`** (không phải `DATABASE_URL`), driver **`mysql+mysqlconnector`**.
+
+#### 3. Tạo bảng (schema)
+
+```bash
+python init_db.py
+```
+
+Script này gọi `db.create_all()` và tạo 12 bảng từ `models.py`:
+
+| Bảng | Mô tả |
+|------|--------|
+| `users`, `user_auth_providers` | Tài khoản, đăng nhập local/Google |
+| `documents`, `qa_results` | PDF và câu hỏi đã sinh |
+| `agent1/2/3_evaluation_logs` | Log pipeline AI |
+| `credit_packages`, `subscription_packages`, `transactions` | Thanh toán |
+| `feedbacks`, `system_settings` | Phản hồi, cấu hình admin |
+
+> Lần chạy `python app.py` cũng tự gọi `db.create_all()` nếu chưa có bảng — `init_db.py` giúp kiểm tra riêng trước khi khởi động web.
+
+#### 4. Khởi động ứng dụng
 
 ```bash
 python app.py
@@ -91,6 +125,10 @@ Luan_van_texqai/
 ├── config.py           # Model AI, hằng số
 ├── extensions.py       # DB, Login, OAuth, AI client
 ├── models.py           # SQLAlchemy models
+├── init_db.py          # Tạo bảng MySQL lần đầu
+├── migrate_db.py       # Migration một lần (schema cũ → mới)
+├── database/
+│   └── init.sql        # Script CREATE DATABASE
 ├── requirements.txt
 ├── services/
 │   ├── pipeline.py     # Pipeline 3 agent (A1 → A2 → A3)

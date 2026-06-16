@@ -105,7 +105,17 @@ User:     textqai_user
 Password: your_password
 ```
 
-> 💡 Bảng sẽ được tự động tạo khi khởi động app lần đầu (`db.create_all()`).
+> 💡 Bảng sẽ được tự động tạo khi chạy `python init_db.py` hoặc khởi động app lần đầu (`db.create_all()`).
+
+#### Bước 3 – Tạo bảng (schema)
+```bash
+python init_db.py
+```
+
+Hoặc tạo database bằng file SQL:
+```bash
+mysql -u root -p < database/init.sql
+```
 
 ---
 
@@ -115,7 +125,7 @@ Tạo file `.env` ở thư mục gốc dự án:
 
 ```env
 # ── Cơ sở dữ liệu ────────────────────────────────
-DATABASE_URL=mysql+pymysql://textqai_user:your_password@localhost/textqai
+DATABASE_URI=mysql+mysqlconnector://textqai_user:your_password@localhost/textqai
 
 # ── Bảo mật Flask ────────────────────────────────
 SECRET_KEY=your-very-secret-key-change-this
@@ -199,7 +209,7 @@ server {
 | Lỗi | Nguyên nhân | Giải pháp |
 |-----|-------------|-----------|
 | `ModuleNotFoundError` | Chưa kích hoạt venv | Chạy `venv\Scripts\activate` |
-| `Access denied for user` | Sai thông tin MySQL | Kiểm tra lại `DATABASE_URL` trong `.env` |
+| `Access denied for user` | Sai thông tin MySQL | Kiểm tra lại `DATABASE_URI` trong `.env` |
 | `API key invalid` | Key AI chưa đúng | Kiểm tra OpenRouter/Gemini key |
 | Port 5000 đang dùng | Có app khác chiếm cổng | Dừng app cũ hoặc đổi port |
 | PDF không đọc được | File PDF là ảnh scan | Dùng OCR trước khi upload |
@@ -308,7 +318,17 @@ User:     textqai_user
 Password: your_password
 ```
 
-> 💡 Tables are automatically created on first app startup (`db.create_all()`).
+> 💡 Tables are created by running `python init_db.py` or on first app startup (`db.create_all()`).
+
+#### Step 3 – Create tables (schema)
+```bash
+python init_db.py
+```
+
+Or create the database from SQL file:
+```bash
+mysql -u root -p < database/init.sql
+```
 
 ---
 
@@ -318,7 +338,7 @@ Create a `.env` file in the project root:
 
 ```env
 # ── Database ──────────────────────────────────────
-DATABASE_URL=mysql+pymysql://textqai_user:your_password@localhost/textqai
+DATABASE_URI=mysql+mysqlconnector://textqai_user:your_password@localhost/textqai
 
 # ── Flask Security ────────────────────────────────
 SECRET_KEY=your-very-secret-key-change-this
@@ -402,7 +422,7 @@ server {
 | Error | Cause | Solution |
 |-------|-------|----------|
 | `ModuleNotFoundError` | Virtual env not activated | Run `venv\Scripts\activate` |
-| `Access denied for user` | Wrong MySQL credentials | Check `DATABASE_URL` in `.env` |
+| `Access denied for user` | Wrong MySQL credentials | Check `DATABASE_URI` in `.env` |
 | `API key invalid` | Incorrect AI key | Verify OpenRouter/Gemini key |
 | Port 5000 in use | Another app occupying port | Stop other app or change port |
 | PDF not readable | PDF is a scanned image | Run OCR on PDF before uploading |
