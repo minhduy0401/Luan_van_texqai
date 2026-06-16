@@ -163,3 +163,119 @@ def _draw_wrapped_pdf_text(pdf_canvas, text, x, y, max_width, font_name='Helveti
         y -= line_height
 
     return y
+
+
+def localize_section_info(text: str, lang: str = 'vi') -> str:
+    """Đổi nhãn Chương/Mục/Trang sang Chapter/Section/Page khi lang='en'."""
+    if not text or lang != 'en':
+        return text or ''
+
+    result = text
+    for pattern, repl in (
+        (r'\bChương\s+', 'Chapter '),
+        (r'\bCHUONG\s+', 'Chapter '),
+        (r'\bMục\s+', 'Section '),
+        (r'\bMUC\s+', 'Section '),
+        (r'\bPhần\s+', 'Part '),
+        (r'\bPHẦN\s+', 'Part '),
+        (r'\bBài\s+', 'Lesson '),
+        (r'\bTrang\s+', 'Page '),
+        (r'\bNội dung\b', 'Content'),
+    ):
+        result = re.sub(pattern, repl, result, flags=re.IGNORECASE)
+
+    # "Chapter 1 - Section Chapter 1: ..." → "Chapter 1: ..."
+    result = re.sub(
+        r'^(Chapter\s+\d+)\s*-\s*Section\s+\1\s*:\s*',
+        r'\1: ',
+        result,
+        flags=re.IGNORECASE,
+    )
+    return result
+
+
+def format_section_info(chapter, sec_num, display_title, page_num=None, lang='vi'):
+    """Xây dựng chuỗi section_info hiển thị trên UI."""
+    chapter_display = localize_section_info(chapter, lang) if lang == 'en' else chapter
+    if lang == 'en' and chapter_display == chapter and chapter == 'Nội dung':
+        chapter_display = 'Content'
+
+    if sec_num:
+        sec_display = localize_section_info(sec_num, lang) if lang == 'en' else sec_num
+        if lang == 'en':
+            chap_m = re.match(r'^Chapter\s+(\d+)', chapter_display, re.IGNORECASE)
+            sec_m = re.match(r'^Chapter\s+(\d+)', sec_display, re.IGNORECASE)
+            if chap_m and sec_m and chap_m.group(1) == sec_m.group(1):
+                return f"{chapter_display}: {display_title}"
+        sec_label = 'Section' if lang == 'en' else 'Mục'
+        return f"{chapter_display} - {sec_label} {sec_display}: {display_title}"
+
+    if page_num:
+        page_label = 'Page' if lang == 'en' else 'Trang'
+        return f"{page_label} {page_num}: {display_title}"
+
+    return f"{chapter_display}: {display_title}"
+
+
+def _bloom_ui_label(bloom_level: str, lang: str) -> str:
+    if lang == 'en':
+        from utils.translations import TRANSLATIONS
+        return TRANSLATIONS.get(bloom_level, {}).get('en', bloom_level)
+    return bloom_level
+
+
+def progress_analyzing_document(lang='vi'):
+    return 'Analyzing document...' if lang == 'en' else 'Đang phân tích tài liệu...'
+
+
+def progress_generating_question(current, total, bloom_level, lang='vi'):
+    bloom = _bloom_ui_label(bloom_level, lang)
+    if lang == 'en':
+        return f'Generating question {current}/{total} ({bloom})...'
+    return f'Đang sinh câu {current}/{total} ({bloom})...'
+
+
+def progress_pipeline_complete(generated, total, lang='vi'):
+    if lang == 'en':
+        return f'Completed! Generated {generated}/{total} questions.'
+    return f'Hoàn tất! Đã sinh {generated}/{total} câu hỏi.'
+
+
+def progress_saving_results(lang='vi'):
+    return 'Saving results to database...' if lang == 'en' else 'Đang lưu kết quả vào cơ sở dữ liệu...'
+
+
+def progress_init_pipeline(lang='vi'):
+    return 'Initializing AI pipeline...' if lang == 'en' else 'Đang khởi động pipeline...'
+
+
+def progress_reading_textbook(lang='vi'):
+    return 'Reading textbook...' if lang == 'en' else 'Đang đọc giáo trình...'
+
+
+def progress_reading_page(page_num, total_pages, label='', lang='vi'):
+    if lang == 'en':
+        base = f'Reading textbook... page {page_num}/{total_pages}'
+    else:
+        base = f'Đang đọc giáo trình... trang {page_num}/{total_pages}'
+    return f'{base} ({label})' if label else base
+
+
+def progress_textbook_saved(lang='vi'):
+    return 'Textbook read. Saving document...' if lang == 'en' else 'Đã đọc xong giáo trình. Đang lưu tài liệu...'
+
+
+def progress_job_complete(generated, total, lang='vi'):
+    if lang == 'en':
+        return f'Completed! Generated {generated}/{total} questions.'
+    return f'Hoàn thành! Đã tạo {generated}/{total} câu hỏi.'
+
+
+def progress_flash_success(generated, total, lang='vi'):
+    if lang == 'en':
+        return f'Successfully generated {generated}/{total} questions!'
+    return f'Đã tạo thành công {generated}/{total} câu hỏi!'
+
+
+def progress_error(exc, lang='vi'):
+    return f'Error: {exc}' if lang == 'en' else f'Lỗi: {exc}'

@@ -16,6 +16,7 @@
 7. [Tạo tài khoản admin](#7-tạo-tài-khoản-admin)
 8. [Deploy production (tùy chọn)](#8-deploy-production-tùy-chọn)
 9. [Xử lý lỗi thường gặp](#9-xử-lý-lỗi-thường-gặp)
+10. [Giao diện đa ngôn ngữ Anh/Việt](#10-giao-diện-đa-ngôn-ngữ-anhviệt)
 
 ---
 
@@ -246,6 +247,62 @@ server {
 | PDF không đọc được | File PDF là ảnh scan | Dùng OCR trước khi upload |
 
 ---
+
+### 10. Giao diện đa ngôn ngữ (Anh/Việt)
+
+TEXTQAI hỗ trợ chuyển **Tiếng Việt ↔ English** trên giao diện web (navbar, nút, thông báo…). Đây là cơ chế **tự viết trong dự án**, **không** dùng Flask-Babel, gettext hay thư viện i18n bên thứ ba.
+
+#### Công nghệ sử dụng
+
+| Thành phần | Công nghệ / File | Vai trò |
+|-----------|------------------|---------|
+| Lưu ngôn ngữ đang chọn | **Flask Session** (`session['lang']`) | Giá trị `'en'` hoặc `'vi'`, mặc định `'en'` |
+| Lưu trên trình duyệt | **Cookie** + **localStorage** (`app_lang`) | Giữ ngôn ngữ trên iOS WebView / app mobile |
+| Từ điển dịch | **`utils/translations.py`** | Dict Python `TRANSLATIONS` — key tiếng Việt → `{en, vi}` |
+| Inject vào template | **`app.py`** — `@app.context_processor` | Cung cấp `t()` và `current_lang` cho mọi trang Jinja2 |
+| Chuyển ngôn ngữ | Route **`GET /set-language/<lang>`** | Ghi session rồi redirect về trang trước |
+| Hiển thị HTML | **Jinja2** trong `templates/` | `{{ t('...') }}` hoặc `{% if current_lang == 'en' %}` |
+| Thông báo backend | Helper **`_bi(en, vi)`** trong `app.py` | Flash message / logic server song ngữ |
+
+#### Luồng hoạt động
+
+```
+Người dùng bấm EN/VI (base.html)
+    → GET /set-language/en hoặc /set-language/vi
+    → session['lang'] = 'en' | 'vi'
+    → Template gọi t('Trang chủ') → tra TRANSLATIONS → hiển thị "Home" hoặc "Trang chủ"
+```
+
+#### File cần biết khi chỉnh sửa / mở rộng
+
+| File | Nội dung |
+|------|----------|
+| `utils/translations.py` | Thêm/chỉnh chuỗi UI: `"Tiếng Việt gốc": {"en": "English", "vi": "Tiếng Việt gốc"}` |
+| `app.py` | `inject_translations()`, `set_language()`, `_bi()` |
+| `templates/base.html` | Nút chuyển ngôn ngữ + JS lưu cookie/localStorage |
+
+**Ví dụ thêm chuỗi mới** — trong template:
+
+```html
+{{ t('Sinh câu hỏi') }}
+```
+
+Thêm vào `utils/translations.py`:
+
+```python
+"Sinh câu hỏi": {
+    "en": "Generate Questions",
+    "vi": "Sinh câu hỏi",
+},
+```
+
+#### Lưu ý quan trọng
+
+- **Giao diện web** (nút EN/VI) và **ngôn ngữ câu hỏi/đáp án AI** là **hai hệ thống riêng**.
+- Câu hỏi/đáp án do AI sinh ra theo **ngôn ngữ PDF** (hàm `_is_english_content()` trong `services/pipeline.py`), không theo nút chuyển ngôn ngữ trên navbar.
+- Không cần cài thêm package cho i18n; chỉ cần Flask + Jinja2 có sẵn trong `requirements.txt`.
+
+---
 ---
 
 ## 🇬🇧 ENGLISH
@@ -260,6 +317,7 @@ server {
 7. [Create Admin Account](#7-create-admin-account)
 8. [Production Deployment (Optional)](#8-production-deployment-optional)
 9. [Troubleshooting](#9-troubleshooting)
+10. [Bilingual UI (English/Vietnamese)](#10-bilingual-ui-englishvietnamese)
 
 ---
 
@@ -493,3 +551,59 @@ server {
 | `API key invalid` | Incorrect AI key | Verify OpenRouter/Gemini key |
 | Port 5000 in use | Another app occupying port | Stop other app or change port |
 | PDF not readable | PDF is a scanned image | Run OCR on PDF before uploading |
+
+---
+
+### 10. Bilingual UI (English/Vietnamese)
+
+TEXTQAI supports **Vietnamese ↔ English** switching for the web UI (navbar, buttons, flash messages, etc.). This is a **custom in-project mechanism** — it does **not** use Flask-Babel, gettext, or any third-party i18n library.
+
+#### Technology stack
+
+| Component | Technology / File | Role |
+|-----------|-------------------|------|
+| Store selected language | **Flask Session** (`session['lang']`) | Values `'en'` or `'vi'`, default `'en'` |
+| Browser persistence | **Cookie** + **localStorage** (`app_lang`) | Keeps language on iOS WebView / mobile app |
+| Translation dictionary | **`utils/translations.py`** | Python dict `TRANSLATIONS` — Vietnamese key → `{en, vi}` |
+| Template injection | **`app.py`** — `@app.context_processor` | Provides `t()` and `current_lang` to all Jinja2 pages |
+| Language switch | Route **`GET /set-language/<lang>`** | Writes session then redirects back |
+| HTML rendering | **Jinja2** in `templates/` | `{{ t('...') }}` or `{% if current_lang == 'en' %}` |
+| Backend messages | **`_bi(en, vi)`** helper in `app.py` | Bilingual flash messages / server logic |
+
+#### Flow
+
+```
+User clicks EN/VI (base.html)
+    → GET /set-language/en or /set-language/vi
+    → session['lang'] = 'en' | 'vi'
+    → Template calls t('Trang chủ') → lookup TRANSLATIONS → shows "Home" or "Trang chủ"
+```
+
+#### Files to edit when extending translations
+
+| File | Purpose |
+|------|---------|
+| `utils/translations.py` | Add/edit UI strings: `"Vietnamese text": {"en": "English", "vi": "Vietnamese text"}` |
+| `app.py` | `inject_translations()`, `set_language()`, `_bi()` |
+| `templates/base.html` | Language toggle button + JS for cookie/localStorage |
+
+**Example — add a new string** in template:
+
+```html
+{{ t('Sinh câu hỏi') }}
+```
+
+Add to `utils/translations.py`:
+
+```python
+"Sinh câu hỏi": {
+    "en": "Generate Questions",
+    "vi": "Sinh câu hỏi",
+},
+```
+
+#### Important notes
+
+- **Web UI language** (EN/VI toggle) and **AI question/answer language** are **separate systems**.
+- Generated Q&A follows the **PDF document language** (`_is_english_content()` in `services/pipeline.py`), not the navbar language switch.
+- No extra i18n packages required — Flask + Jinja2 from `requirements.txt` is sufficient.

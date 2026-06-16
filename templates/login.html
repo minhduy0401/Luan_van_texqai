@@ -367,7 +367,7 @@
             var response = grecaptcha.getResponse();
             if (response.length === 0) {
                 e.preventDefault();
-                alert('{{ t('Vui lòng tích chọn Captcha "Tôi không phải là robot" trước khi gửi!') }}');
+                alert({{ t('Vui lòng tích chọn Captcha "Tôi không phải là robot" trước khi gửi!') | tojson }});
             }
         });
         // Google OAuth không cần captcha – bên thứ 3 đã có cơ chế chống spam riêng

@@ -262,13 +262,16 @@ function translateDynamicMessage(msg, lang) {
     // "Đang sinh câu X/Y (Bloom N (Desc))..."
     let mGen = msg.match(/Đang sinh câu\s+(\d+)\/(\d+)\s+\((Bloom \d+)(?:\s*\((.*?)\))?\)\.\.\./);
     if (mGen) {
-        const bloomMap = { 'Nhận biết':'Remembering','Thông hiểu':'Understanding','Vận dụng':'Applying','Phân tích':'Analyzing','Đánh giá':'Evaluating','Sáng tạo':'Creating' };
+        const bloomMap = {
+            'Nhớ': 'Remembering', 'Hiểu': 'Understanding', 'Vận dụng': 'Applying',
+            'Phân tích': 'Analyzing', 'Đánh giá': 'Evaluating', 'Sáng tạo': 'Creating',
+        };
         let d = bloomMap[mGen[4]] || mGen[4] || '';
         return d ? `Generating question ${mGen[1]}/${mGen[2]} (${mGen[3]} (${d}))...`
                  : `Generating question ${mGen[1]}/${mGen[2]} (${mGen[3]})...`;
     }
 
-    let mDone = msg.match(/Hoàn thành!\s+Đã tạo\s+(\d+)\/(\d+)\s+câu hỏi\./);
+    let mDone = msg.match(/Hoàn th(?:ành|ất)!\s+(?:Đã tạo|Đã sinh)\s+(\d+)\/(\d+)\s+câu hỏi\.?/);
     if (mDone) return `Completed! Generated ${mDone[1]}/${mDone[2]} questions.`;
 
     let mDone2 = msg.match(/Đã tạo thành công\s+(\d+)\/(\d+)\s+câu hỏi!/);

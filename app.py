@@ -58,6 +58,15 @@ from utils.helpers import (
     calculate_points_from_bloom,
     _get_pdf_font_name_for_windows,
     _draw_wrapped_pdf_text,
+    localize_section_info,
+    progress_init_pipeline,
+    progress_reading_textbook,
+    progress_reading_page,
+    progress_textbook_saved,
+    progress_saving_results,
+    progress_job_complete,
+    progress_flash_success,
+    progress_error,
 )
 from services.pdf import extract_pdf_text_plain, extract_pdf_text_with_ocr
 from services.pipeline import run_agent_pipeline
@@ -160,6 +169,11 @@ def _fix_enc(text):
 
 app.jinja_env.filters['fix_enc'] = _fix_enc
 
+def _localize_section_filter(text):
+    return localize_section_info(text, get_lang())
+
+app.jinja_env.filters['localize_section'] = _localize_section_filter
+
 # ── Google OAuth 2.0 (OpenID Connect) ─────────────────────────────────────────
 oauth.register(
     name='google',
@@ -195,35 +209,9 @@ print("   Chi phi: ~$0.075/1M tokens (~1,500d/trieu tu)")
 
 
 # --- ROUTES ---
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/')
 def index():
-    # Batch SystemSetting queries into one round-trip
-    _settings = {
-        row.key: row.value
-        for row in SystemSetting.query.filter(
-            SystemSetting.key.in_(['captcha_type', 'recaptcha_site_key'])
-        ).all()
-    }
-    captcha_type = _settings.get('captcha_type', 'none')
-    site_key     = _settings.get('recaptcha_site_key', '').strip()
-    if not site_key or len(site_key) < 5:
-        site_key = '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'
-
-
     if not current_user.is_authenticated:
-        # Skip captcha gate for the mobile app WebView (User-Agent contains 'TEXTQAI')
-        _ua = request.headers.get('User-Agent', '')
-        _is_app = 'TEXTQAI' in _ua
-        if captcha_type != 'none' and not session.get('captcha_passed') and not _is_app:
-            if request.method == 'POST':
-                recaptcha_response = request.form.get('g-recaptcha-response', '')
-                if verify_captcha(recaptcha_response):
-                    session['captcha_passed'] = True
-                    return redirect(url_for('index'))
-                else:
-                    flash(_bi('Captcha verification failed. Please try again.', 'Xác thực Captcha không thành công. Vui lòng thử lại.'), 'danger')
-            return render_template('captcha_gate.html', captcha_type=captcha_type, site_key=site_key)
-
         return render_template('landing.html')
 
     # Allow logged-in users to view landing page
@@ -381,7 +369,11 @@ def process():
     # ── Tạo job và trả về NGAY để tránh timeout ──────────────────────────────
     import time as _time_now
     job_id = str(uuid.uuid4())
-    _start_msg = 'Đang đọc giáo trình...' if _pdf_binary_data else 'Đang khởi động pipeline...'
+    _ui_lang = get_lang()
+    _start_msg = (
+        progress_reading_textbook(_ui_lang) if _pdf_binary_data
+        else progress_init_pipeline(_ui_lang)
+    )
     _progress_store[job_id] = {
         'percent': 0, 'message': _start_msg, 'done': False, 'error': None,
         'phase': 'reading' if _pdf_binary_data else 'pipeline',
@@ -409,7 +401,7 @@ def process():
 
                 # ── Phase 1: Đọc PDF (nếu upload mới) ─────────────────────────
                 if _pdf_data is not None:
-                    on_progress(1, 'Đang đọc giáo trình...')
+                    on_progress(1, progress_reading_textbook(_ui_lang))
                     _progress_store[job_id]['phase'] = 'reading'
 
                     print(f"\n[PDF] Reading PDF: {_fname_pre} | OCR: {_uocr}")
@@ -417,9 +409,7 @@ def process():
                     # Callback tiến độ đọc PDF theo trang (0–15%)
                     def on_pdf_page(page_num, total_pages, label=''):
                         pct = int(1 + (page_num / max(total_pages, 1)) * 14)  # 1-15%
-                        msg = f'Đang đọc giáo trình... trang {page_num}/{total_pages}'
-                        if label:
-                            msg += f' ({label})'
+                        msg = progress_reading_page(page_num, total_pages, label, _ui_lang)
                         on_progress(pct, msg)
 
                     if _uocr:
@@ -439,7 +429,7 @@ def process():
                     if not content.strip():
                         raise ValueError('Không thể trích xuất nội dung từ PDF!')
 
-                    on_progress(15, 'Đã đọc xong giáo trình. Đang lưu tài liệu...')
+                    on_progress(15, progress_textbook_saved(_ui_lang))
 
                     new_doc = Document(title=_title_pre, filename=_fname_pre,
                                        content=content, user_id=_user_id)
@@ -459,7 +449,7 @@ def process():
 
                 # ── Phase 2: AI Pipeline ──────────────────────────────────────
                 _progress_store[job_id]['phase'] = 'pipeline'
-                on_progress(16, 'Đang khởi động pipeline...')
+                on_progress(16, progress_init_pipeline(_ui_lang))
 
                 # Rải đều tiến độ AI 16– 92%
                 def on_pipeline_progress(pct, msg):
@@ -471,9 +461,10 @@ def process():
                     content, extraction_stats, _bcfg, _tq, _at,
                     user_id=_user_id, document_id=doc_id, use_ocr=_uocr,
                     progress_callback=on_pipeline_progress,
+                    ui_lang=_ui_lang,
                 )
 
-                on_progress(93, 'Đang lưu kết quả vào cơ sở dữ liệu...')
+                on_progress(93, progress_saving_results(_ui_lang))
                 import time as _time
                 _batch_id = _time.strftime('%Y%m%d%H%M%S')
                 generated_count = 0
@@ -509,10 +500,10 @@ def process():
 
                 _progress_store[job_id] = {
                     'percent':      100,
-                    'message':      f'Hoàn thành! Đã tạo {generated_count}/{_tq} câu hỏi.',
+                    'message':      progress_job_complete(generated_count, _tq, _ui_lang),
                     'done':         True,
                     'error':        None,
-                    'flash_msg':    f'Đã tạo thành công {generated_count}/{_tq} câu hỏi!',
+                    'flash_msg':    progress_flash_success(generated_count, _tq, _ui_lang),
                     'flash_cat':    'success' if generated_count > 0 else 'warning',
                 }
             except Exception as exc:
@@ -521,7 +512,7 @@ def process():
                 print(f"[CREDITS] Pipeline failed, did not deduct credits for user {_user_id}")
                 _progress_store[job_id] = {
                     'percent': 0,
-                    'message': f'Lỗi: {exc}',
+                    'message': progress_error(exc, _ui_lang),
                     'done':    True,
                     'error':   str(exc),
                 }
@@ -771,8 +762,9 @@ def export_pdf():
 
             if include_answers and q.section_mapping:
                 cell.append(Spacer(1, 4))
+                sec_text = localize_section_info(q.section_mapping, 'en' if is_en else 'vi')
                 cell.append(Paragraph(
-                    f'&#128205; {lbl_section}: <i>{esc(q.section_mapping)}</i>',
+                    f'&#128205; {lbl_section}: <i>{esc(sec_text)}</i>',
                     sMeta
                 ))
 
@@ -1031,7 +1023,8 @@ def export_pdf_both():
 
             if include_answers and q.section_mapping:
                 cell.append(Spacer(1, 4))
-                cell.append(Paragraph(f'&#128205; {lbl_section}: <i>{esc(q.section_mapping)}</i>', sMeta))
+                sec_text = localize_section_info(q.section_mapping, 'en' if is_en else 'vi')
+                cell.append(Paragraph(f'&#128205; {lbl_section}: <i>{esc(sec_text)}</i>', sMeta))
 
             if include_answers:
                 ans_text = q.answer or lbl_no_ans
@@ -1795,7 +1788,6 @@ def change_password():
 @app.route('/logout')
 def logout():
     logout_user()
-    session.pop('captcha_passed', None)
     next_url = request.args.get('next', '')
     if next_url and next_url.startswith('/'):
         return redirect(next_url)

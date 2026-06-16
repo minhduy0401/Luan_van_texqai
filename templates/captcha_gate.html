@@ -217,7 +217,7 @@
             var response = grecaptcha.getResponse();
             if (response.length === 0) {
                 e.preventDefault();
-                alert('{{ t('Vui lòng tích chọn Captcha "Tôi không phải là robot" trước khi gửi!') }}');
+                alert({{ t('Vui lòng tích chọn Captcha "Tôi không phải là robot" trước khi truy cập website!') | tojson }});
             }
         });
     </script>

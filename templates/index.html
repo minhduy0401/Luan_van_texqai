@@ -415,13 +415,55 @@
     const bar     = document.getElementById('ovBar');
     const pctNum  = document.getElementById('ovPctNum');
     const msgEl   = document.getElementById('ovMsg');
+    const LANG    = "{{ current_lang }}";
 
     let pollTimer = null;
+
+    function translateProgressMessage(msg) {
+        if (LANG !== 'en' || !msg) return msg;
+
+        const exacts = {
+            'Đang khởi động pipeline...': 'Initializing AI pipeline...',
+            'Đang khởi động...': 'Initializing...',
+            'Đang đọc giáo trình...': 'Reading textbook...',
+            'Đã đọc xong giáo trình. Đang lưu tài liệu...': 'Textbook read. Saving document...',
+            'Đang lưu kết quả vào cơ sở dữ liệu...': 'Saving results to database...',
+            'Đang phân tích tài liệu...': 'Analyzing document...',
+        };
+        if (exacts[msg]) return exacts[msg];
+
+        let mRead = msg.match(/Đang đọc giáo trình\.\.\. trang (\d+)\/(\d+)(?:\s+\((.+?)\))?/);
+        if (mRead) {
+            const lbl = mRead[3] ? ` (${mRead[3]})` : '';
+            return `Reading textbook... page ${mRead[1]}/${mRead[2]}${lbl}`;
+        }
+
+        let mGen = msg.match(/Đang sinh câu\s+(\d+)\/(\d+)\s+\((Bloom \d+)(?:\s*\((.*?)\))?\)\.\.\./);
+        if (mGen) {
+            const bloomMap = {
+                'Nhớ': 'Remembering', 'Hiểu': 'Understanding', 'Vận dụng': 'Applying',
+                'Phân tích': 'Analyzing', 'Đánh giá': 'Evaluating', 'Sáng tạo': 'Creating',
+            };
+            const d = bloomMap[mGen[4]] || mGen[4] || '';
+            return d
+                ? `Generating question ${mGen[1]}/${mGen[2]} (${mGen[3]} (${d}))...`
+                : `Generating question ${mGen[1]}/${mGen[2]} (${mGen[3]})...`;
+        }
+
+        let mDone = msg.match(/Hoàn th(?:ành|ất)!\s+(?:Đã tạo|Đã sinh)\s+(\d+)\/(\d+)\s+câu hỏi\.?/);
+        if (mDone) return `Completed! Generated ${mDone[1]}/${mDone[2]} questions.`;
+
+        let mDone2 = msg.match(/Đã tạo thành công\s+(\d+)\/(\d+)\s+câu hỏi!/);
+        if (mDone2) return `Successfully generated ${mDone2[1]}/${mDone2[2]} questions!`;
+
+        if (msg.startsWith('Lỗi:')) return msg.replace('Lỗi:', 'Error:');
+        return msg;
+    }
 
     function updateUI(pct, msg) {
         bar.style.width  = pct + '%';
         pctNum.textContent = pct + '%';
-        msgEl.textContent  = msg;
+        msgEl.textContent  = translateProgressMessage(msg);
     }
 
     async function poll(jobId) {
@@ -433,7 +475,7 @@
             updateUI(data.percent || 0, data.message || '');
 
             if (data.done) {
-                updateUI(100, data.message || 'Hoàn tất!');
+                updateUI(100, data.message || (LANG === 'en' ? 'Completed!' : 'Hoàn tất!'));
                 clearTimeout(pollTimer);
                 const cat  = encodeURIComponent(data.flash_cat  || 'success');
                 const fmsg = encodeURIComponent(data.flash_msg  || data.message);
@@ -637,7 +679,7 @@
                                 <td style="vertical-align:middle;">
                                     {% if item.section_mapping %}
                                     <div style="font-size:0.75rem;line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;color:#0dcaf0;">
-                                        📍 {{ item.section_mapping|fix_enc }}
+                                        📍 {{ item.section_mapping|fix_enc|localize_section }}
                                     </div>
                                     {% else %}
                                     <small class="text-muted">N/A</small>
@@ -761,7 +803,7 @@
                     <strong>{{ 'Question:' if current_lang == 'en' else 'Câu hỏi:' }}</strong> {{ item.question }}<br>
                     <span class="badge bg-success mt-2">{{ t(item.bloom_level|normalize_bloom) }}</span>
                     {% if item.section_mapping %}
-                    <span class="badge bg-info text-dark mt-2">📍 {{ item.section_mapping|fix_enc }}</span>
+                    <span class="badge bg-info text-dark mt-2">📍 {{ item.section_mapping|fix_enc|localize_section }}</span>
                     {% endif %}
                 </div>
                 <hr>

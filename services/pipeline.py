@@ -40,7 +40,14 @@ from services.pdf import (
     clean_extracted_text, _normalize_pdf_text, _lookup_page_number,
     _truncate_title_safely,
 )
-from utils.helpers import clean_answer_formatting, calculate_points_from_bloom
+from utils.helpers import (
+    clean_answer_formatting,
+    calculate_points_from_bloom,
+    format_section_info,
+    progress_analyzing_document,
+    progress_generating_question,
+    progress_pipeline_complete,
+)
 from utils.bloom import normalize_bloom_level
 
 def extract_document_structure(text):
@@ -1768,6 +1775,76 @@ def _is_english_content(text: str) -> bool:
     return (viet_chars / total_alpha) < 0.01
 
 
+def _needs_qa_ui_translation(section_content: str, ui_lang: str) -> bool:
+    """Cần dịch Q&A sang ui_lang khi ngôn ngữ tài liệu khác ngôn ngữ giao diện."""
+    if ui_lang not in ('en', 'vi'):
+        return False
+    doc_is_en = _is_english_content(section_content)
+    if ui_lang == 'en':
+        return not doc_is_en
+    return doc_is_en
+
+
+def _translate_qa_with_llm(question: str, answer: str, target_lang: str,
+                           context_snippet: str = '') -> tuple:
+    """Dịch câu hỏi + đáp án sang target_lang ('en'|'vi') bằng LLM; giữ format bullet."""
+    if target_lang not in ('en', 'vi') or not question or not answer:
+        return question, answer
+
+    target_label = 'English' if target_lang == 'en' else 'Vietnamese'
+    context_block = ''
+    if context_snippet:
+        context_block = (
+            f"\nSource excerpt (terminology reference only):\n"
+            f"{context_snippet[:800]}\n"
+        )
+
+    user_prompt = (
+        f"Translate the exam question and answer below to {target_label}.\n"
+        f"Rules:\n"
+        f"- Preserve ALL bullet lines (- title: content), count, and structure\n"
+        f"- Do NOT add, remove, or merge bullet points\n"
+        f"- Keep technical terms accurate\n"
+        f"- Output ONLY in this exact format:\n\n"
+        f"QUESTION:\n[translated question]\n\n"
+        f"ANSWER:\n[translated answer]\n"
+        f"{context_block}\n"
+        f"QUESTION:\n{question}\n\n"
+        f"ANSWER:\n{answer}"
+    )
+
+    try:
+        response = ai_client.chat.completions.create(
+            model=_am(),
+            messages=[
+                {"role": "system", "content": (
+                    f"You are a professional academic translator. "
+                    f"Respond ONLY with QUESTION:/ANSWER: in {target_label}."
+                )},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.2,
+            max_tokens=2000,
+            timeout=60,
+        )
+        raw = response.choices[0].message.content.strip()
+        raw = re.sub(r'\*\*([A-Z]+:?)\*\*', r'\1', raw)
+        raw = re.sub(r'\*\*', '', raw)
+
+        q_m = re.search(r'QUESTION:\s*(.+?)(?:\n\s*ANSWER:|\Z)', raw, re.IGNORECASE | re.DOTALL)
+        a_m = re.search(r'ANSWER:\s*(.+)', raw, re.IGNORECASE | re.DOTALL)
+        if q_m and a_m:
+            translated_q = q_m.group(1).strip()
+            translated_a = clean_answer_formatting(a_m.group(1).strip())
+            if translated_q and translated_a:
+                return translated_q, translated_a
+        print("  ⚠️ LLM translation: không parse được format → giữ bản gốc")
+    except Exception as exc:
+        print(f"  ⚠️ LLM translation failed: {exc}")
+
+    return question, answer
+
+
 def _effective_bloom_ceiling(bloom_ceiling: int, bloom_num: int, content_len: int) -> int:
     """Ceiling thực tế sau khi nới cho Bloom cao.
 
@@ -2865,7 +2942,7 @@ def classify_bloom_exact(text: str) -> tuple[int, str]:
 
 def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count, algo_type,
                        user_id, document_id, use_ocr=False, progress_callback=None,
-                       _chapter_map_out=None):
+                       _chapter_map_out=None, ui_lang=None):
     """Orchestrator chính điều phối toàn bộ 3-Agent pipeline.
     Luồng: Phân tích tài liệu → với mỗi câu cần sinh:
       A1 duyệt section theo thứ tự chương → A2 sinh Q&A → A3 đánh giá
@@ -2880,6 +2957,7 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
       _chapter_map_out : dict tùy chọn — nếu truyền vào sẽ được cập nhật với
                          toàn bộ chapter_content_map sau khi parse xong tài liệu
                          (dùng cho experiment, không ảnh hưởng app chính)
+      ui_lang          : ngôn ngữ giao diện ('en'|'vi') — dịch Q&A sau A3 pass nếu khác ngôn ngữ PDF
     Trả về: list dict kết quả Q&A
     """
     def _progress(pct, msg):
@@ -2896,7 +2974,7 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
     print("=" * 80)
 
     # ── Bước 0: Phân tích tài liệu → danh sách các mục theo thứ tự ───────────
-    _progress(5, 'Đang phân tích tài liệu...')
+    _progress(5, progress_analyzing_document(ui_lang or 'vi'))
     page_boundaries = extraction_stats.get('page_boundaries', []) if extraction_stats else []
     all_sections = split_document_into_sections(content, page_boundaries=page_boundaries)
 
@@ -2985,7 +3063,9 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
         required_points = int(points / 0.25)
 
         pct = 15 + int((target_idx / max(total_targets, 1)) * 75)
-        _progress(pct, f'Đang sinh câu {target_idx + 1}/{total_targets} ({bloom_level})...')
+        _progress(pct, progress_generating_question(
+            target_idx + 1, total_targets, bloom_level, ui_lang or 'vi',
+        ))
 
         print(f"\n{'─' * 60}")
         print(f"📋 {plan_item_id}: {bloom_level} — {required_points} ý ({points}đ)")
@@ -3114,16 +3194,23 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
                     if not display_title:
                         display_title = section_title
 
-                    if sec_num:
-                        section_info = f"{chapter} - Mục {sec_num}: {display_title}"
-                    elif section.get('page_num'):
-                        section_info = f"Trang {section['page_num']}: {display_title}"
-                    else:
-                        section_info = f"{chapter}: {display_title}"
+                    section_info = format_section_info(
+                        chapter, sec_num, display_title,
+                        page_num=section.get('page_num'),
+                        lang=ui_lang or 'vi',
+                    )
+
+                    final_question, final_answer = question, answer
+                    if ui_lang and _needs_qa_ui_translation(section_content, ui_lang):
+                        _lang_label = 'English' if ui_lang == 'en' else 'Tiếng Việt'
+                        print(f"  🌐 Dịch Q&A sang {_lang_label} (LLM)...")
+                        final_question, final_answer = _translate_qa_with_llm(
+                            question, answer, ui_lang, context_snippet=section_content,
+                        )
 
                     results.append({
-                        'question':         question,
-                        'answer':           answer,
+                        'question':         final_question,
+                        'answer':           final_answer,
                         'bloom_level':      bloom_level,
                         'algorithm':        'TEXTQAI',
                         'section_info':     section_info,
@@ -3155,7 +3242,7 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
     if user_id is not None:
         db.session.commit()
 
-    _progress(98, f'Hoàn tất! Đã sinh {len(results)}/{total_targets} câu hỏi.')
+    _progress(98, progress_pipeline_complete(len(results), total_targets, ui_lang or 'vi'))
     total_time = round(time.time() - start_pipeline, 2)
     print(f"\n{'=' * 80}")
     print(f"✅ NEW PIPELINE COMPLETE: {len(results)}/{total_targets} items in {total_time}s")
