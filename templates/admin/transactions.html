@@ -1,0 +1,118 @@
+{% extends 'admin/base.html' %}
+{% block title %}{{ t('Giao dịch') }}{% endblock %}
+{% block page_title %}{{ t('Quản lý giao dịch') }}{% endblock %}
+
+{% block content %}
+<!-- Summary -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="stat-card" style="--stat-accent:#10b981;">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <span class="stat-label">{{ t('Tổng doanh thu (đã TT)') }}</span>
+                <div class="stat-icon" style="background:#d1fae5;color:#059669;"><i class="bi bi-graph-up-arrow"></i></div>
+            </div>
+            <div class="stat-value" style="font-size:1.4rem;color:#059669;">{{ '{:,.0f}'.format(total_revenue) }}đ</div>
+        </div>
+    </div>
+</div>
+
+<!-- Filter -->
+<div class="filter-bar">
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label">{{ t('Trạng thái') }}</label>
+            <select name="status" class="form-select form-select-sm">
+                <option value="" {% if not status %}selected{% endif %}>{{ t('Tất cả trạng thái') }}</option>
+                <option value="paid"      {% if status=='paid' %}selected{% endif %}>✓ {{ t('Đã thanh toán') }}</option>
+                <option value="pending"   {% if status=='pending' %}selected{% endif %}>⏳ {{ t('Đang chờ') }}</option>
+                <option value="cancelled" {% if status=='cancelled' %}selected{% endif %}>✕ {{ t('Đã huỷ') }}</option>
+                <option value="failed"    {% if status=='failed' %}selected{% endif %}>✗ {{ t('Thất bại') }}</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">{{ t('Từ ngày') }}</label>
+            <input type="date" name="date_from" value="{{ date_from }}" class="form-control form-control-sm">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">{{ t('Đến ngày') }}</label>
+            <input type="date" name="date_to" value="{{ date_to }}" class="form-control form-control-sm">
+        </div>
+        <div class="col-md-1">
+            <button type="submit" class="btn btn-sm btn-admin-primary w-100"><i class="bi bi-search"></i></button>
+        </div>
+        <div class="col-md-2">
+            <a href="{{ url_for('admin_export_transactions_csv', status=status, date_from=date_from, date_to=date_to) }}"
+               class="btn btn-sm btn-outline-success w-100">
+                <i class="bi bi-download me-1"></i>CSV
+            </a>
+        </div>
+    </form>
+</div>
+
+<div class="card-admin">
+    <div class="card-header">
+        <span><i class="bi bi-receipt me-2" style="color:#6366f1;"></i>{{ txns.total }} {{ t('giao dịch') }}</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead><tr>
+                <th>ID</th><th>{{ t('Người dùng') }}</th><th>{{ t('Mã đơn') }}</th>
+                <th>{{ t('Số tiền') }}</th><th>{{ t('Credits') }}</th><th>{{ t('PTTT') }}</th>
+                <th>{{ t('Trạng thái') }}</th><th>{{ t('Ngày tạo') }}</th><th>{{ t('Ngày TT') }}</th>
+                <th>{{ t('Thao tác') }}</th>
+            </tr></thead>
+            <tbody>
+            {% for txn in txns.items %}
+            <tr>
+                <td class="text-muted" style="font-size:.79rem;">#{{ txn.id }}</td>
+                <td>
+                    <a href="{{ url_for('admin_user_detail', user_id=txn.user_id) }}" class="text-decoration-none fw-semibold" style="color:#4f46e5;">
+                        {{ txn.user.display if txn.user else txn.user_id }}
+                    </a>
+                </td>
+                <td style="font-family:monospace;font-size:.78rem;color:#94a3b8;">{{ txn.order_code }}</td>
+                <td class="fw-semibold" style="color:#059669;">{{ '{:,.0f}'.format(txn.amount_vnd) }}đ</td>
+                <td><span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:.74rem;">+{{ txn.credits_added }}</span></td>
+                <td class="text-muted" style="font-size:.8rem;">{{ txn.payment_method or '—' }}</td>
+                <td><span class="status-pill status-{{ txn.status }}">{{ t(txn.status) }}</span></td>
+                <td class="text-muted" style="font-size:.8rem;">{{ txn.created_at.strftime('%d/%m/%Y %H:%M') if txn.created_at else '' }}</td>
+                <td class="text-muted" style="font-size:.8rem;">{{ txn.paid_at.strftime('%d/%m/%Y %H:%M') if txn.paid_at else '—' }}</td>
+                <td>
+                {% if txn.status == 'pending' %}
+                <form method="post" action="{{ url_for('admin_approve_transaction', txn_id=txn.id) }}" class="d-inline">
+                    <button type="submit" class="btn btn-xs btn-success py-0 px-2" style="font-size:.75rem;" onclick="return confirm('{{ t('Duyệt và cộng') }} {{ txn.credits_added }} {{ t('credits?') }}')"><i class="bi bi-check2"></i> {{ t('Duyệt') }}</button>
+                </form>
+                <form method="post" action="{{ url_for('admin_reject_transaction', txn_id=txn.id) }}" class="d-inline ms-1">
+                    <button type="submit" class="btn btn-xs btn-outline-danger py-0 px-2" style="font-size:.75rem;" onclick="return confirm('{{ t('Từ chối đơn này?') }}')"><i class="bi bi-x"></i> {{ t('Từ chối') }}</button>
+                </form>
+                {% else %}
+                <span class="text-muted" style="font-size:.75rem;">—</span>
+                {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="10" class="text-center text-muted py-5">{{ t('Không có giao dịch nào') }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if txns.pages > 1 %}
+    <div class="d-flex justify-content-center py-3" style="border-top:1px solid #f1f5f9;">
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% for p in txns.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if p %}
+                <li class="page-item {% if p == txns.page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('admin_transactions', page=p, status=status, date_from=date_from, date_to=date_to) }}">{{ p }}</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+                {% endif %}
+                {% endfor %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

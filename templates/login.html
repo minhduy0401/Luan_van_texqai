@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    {% include '_favicon.html' %}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>{{ t('Đăng nhập') }} — TEXTQAI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        :root {
+            --ink: #1d2433;
+            --accent: #f97316;
+            --accent-deep: #ea6c0a;
+        }
+
+        html,
+        body {
+            min-height: 100vh;
+            margin: 0;
+            background: var(--ink);
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+
+        .bg-blobs {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(90px);
+            opacity: .18;
+        }
+
+        .blob-1 {
+            width: 520px;
+            height: 520px;
+            background: #f97316;
+            top: -140px;
+            left: -140px;
+        }
+
+        .blob-2 {
+            width: 420px;
+            height: 420px;
+            background: #6366f1;
+            bottom: -120px;
+            right: -100px;
+        }
+
+        .blob-3 {
+            width: 260px;
+            height: 260px;
+            background: #ec4899;
+            top: 40%;
+            left: 60%;
+        }
+
+        .login-wrap {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 16px;
+        }
+
+        .login-card {
+            width: 100%;
+            max-width: 420px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            border-radius: 20px;
+            padding: 40px 36px 36px;
+            backdrop-filter: blur(18px);
+            box-shadow: 0 24px 64px rgba(0, 0, 0, .35);
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 28px;
+            text-decoration: none;
+        }
+
+        .brand-mark {
+            width: 38px;
+            height: 38px;
+            border-radius: 11px;
+            background: var(--accent);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(249, 115, 22, .45);
+        }
+
+        .brand-name {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: 1.35rem;
+            color: #fff;
+            letter-spacing: -.2px;
+        }
+
+        .login-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: #fff;
+            text-align: center;
+            margin-bottom: 4px;
+        }
+
+        .login-sub {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.45);
+            font-size: .88rem;
+            margin-bottom: 28px;
+        }
+
+        .btn-google {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            padding: 11px 16px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1.5px solid rgba(255, 255, 255, 0.14);
+            border-radius: 12px;
+            color: rgba(255, 255, 255, 0.90);
+            font-weight: 600;
+            font-size: .92rem;
+            text-decoration: none;
+            transition: background .18s, border-color .18s;
+        }
+
+        .btn-google:hover {
+            background: rgba(255, 255, 255, 0.14);
+            border-color: rgba(255, 255, 255, 0.25);
+            color: #fff;
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 22px 0;
+            color: rgba(255, 255, 255, 0.25);
+            font-size: .8rem;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.10);
+        }
+
+        .form-label-custom {
+            display: block;
+            font-size: .8rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.55);
+            margin-bottom: 7px;
+            letter-spacing: .3px;
+            text-transform: uppercase;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 14px;
+            background: rgba(255, 255, 255, 0.07);
+            border: 1.5px solid rgba(255, 255, 255, 0.10);
+            border-radius: 11px;
+            color: #fff;
+            font-size: .93rem;
+            outline: none;
+            transition: border-color .18s, background .18s;
+            font-family: inherit;
+        }
+
+        .form-input::placeholder {
+            color: rgba(255, 255, 255, 0.25);
+        }
+
+        .form-input:focus {
+            border-color: var(--accent);
+            background: rgba(255, 255, 255, 0.10);
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 13px;
+            background: var(--accent);
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            font-weight: 700;
+            font-size: .97rem;
+            cursor: pointer;
+            letter-spacing: .2px;
+            transition: background .18s, box-shadow .18s;
+            margin-top: 8px;
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        .btn-submit:hover {
+            background: var(--accent-deep);
+            box-shadow: 0 6px 20px rgba(249, 115, 22, .40);
+        }
+
+        .flash-msg {
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: .86rem;
+            margin-bottom: 18px;
+        }
+
+        .flash-danger {
+            background: rgba(239, 68, 68, .15);
+            border: 1px solid rgba(239, 68, 68, .3);
+            color: #fca5a5;
+        }
+
+        .flash-success {
+            background: rgba(74, 222, 128, .12);
+            border: 1px solid rgba(74, 222, 128, .25);
+            color: #86efac;
+        }
+
+        .footer-link {
+            text-align: center;
+            margin-top: 22px;
+            font-size: .86rem;
+            color: rgba(255, 255, 255, 0.40);
+        }
+
+        .footer-link a {
+            color: var(--accent);
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .footer-link a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="bg-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <div class="login-wrap">
+        <div class="login-card">
+
+            <a href="{{ url_for('index', landing='1') }}" class="brand">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="TEXTQAI"
+                    style="height:52px;filter:brightness(0) invert(1);">
+            </a>
+
+            <h1 class="login-title">{{ t('Đăng nhập') }}</h1>
+            <p class="login-sub">{{ t('Chào mừng trở lại!') }}</p>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for cat, msg in messages %}
+            <div class="flash-msg flash-{{ cat }}">
+                <i class="bi bi-{{ 'exclamation-circle' if cat == 'danger' else 'check-circle' }} me-2"></i>{{ msg }}
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            <a href="{{ url_for('login_google') }}" class="btn-google" id="googleLoginBtn">
+                <svg width="18" height="18" viewBox="0 0 48 48">
+                    <path fill="#EA4335"
+                        d="M24 9.5c3.2 0 5.9 1.1 8.1 2.9l6-6C34.5 3.1 29.6 1 24 1 14.8 1 7 6.7 3.7 14.6l7 5.4C12.4 13.7 17.7 9.5 24 9.5z" />
+                    <path fill="#4285F4"
+                        d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8C43.6 37.4 46.5 31.4 46.5 24.5z" />
+                    <path fill="#FBBC05"
+                        d="M10.7 28.6A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.7-4.6l-7-5.4A23.8 23.8 0 0 0 .5 24c0 3.8.9 7.4 2.7 10.6l7.5-6z" />
+                    <path fill="#34A853"
+                        d="M24 47c5.6 0 10.3-1.9 13.8-5l-7.5-5.8c-1.9 1.3-4.3 2-6.3 2-6.3 0-11.6-4.2-13.3-10l-7.5 6C7 41.3 14.8 47 24 47z" />
+                </svg>
+                {{ t('Tiếp tục với Google') }}
+            </a>
+
+            <div class="divider">{{ t('hoặc') }}</div>
+
+            <form method="POST" id="loginForm">
+                <div style="margin-bottom:16px;">
+                    <label class="form-label-custom">{{ t('Tên đăng nhập') }}</label>
+                    <input type="text" name="username" class="form-input" placeholder="{{ t('Nhập tên đăng nhập') }}" required
+                        autocomplete="username">
+                </div>
+                <div style="margin-bottom:20px;">
+                    <label class="form-label-custom">
+                        {{ t('Mật khẩu') }}
+                        {% if allow_forgot %}
+                        <a href="{{ url_for('forgot_password') }}" class="float-end text-decoration-none small text-warning" style="text-transform: none; font-weight: 500;">{{ t('Quên mật khẩu?') }}</a>
+                        {% endif %}
+                    </label>
+                    <input type="password" name="password" class="form-input" placeholder="{{ t('Nhập mật khẩu') }}" required
+                        autocomplete="current-password">
+                </div>
+
+                {% if captcha_type == 'v2' and site_key %}
+                <div class="mb-3 d-flex justify-content-center">
+                    <div class="g-recaptcha" data-sitekey="{{ site_key }}" data-theme="dark"></div>
+                </div>
+                {% elif captcha_type == 'v2_invisible' and site_key %}
+                <div class="g-recaptcha"
+                     data-sitekey="{{ site_key }}"
+                     data-callback="onLoginInvisibleSubmit"
+                     data-size="invisible"
+                     style="display:none;"></div>
+                <input type="hidden" name="g-recaptcha-response" id="g-recaptcha-response">
+                {% elif captcha_type == 'v3' and site_key %}
+                <input type="hidden" name="g-recaptcha-response" id="g-recaptcha-response">
+                {% endif %}
+
+                <button type="submit" class="btn-submit">
+                    <i class="bi bi-box-arrow-in-right me-2"></i>{{ t('Đăng nhập') }}
+                </button>
+            </form>
+
+            <div class="footer-link">
+                {{ t('Chưa có tài khoản?') }} <a href="{{ url_for('register') }}">{{ t('Đăng ký ngay') }}</a>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    {% if captcha_type == 'v2' and site_key %}
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', function (e) {
+            var response = grecaptcha.getResponse();
+            if (response.length === 0) {
+                e.preventDefault();
+                alert('{{ t('Vui lòng tích chọn Captcha "Tôi không phải là robot" trước khi gửi!') }}');
+            }
+        });
+        // Google OAuth không cần captcha – bên thứ 3 đã có cơ chế chống spam riêng
+    </script>
+    {% elif captcha_type == 'v2_invisible' and site_key %}
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <script>
+        function onLoginInvisibleSubmit(token) {
+            document.getElementById('g-recaptcha-response').value = token;
+            document.getElementById('loginForm').submit();
+        }
+        document.getElementById('loginForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            grecaptcha.execute();
+        });
+        // Google OAuth không cần captcha – bên thứ 3 đã có cơ chế chống spam riêng
+    </script>
+    {% elif captcha_type == 'v3' and site_key %}
+    <script src="https://www.google.com/recaptcha/api.js?render={{ site_key }}"></script>
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            grecaptcha.ready(function () {
+                grecaptcha.execute('{{ site_key }}', { action: 'login' }).then(function (token) {
+                    document.getElementById('g-recaptcha-response').value = token;
+                    document.getElementById('loginForm').submit();
+                });
+            });
+        });
+        // Google OAuth không cần captcha – bên thứ 3 đã có cơ chế chống spam riêng
+    </script>
+    {% endif %}
+
+    <!-- iOS App back button (standalone pages) -->
+    <script>
+    (function(){
+        if (!/TEXTQAI/.test(navigator.userAgent)) return;
+        if (history.length <= 1) return;
+        var safeTop = 'calc(env(safe-area-inset-top, 0px) + 10px)';
+        var btn = document.createElement('button');
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/></svg> <span>Quay l\u1ea1i</span>';
+        btn.onclick = function(){ history.back(); };
+        btn.style.cssText = 'position:fixed;z-index:9999;top:'+safeTop+';left:12px;background:rgba(255,255,255,0.92);border:1px solid rgba(0,0,0,0.1);border-radius:999px;padding:8px 14px 8px 10px;font-size:.88rem;font-weight:600;color:#1d2433;box-shadow:0 2px 12px rgba(0,0,0,0.12);touch-action:manipulation;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:Inter,sans-serif;';
+        document.body.appendChild(btn);
+    })();
+    </script>
+</body>
+
+</html>

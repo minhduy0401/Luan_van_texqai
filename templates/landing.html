@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    {% include '_favicon.html' %}
+    {% set ua = request.headers.get('User-Agent', '') %}
+    {% set is_app = 'TEXTQAI' in ua %}
+    {% if is_app %}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <style>
+        html, body { overflow-x: hidden !important; max-width: 100vw !important; }
+        * { box-sizing: border-box; }
+        img, table, pre, iframe, video { max-width: 100% !important; }
+    </style>
+    {% else %}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% endif %}
+    <title>TEXTQAI | Landing Page</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #f6efe4;
+            --surface: rgba(255, 250, 242, 0.72);
+            --surface-strong: #fffdf9;
+            --ink: #1d2433;
+            --muted: #6c7280;
+            --line: rgba(29, 36, 51, 0.08);
+            --accent: #ff6b35;
+            --accent-deep: #d94d1f;
+            --accent-soft: #ffd8bf;
+            --secondary: #0b3c5d;
+            --secondary-soft: #cbe7f6;
+            --success: #157f62;
+            --shadow: 0 24px 60px rgba(33, 45, 74, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+        /* Landing offcanvas (admin-like, light theme) */
+        .landing-offcanvas {
+            width: 260px;
+            max-width: 80vw;
+            background: linear-gradient(180deg, #fffaf4 0%, #f7efe5 42%, #f1f4f7 100%);
+            border-right: 1px solid rgba(230,238,246,0.6);
+            box-shadow: 0 10px 30px rgba(15,23,42,0.06);
+            color: #0f172a;
+        }
+        .landing-offcanvas .offcanvas-header {
+            padding: 18px 16px;
+            border-bottom: 1px solid rgba(241,245,249,0.8);
+            background: transparent;
+        }
+        .landing-offcanvas .offcanvas-title {
+            font-weight: 700; font-size: 1rem; display:flex; align-items:center; gap:10px;
+        }
+        .landing-offcanvas .offcanvas-body { padding: 10px 0 28px; }
+        .offcanvas-section { padding: 10px 14px; }
+        .offcanvas-section-inner { background: rgba(255,255,255,0.6); border-radius: 12px; padding: 8px; }
+        .offcanvas-section-inner .nav-link { padding: 14px 12px; }
+        .landing-offcanvas .nav-link { padding: 12px 18px; color: #113; font-weight:500; border-radius:10px; display:flex; align-items:center; gap:12px; }
+        .landing-offcanvas .nav-link i { color: #667eea; min-width:20px; text-align:center; }
+        .landing-offcanvas .nav-link:hover { background: #f8fbff; color:#0b1220; text-decoration:none; }
+        .landing-offcanvas hr { margin: 12px 0; border-color: #f1f5f9; }
+        .landing-offcanvas .btn-outline-primary { border-color: rgba(102,126,234,0.18); }
+        .landing-offcanvas .sb-brand { display:flex; align-items:center; gap:10px; }
+        .landing-offcanvas .sb-brand img { height:36px; }
+        /* Language / action buttons inside offcanvas */
+        .landing-offcanvas .lang-btn {
+            display:inline-flex; align-items:center; gap:8px;
+            padding:8px 12px; border-radius:10px; font-weight:600; font-size:0.92rem;
+            background: linear-gradient(135deg,#ffffff,#fff7f0); color:#0b1724; border:1px solid rgba(15,23,42,0.06);
+            box-shadow: 0 6px 18px rgba(15,23,42,0.04);
+        }
+        .landing-offcanvas .lang-btn:hover { transform: translateY(-1px); box-shadow: 0 10px 26px rgba(15,23,42,0.06); background: linear-gradient(135deg,#fff,#fffaf6); }
+        .landing-offcanvas .lang-btn--primary { background: linear-gradient(135deg,#ffffff,#fff3e8); border-color: rgba(255,107,53,0.08); }
+        .landing-offcanvas .lang-btn--secondary { background: linear-gradient(135deg,#ffffff,#f1f5ff); border-color: rgba(99,102,241,0.08); }
+        .landing-offcanvas .nav-link .bi { font-size:1.05rem; color: #4f46e5; }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Manrope', sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at top left, rgba(255, 107, 53, 0.18), transparent 32%),
+                radial-gradient(circle at top right, rgba(11, 60, 93, 0.14), transparent 28%),
+                linear-gradient(180deg, #fffaf4 0%, #f7efe5 42%, #f1f4f7 100%);
+            overflow-x: hidden;
+        }
+
+        .page-shell {
+            position: relative;
+            min-height: 100vh;
+        }
+
+        .page-shell::before,
+        .page-shell::after {
+            content: "";
+            position: fixed;
+            inset: auto;
+            width: 28rem;
+            height: 28rem;
+            border-radius: 50%;
+            filter: blur(70px);
+            opacity: 0.35;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .page-shell::before {
+            top: -7rem;
+            right: -6rem;
+            background: rgba(255, 107, 53, 0.28);
+        }
+
+        .page-shell::after {
+            left: -7rem;
+            top: 24rem;
+            background: rgba(11, 60, 93, 0.18);
+        }
+
+        .landing-nav {
+            position: sticky;
+            top: 0;
+            z-index: 1050;
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            background: rgba(255, 250, 242, 0.72);
+            border-bottom: 1px solid rgba(29, 36, 51, 0.06);
+            -webkit-transform: translateZ(0);
+            transform: translateZ(0);
+        }
+
+        /* iOS WebView: fixed nav + safe-area for notch/Dynamic Island */
+        body.is-app .landing-nav {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            z-index: 1050 !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            background: rgba(255, 250, 242, 0.98) !important;
+            -webkit-transform: translate3d(0, 0, 0) !important;
+            transform: translate3d(0, 0, 0) !important;
+            /* Keep 12px internal padding + push below status bar / notch */
+            padding-top: calc(12px + env(safe-area-inset-top, 0px)) !important;
+            padding-bottom: 12px !important;
+        }
+        body.is-app .page-shell {
+            /* nav height (logo 52px + padding ~28px) + safe area inset */
+            padding-top: calc(80px + env(safe-area-inset-top, 0px)) !important;
+        }
+
+        .landing-brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.85rem;
+            color: var(--ink);
+            text-decoration: none;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: 1.25rem;
+        }
+
+        .landing-brand-mark {
+            width: 2.75rem;
+            height: 2.75rem;
+            display: grid;
+            place-items: center;
+            border-radius: 0.9rem;
+            background: linear-gradient(135deg, var(--accent) 0%, #ffb36b 100%);
+            color: white;
+            box-shadow: 0 14px 30px rgba(255, 107, 53, 0.28);
+        }
+
+        .nav-link-lite {
+            color: var(--ink);
+            text-decoration: none;
+            font-weight: 600;
+            opacity: 0.78;
+        }
+
+        .nav-link-lite:hover {
+            opacity: 1;
+            color: var(--secondary);
+        }
+
+        .btn-soft,
+        .btn-solid,
+        .btn-ghost {
+            border-radius: 999px;
+            font-weight: 700;
+            padding: 0.85rem 1.4rem;
+            transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+        }
+
+        .btn-soft {
+            border: 1px solid rgba(29, 36, 51, 0.12);
+            background: rgba(255, 255, 255, 0.7);
+            color: var(--ink);
+        }
+
+        .btn-solid {
+            border: none;
+            background: linear-gradient(135deg, var(--accent) 0%, #ff8a3d 100%);
+            color: white;
+            box-shadow: 0 14px 26px rgba(255, 107, 53, 0.24);
+        }
+
+        .btn-ghost {
+            border: 1px solid rgba(11, 60, 93, 0.14);
+            background: rgba(255, 255, 255, 0.38);
+            color: var(--secondary);
+        }
+
+        .btn-soft:hover,
+        .btn-solid:hover,
+        .btn-ghost:hover {
+            transform: translateY(-2px);
+        }
+
+        .hero {
+            position: relative;
+            z-index: 1;
+            padding: 4.5rem 0 2rem;
+        }
+
+        .hero-copy {
+            padding-right: 1.5rem;
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.45rem 0.85rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.62);
+            border: 1px solid rgba(29, 36, 51, 0.08);
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: var(--secondary);
+            margin-bottom: 1.25rem;
+        }
+
+        .hero-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(2.8rem, 6vw, 5.4rem);
+            line-height: 0.98;
+            letter-spacing: -0.05em;
+            margin-bottom: 1.2rem;
+        }
+
+        .hero-title .accent {
+            color: var(--accent-deep);
+        }
+
+        .hero-subtitle {
+            font-size: 1.12rem;
+            line-height: 1.8;
+            color: var(--muted);
+            max-width: 42rem;
+            margin-bottom: 1.8rem;
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.95rem;
+            margin-bottom: 1.8rem;
+        }
+
+        .hero-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1rem;
+            max-width: 42rem;
+        }
+
+        .metric-card {
+            padding: 1.15rem 1.2rem;
+            border-radius: 1.35rem;
+            background: rgba(255, 255, 255, 0.58);
+            border: 1px solid rgba(29, 36, 51, 0.08);
+            box-shadow: var(--shadow);
+        }
+
+        .metric-value {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+            display: block;
+            margin-bottom: 0.35rem;
+        }
+
+        .metric-label {
+            color: var(--muted);
+            font-size: 0.94rem;
+        }
+
+        .hero-stage {
+            position: relative;
+            min-height: 38rem;
+        }
+
+        .hero-panel {
+            position: relative;
+            z-index: 2;
+            border-radius: 2rem;
+            background: rgba(255, 253, 249, 0.86);
+            border: 1px solid rgba(29, 36, 51, 0.08);
+            box-shadow: 0 32px 70px rgba(29, 36, 51, 0.14);
+            padding: 1.5rem;
+            overflow: hidden;
+        }
+
+        .hero-panel::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255, 107, 53, 0.08), rgba(11, 60, 93, 0.04));
+            pointer-events: none;
+        }
+
+        .window-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        .window-dots {
+            display: flex;
+            gap: 0.45rem;
+        }
+
+        .window-dots span {
+            width: 0.75rem;
+            height: 0.75rem;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .window-dots span:nth-child(1) { background: #ff8a65; }
+        .window-dots span:nth-child(2) { background: #ffd166; }
+        .window-dots span:nth-child(3) { background: #5dd39e; }
+
+        .floating-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.55rem;
+            font-size: 0.88rem;
+            padding: 0.55rem 0.8rem;
+            border-radius: 999px;
+            background: white;
+            border: 1px solid rgba(29, 36, 51, 0.08);
+            margin-right: 0.45rem;
+            margin-bottom: 0.45rem;
+        }
+
+        .demo-card,
+        .feature-card,
+        .story-card,
+        .step-card,
+        .pricing-card,
+        .cta-card {
+            border-radius: 1.7rem;
+            background: rgba(255, 255, 255, 0.72);
+            border: 1px solid var(--line);
+            box-shadow: var(--shadow);
+        }
+
+        .demo-card {
+            padding: 1.15rem;
+            margin-top: 1rem;
+        }
+
+        .demo-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 0.9rem;
+            align-items: start;
+            padding: 0.95rem 0;
+            border-top: 1px dashed rgba(29, 36, 51, 0.08);
+        }
+
+        .demo-row:first-of-type {
+            border-top: none;
+        }
+
+        .bloom-pill {
+            padding: 0.5rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.84rem;
+            font-weight: 800;
+            color: white;
+        }
+
+        .bloom-1 { background: linear-gradient(135deg, #21a67a, #32c99a); }
+        .bloom-2 { background: linear-gradient(135deg, #2d7ff9, #65abff); }
+        .bloom-3 { background: linear-gradient(135deg, #5758d6, #8c7bff); }
+        .bloom-4 { background: linear-gradient(135deg, #ff9f1c, #ffc166); }
+        .bloom-5 { background: linear-gradient(135deg, #ff6b35, #ff8f5a); }
+        .bloom-6 { background: linear-gradient(135deg, #d9485f, #ff7292); }
+
+        .floating-note {
+            position: absolute;
+            z-index: 3;
+            padding: 1rem 1.1rem;
+            border-radius: 1.2rem;
+            background: rgba(255, 255, 255, 0.85);
+            border: 1px solid rgba(29, 36, 51, 0.08);
+            box-shadow: 0 18px 36px rgba(29, 36, 51, 0.14);
+            width: 14rem;
+        }
+
+        .note-a {
+            right: -1.2rem;
+            top: 3.2rem;
+            animation: floatY 5s ease-in-out infinite;
+        }
+
+        .note-b {
+            left: -1rem;
+            bottom: 4rem;
+            animation: floatY 6.5s ease-in-out infinite reverse;
+        }
+
+        .section {
+            position: relative;
+            z-index: 1;
+            padding: 3rem 0;
+        }
+
+        .section-heading {
+            max-width: 44rem;
+            margin-bottom: 2rem;
+        }
+
+        .section-kicker {
+            color: var(--accent-deep);
+            text-transform: uppercase;
+            letter-spacing: 0.12em;
+            font-size: 0.8rem;
+            font-weight: 800;
+            margin-bottom: 0.9rem;
+        }
+
+        .section-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: clamp(2rem, 4vw, 3.2rem);
+            line-height: 1.06;
+            margin-bottom: 0.8rem;
+        }
+
+        .section-text {
+            color: var(--muted);
+            font-size: 1.03rem;
+            line-height: 1.75;
+        }
+
+        .feature-card,
+        .story-card,
+        .step-card,
+        .pricing-card,
+        .cta-card {
+            padding: 1.5rem;
+            height: 100%;
+        }
+
+        .feature-icon,
+        .story-icon,
+        .step-icon {
+            width: 3.2rem;
+            height: 3.2rem;
+            border-radius: 1rem;
+            display: grid;
+            place-items: center;
+            margin-bottom: 1rem;
+            font-size: 1.3rem;
+            color: white;
+        }
+
+        .feature-icon { background: linear-gradient(135deg, var(--secondary), #2a6f97); }
+        .story-icon { background: linear-gradient(135deg, var(--accent), #ff9c5a); }
+        .step-icon { background: linear-gradient(135deg, #0c7a5e, #1bb38b); }
+
+        .feature-card h3,
+        .story-card h3,
+        .pricing-card h3,
+        .cta-card h3 {
+            font-size: 1.25rem;
+            font-weight: 800;
+            margin-bottom: 0.8rem;
+        }
+
+        .feature-card p,
+        .story-card p,
+        .pricing-card p,
+        .step-card p,
+        .cta-card p {
+            color: var(--muted);
+            line-height: 1.7;
+            margin-bottom: 0;
+        }
+
+        .feature-list,
+        .pricing-list {
+            list-style: none;
+            margin: 1rem 0 0;
+            padding: 0;
+        }
+
+        .feature-list li,
+        .pricing-list li {
+            display: flex;
+            gap: 0.7rem;
+            align-items: flex-start;
+            margin-bottom: 0.8rem;
+            color: var(--ink);
+        }
+
+        .feature-list i,
+        .pricing-list i {
+            color: var(--success);
+        }
+
+        .showcase-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 1.25rem;
+        }
+
+        .showcase-board {
+            padding: 1.4rem;
+            border-radius: 1.8rem;
+            background: linear-gradient(180deg, #0f2f4a 0%, #11253c 100%);
+            color: white;
+            box-shadow: 0 28px 60px rgba(11, 60, 93, 0.22);
+        }
+
+        .showcase-mini {
+            display: grid;
+            gap: 1.1rem;
+        }
+
+        .board-topline {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .board-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.9rem;
+            margin: 1.4rem 0;
+        }
+
+        .board-metric {
+            padding: 1rem;
+            border-radius: 1.2rem;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .board-chart {
+            height: 12rem;
+            border-radius: 1.4rem;
+            background:
+                linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02)),
+                repeating-linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.06) 1px, transparent 1px, transparent 22%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .board-chart::before,
+        .board-chart::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2px;
+            border-radius: 999px;
+        }
+
+        .board-chart::before {
+            top: 4.2rem;
+            background: linear-gradient(90deg, transparent 0%, #ffb36b 8%, #ff6b35 34%, #ffb36b 62%, transparent 100%);
+            transform: rotate(-5deg);
+        }
+
+        .board-chart::after {
+            top: 7.6rem;
+            background: linear-gradient(90deg, transparent 0%, #8fd3ff 10%, #45b6fe 38%, #8fd3ff 72%, transparent 100%);
+            transform: rotate(3deg);
+        }
+
+        .step-card {
+            position: relative;
+            padding-top: 4.3rem;
+        }
+
+        .step-index {
+            position: absolute;
+            top: 1.2rem;
+            left: 1.4rem;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 2rem;
+            color: rgba(255, 107, 53, 0.18);
+            font-weight: 700;
+        }
+
+        .cta-card {
+            background: linear-gradient(135deg, #fff9f2 0%, #fff3eb 48%, #eef6fb 100%);
+        }
+
+        .fade-up {
+            opacity: 0;
+            transform: translateY(28px);
+            transition: opacity 0.7s ease, transform 0.7s ease;
+        }
+
+        .fade-up.is-visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .delay-1 { transition-delay: 0.08s; }
+        .delay-2 { transition-delay: 0.16s; }
+        .delay-3 { transition-delay: 0.24s; }
+        .delay-4 { transition-delay: 0.32s; }
+
+        @keyframes floatY {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-12px); }
+        }
+
+        @media (max-width: 1199.98px) {
+            .hero-copy {
+                padding-right: 0;
+                margin-bottom: 2rem;
+            }
+
+            .hero-stage {
+                min-height: auto;
+            }
+
+            .floating-note {
+                display: none;
+            }
+
+            .showcase-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 767.98px) {
+            .landing-nav .container {
+                gap: 1rem;
+            }
+
+            .hero {
+                padding-top: 2.5rem;
+            }
+
+            .hero-metrics,
+            .board-metrics {
+                grid-template-columns: 1fr;
+            }
+
+            .hero-title {
+                font-size: 2.75rem;
+            }
+
+            .section {
+                padding: 2.2rem 0;
+            }
+        }
+    </style>
+</head>
+<body class="{{ 'is-app' if is_app else '' }}">
+    <div class="page-shell">
+        <nav class="landing-nav py-3">
+            <div class="container d-flex align-items-center justify-content-between flex-wrap">
+                <div class="d-flex align-items-center">
+                    {% if is_app %}
+                    <button class="btn border-0 d-lg-none me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#landingOffcanvas" aria-controls="landingOffcanvas"
+                        style="background:transparent;color:var(--ink);min-width:48px;min-height:48px;padding:10px;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:rgba(0,0,0,0.08);touch-action:manipulation;">
+                        <i class="bi bi-list" style="font-size:1.6rem;"></i>
+                    </button>
+                    {% endif %}
+                    <a class="landing-brand" href="/?landing=1"
+                        style="touch-action:manipulation;-webkit-tap-highlight-color:rgba(0,0,0,0.08);min-height:48px;display:inline-flex;align-items:center;">
+                        <img src="{{ url_for('static', filename='logo.png') }}" alt="TEXTQAI" style="height:52px;">
+                    </a>
+                </div>
+                <div class="d-flex align-items-center gap-4 flex-wrap">
+                    {% if is_app %}
+                    <!-- App: language toggle — JS fetch to avoid iOS redirect issues -->
+                    <div style="display:flex;gap:6px;margin-left:auto;">
+                        <button onclick="setAppLang('vi')"
+                           style="padding:6px 12px;border-radius:999px;font-size:.82rem;font-weight:600;border:none;cursor:pointer;touch-action:manipulation;
+                                  {% if current_lang == 'vi' %}background:var(--accent);color:#fff;{% else %}background:rgba(29,36,51,0.07);color:var(--ink);{% endif %}">
+                            🇻🇳 VI
+                        </button>
+                        <button onclick="setAppLang('en')"
+                           style="padding:6px 12px;border-radius:999px;font-size:.82rem;font-weight:600;border:none;cursor:pointer;touch-action:manipulation;
+                                  {% if current_lang == 'en' %}background:var(--accent);color:#fff;{% else %}background:rgba(29,36,51,0.07);color:var(--ink);{% endif %}">
+                            🇺🇸 EN
+                        </button>
+                    </div>
+                    {% endif %}
+                    {% if not is_app %}
+                    <a class="nav-link-lite" href="#features">{{ 'Features' if current_lang == 'en' else 'Tính năng' }}</a>
+                    <a class="nav-link-lite" href="#showcase">{{ 'Showcase' if current_lang == 'en' else 'Minh họa' }}</a>
+                    <a class="nav-link-lite" href="#workflow">{{ 'Workflow' if current_lang == 'en' else 'Quy trình' }}</a>
+                    <a class="nav-link-lite" href="#support">{{ 'Support' if current_lang == 'en' else 'Hỗ trợ' }}</a>
+                    <a class="nav-link-lite" href="/user-guide">{{ 'User Guide' if current_lang == 'en' else 'Hướng dẫn' }}</a>
+                    <div class="dropdown">
+                        <button class="btn btn-sm rounded-pill fw-semibold px-3 dropdown-toggle d-flex align-items-center gap-1"
+                                style="background: white; border: 1.5px solid rgba(102,126,234,0.25); color: #4338ca;"
+                                type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-globe" style="font-size:1rem;"></i>
+                            <span style="font-size:0.92rem">{{ 'English' if current_lang == 'en' else 'Tiếng Việt' }}</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width:150px;">
+                            <li><h6 class="dropdown-header" style="font-size:0.88rem;">{{ t('Chọn ngôn ngữ') }}</h6></li>
+                            <li><hr class="dropdown-divider my-1"></li>
+                            <li><a class="dropdown-item" href="/set-language/en">🇺🇸 English</a></li>
+                            <li><a class="dropdown-item" href="/set-language/vi">🇻🇳 Tiếng Việt</a></li>
+                        </ul>
+                    </div>
+                    {% if current_user.is_authenticated %}
+                    <div class="dropdown">
+                        <button type="button" data-bs-toggle="dropdown" aria-expanded="false"
+                            style="display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.85);border:1.5px solid rgba(29,36,51,0.10);border-radius:999px;padding:7px 16px;font-weight:600;font-size:0.92rem;color:var(--ink);backdrop-filter:blur(6px);cursor:pointer;outline:none;">
+                            <i class="bi bi-person-circle" style="color:var(--accent);font-size:1.1rem;"></i>
+                            {{ current_user.display }}
+                            <i class="bi bi-chevron-down" style="font-size:0.7rem;opacity:0.5;"></i>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="border-radius:12px;border:1px solid #e8eaf0;min-width:160px;padding:6px;">
+                            <li>
+                                <a class="dropdown-item rounded-2" href="{{ url_for('index') }}" style="font-size:0.88rem;padding:8px 12px;">
+                                    <i class="bi bi-house-door me-2 text-muted"></i>{{ 'Workspace' if current_lang == 'en' else 'Trang làm việc' }}
+                                </a>
+                            </li>
+                            {% set is_google_user = current_user.auth_providers.filter_by(provider='google').first() %}
+                            {% if not is_google_user %}
+                            <li>
+                                <a class="dropdown-item rounded-2" href="/change-password" style="font-size:0.88rem;padding:8px 12px;">
+                                    <i class="bi bi-key me-2 text-muted"></i>{{ 'Change Password' if current_lang == 'en' else 'Đổi mật khẩu' }}
+                                </a>
+                            </li>
+                            {% endif %}
+                            <li><hr class="dropdown-divider my-1"></li>
+                            <li>
+                                <a class="dropdown-item rounded-2 text-danger" href="{{ url_for('logout', next='/?landing=1') }}" style="font-size:0.88rem;padding:8px 12px;">
+                                    <i class="bi bi-box-arrow-right me-2"></i>{{ 'Logout' if current_lang == 'en' else 'Đăng xuất' }}
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    <a class="btn btn-solid" href="{{ url_for('index') }}">
+                        <i class="bi bi-lightning-charge-fill me-1"></i>{{ 'Get started' if current_lang == 'en' else 'Bắt đầu ngay' }}
+                    </a>
+                    {% else %}
+                    <a class="btn btn-soft" href="{{ url_for('login') }}">{{ 'Sign In' if current_lang == 'en' else 'Đăng nhập' }}</a>
+                    <a class="btn btn-solid" href="{{ url_for('register') }}">{{ 'Register' if current_lang == 'en' else 'Đăng ký' }}</a>
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+        </nav>
+
+        <main>
+            <section class="hero">
+                <div class="container">
+                    <div class="row align-items-center g-5">
+                        <div class="col-lg-6">
+                            <div class="hero-copy fade-up is-visible">
+                                <div class="eyebrow">
+                                    <i class="bi bi-lightning-charge-fill"></i>
+                                    {{ 'Bloom-based automatic question generation' if current_lang == 'en' else 'Nền tảng tạo câu hỏi theo Bloom từ giáo trình' }}
+                                </div>
+                                <h1 class="hero-title">
+                                    {% if current_lang == 'en' %}
+                                    Transform textbooks into <span class="accent">structured exam sheets</span> in minutes.
+                                    {% else %}
+                                    Biến giáo trình thành <span class="accent">đề kiểm tra có cấu trúc</span> chỉ trong vài phút.
+                                    {% endif %}
+                                </h1>
+                                <p class="hero-subtitle">
+                                    {% if current_lang == 'en' %}
+                                    Upload a PDF textbook, configure question counts and weights for each Bloom level, and instantly download high-quality question sheets complete with official answers.
+                                    {% else %}
+                                    Tải giáo trình PDF lên, cấu hình số câu và điểm số theo từng mức Bloom, rồi nhận ngay bộ câu hỏi kèm đáp án bám sát nội dung — không cần viết tay từng câu nữa.
+                                    {% endif %}
+                                </p>
+                                <div class="hero-actions">
+                                    {% if current_user.is_authenticated %}
+                                    <a class="btn btn-solid" href="{{ url_for('index') }}">
+                                        <i class="bi bi-rocket-takeoff me-2"></i>{{ 'Get Started Free' if current_lang == 'en' else 'Bắt đầu miễn phí' }}
+                                    </a>
+                                    {% else %}
+                                    <a class="btn btn-solid" href="{{ url_for('login') }}">
+                                        <i class="bi bi-rocket-takeoff me-2"></i>{{ 'Get Started Free' if current_lang == 'en' else 'Bắt đầu miễn phí' }}
+                                    </a>
+                                    {% endif %}
+                                    <a class="btn btn-ghost" href="#features">
+                                        <i class="bi bi-play-circle me-2"></i>{{ 'Explore Features' if current_lang == 'en' else 'Khám phá tính năng' }}
+                                    </a>
+                                </div>
+                                <div class="hero-metrics">
+                                    <div class="metric-card fade-up delay-1 is-visible">
+                                        <span class="metric-value">6</span>
+                                        <span class="metric-label">{{ 'Bloom levels configured independently' if current_lang == 'en' else 'Cấp độ Bloom cấu hình độc lập' }}</span>
+                                    </div>
+                                    <div class="metric-card fade-up delay-2 is-visible">
+                                        <span class="metric-value">4 {{ 'steps' if current_lang == 'en' else 'bước' }}</span>
+                                        <span class="metric-label">{{ 'Multi-Agent AI generation & verification' if current_lang == 'en' else 'Pipeline AI đánh giá và sinh đáp án' }}</span>
+                                    </div>
+                                    <div class="metric-card fade-up delay-3 is-visible">
+                                        <span class="metric-value">PDF</span>
+                                        <span class="metric-label">{{ 'Export exams with or without answers' if current_lang == 'en' else 'Xuất bộ đề có hoặc không có đáp án' }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-6">
+                            <div class="hero-stage fade-up delay-1 is-visible">
+                                <div class="floating-note note-a">
+                                    <div class="small text-uppercase fw-bold text-secondary mb-2">{{ 'Strength' if current_lang == 'en' else 'Điểm mạnh' }}</div>
+                                    <div class="fw-semibold mb-1">{{ 'Strict Source Alignment' if current_lang == 'en' else 'Bám sát tài liệu đầu vào' }}</div>
+                                    <div class="small text-muted">{{ 'Control questions, answers, and generation logs mapped directly to each textbook.' if current_lang == 'en' else 'Hỗ trợ kiểm soát câu hỏi, đáp án và lịch sử sinh đề theo từng tài liệu.' }}</div>
+                                </div>
+                                <div class="floating-note note-b">
+                                    <div class="small text-uppercase fw-bold" style="color: var(--accent-deep);">{{ 'Quick Actions' if current_lang == 'en' else 'Tác vụ nhanh' }}</div>
+                                    <div class="fw-semibold mb-1">{{ 'Upload, Allocations, PDF' if current_lang == 'en' else 'Upload, phân bổ Bloom, xuất PDF' }}</div>
+                                    <div class="small text-muted">{{ 'A seamless, friction-free workflow designed for educators and assistants.' if current_lang == 'en' else 'Một luồng làm việc liền mạch cho giảng viên và trợ giảng.' }}</div>
+                                </div>
+                                <div class="hero-panel">
+                                    <div class="window-bar">
+                                        <div class="window-dots"><span></span><span></span><span></span></div>
+                                        <div class="small text-muted fw-semibold">TEXTQAI Workspace Preview</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <span class="floating-chip"><i class="bi bi-file-earmark-pdf"></i> {{ 'Textbook.pdf' if current_lang == 'en' else 'Giáo trình.pdf' }}</span>
+                                        <span class="floating-chip"><i class="bi bi-graph-up-arrow"></i> {{ 'Bloom Layers' if current_lang == 'en' else 'Bloom phân tầng' }}</span>
+                                        <span class="floating-chip"><i class="bi bi-filetype-pdf"></i> {{ 'Export Exam' if current_lang == 'en' else 'Xuất đề kiểm tra' }}</span>
+                                    </div>
+                                    <div class="demo-card">
+                                        <div class="small text-uppercase fw-bold mb-2" style="color: var(--secondary);">{{ 'Demo Questions' if current_lang == 'en' else 'Bộ câu hỏi minh họa' }}</div>
+                                        <div class="demo-row">
+                                            <div>
+                                                <div class="fw-bold mb-1">{{ 'Outline the main components of a DBMS.' if current_lang == 'en' else 'Trình bày các thành phần chính của DBMS.' }}</div>
+                                                <div class="text-muted small">{{ 'Structured, concise outputs ready for direct exam sheets.' if current_lang == 'en' else 'Đầu ra ngắn gọn, đúng cấu trúc, sẵn sàng đưa vào đề.' }}</div>
+                                            </div>
+                                            <span class="bloom-pill bloom-1">Bloom 1</span>
+                                        </div>
+                                        <div class="demo-row">
+                                            <div>
+                                                <div class="fw-bold mb-1">{{ 'Explain the role of normalization in relational databases.' if current_lang == 'en' else 'Giải thích vai trò của chuẩn hóa trong cơ sở dữ liệu.' }}</div>
+                                                <div class="text-muted small">{{ 'Ideal for assessing understanding and interpretation of core concepts.' if current_lang == 'en' else 'Dùng để kiểm tra khả năng hiểu và diễn giải bản chất khái niệm.' }}</div>
+                                            </div>
+                                            <span class="bloom-pill bloom-2">Bloom 2</span>
+                                        </div>
+                                        <div class="demo-row">
+                                            <div>
+                                                <div class="fw-bold mb-1">{{ 'Design exact question counts and points for each Bloom level.' if current_lang == 'en' else 'Thiết kế cấu hình số câu và tổng điểm cho từng mức Bloom.' }}</div>
+                                                <div class="text-muted small">{{ 'Perfect for structuring tests around competency evaluation matrices.' if current_lang == 'en' else 'Phù hợp khi xây đề theo ma trận đánh giá năng lực.' }}</div>
+                                            </div>
+                                            <span class="bloom-pill bloom-6">Bloom 6</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="features" class="section">
+                <div class="container">
+                    <div class="section-heading fade-up">
+                        <div class="section-kicker">{{ 'Core Features' if current_lang == 'en' else 'Tính năng chính' }}</div>
+                        <h2 class="section-title">{{ t('Tất cả những gì bạn cần để ra đề đúng mức, đúng nội dung, đúng thời điểm.') }}</h2>
+                        <p class="section-text">
+                            {% if current_lang == 'en' %}
+                            From uploading textbooks, configuring Bloom question weights, to reviewing generation logs and exporting PDFs — every task lives in a single, intuitive interface.
+                            {% else %}
+                            Từ tải giáo trình, cấu hình số câu theo Bloom, đến xem lại lịch sử và xuất PDF — mọi tác vụ đều nằm trong một giao diện, không cần làm thủ công ở nhiều nơi.
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="row g-4">
+                        <div class="col-md-6 col-xl-3 fade-up delay-1">
+                            <div class="feature-card">
+                                <div class="feature-icon"><i class="bi bi-upload"></i></div>
+                                <h3>{{ t('Nhập liệu linh hoạt') }}</h3>
+                                <p>{{ 'Upload a new PDF or reuse a saved textbook, perfect for generating multiple tests from a single source.' if current_lang == 'en' else 'Tải PDF mới hoặc chọn lại tài liệu đã lưu, phù hợp khi xây nhiều bộ đề từ cùng một giáo trình.' }}</p>
+                                <ul class="feature-list">
+                                    <li><i class="bi bi-check-circle-fill"></i><span>{{ 'Reusable source documents' if current_lang == 'en' else 'Hỗ trợ tái sử dụng tài liệu' }}</span></li>
+                                    <li><i class="bi bi-check-circle-fill"></i><span>{{ 'Supports multi-chapter textbooks' if current_lang == 'en' else 'Phù hợp cho giáo trình dài nhiều chương' }}</span></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-xl-3 fade-up delay-2">
+                            <div class="feature-card">
+                                <div class="feature-icon"><i class="bi bi-diagram-3"></i></div>
+                                <h3>{{ t('Cấu hình Bloom chi tiết') }}</h3>
+                                <p>{{ 'Configure precise question counts and points for each cognitive level, rather than generating randomized generic blocks.' if current_lang == 'en' else 'Thiết lập số lượng câu hỏi và điểm số cho từng bậc nhận thức, thay vì sinh ngẫu nhiên một khối câu hỏi chung chung.' }}</p>
+                                <ul class="feature-list">
+                                    <li><i class="bi bi-check-circle-fill"></i><span>{{ '6 separate Bloom levels' if current_lang == 'en' else '6 mức Bloom tách riêng' }}</span></li>
+                                    <li><i class="bi bi-check-circle-fill"></i><span>{{ 'Build structured exam matrices' if current_lang == 'en' else 'Dễ tạo ma trận đề thi' }}</span></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-xl-3 fade-up delay-3">
+                            <div class="feature-card">
+                                <div class="feature-icon"><i class="bi bi-cpu"></i></div>
+                                <h3>{{ t('Pipeline AI nhiều bước') }}</h3>
+                                <p>{{ 'Evaluate and refine outputs across multiple validation layers to secure quality questions and accurate answers.' if current_lang == 'en' else 'Hệ thống đánh giá và tinh chỉnh đầu ra qua nhiều giai đoạn để kiểm soát chất lượng câu hỏi và đáp án trước khi lưu.' }}</p>
+                                <ul class="feature-list">
+                                    <li><i class="bi bi-check-circle-fill"></i><span>{{ 'Validated cognitive compliance' if current_lang == 'en' else 'Câu hỏi sinh ra đúng cấp độ yêu cầu' }}</span></li>
+                                    <li><i class="bi bi-check-circle-fill"></i><span>{{ 'Strictly aligned answer keys' if current_lang == 'en' else 'Đáp án bám sát nội dung giáo trình' }}</span></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-xl-3 fade-up delay-4">
+                            <div class="feature-card">
+                                <div class="feature-icon"><i class="bi bi-file-earmark-richtext"></i></div>
+                                <h3>{{ t('Quản lý và xuất bản') }}</h3>
+                                <p>{{ 'Save generation history, review questions, and download sleek PDFs with or without answer keys ready for class.' if current_lang == 'en' else 'Lưu lịch sử sinh đề, chọn câu cần thiết và xuất PDF có đáp án hoặc không đáp án để dùng ngay trong giảng dạy.' }}</p>
+                                <ul class="feature-list">
+                                    <li><i class="bi bi-check-circle-fill"></i><span>{{ 'Secure personal cloud storage' if current_lang == 'en' else 'Lưu trữ theo tài khoản' }}</span></li>
+                                    <li><i class="bi bi-check-circle-fill"></i><span>{{ 'Fast, structured PDF exports' if current_lang == 'en' else 'Xuất đề nhanh, dễ kiểm tra' }}</span></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="showcase" class="section">
+                <div class="container">
+                    <div class="showcase-grid align-items-stretch">
+                        <div class="showcase-board fade-up">
+                            <div class="board-topline">
+                                <div>
+                                    <div class="small text-uppercase fw-bold mb-2" style="color: rgba(255,255,255,0.64);">{{ 'Dashboard Snapshot' if current_lang == 'en' else 'Ảnh chụp Dashboard' }}</div>
+                                    <h2 class="mb-0" style="font-family: 'Space Grotesk', sans-serif; font-size: 2rem;">{{ t('Giao diện hướng tác vụ, không chỉ để trưng bày.') }}</h2>
+                                </div>
+                                <span class="badge rounded-pill text-bg-light align-self-start">{{ 'Live Flow' if current_lang == 'en' else 'Luồng trực tiếp' }}</span>
+                            </div>
+                            <p style="color: rgba(255,255,255,0.75); max-width: 40rem; line-height: 1.75;">
+                                {% if current_lang == 'en' %}
+                                Instantly view generated questions mapped to specific Bloom levels, point weights, and source references. No guesswork involved — everything is visible and interactive.
+                                {% else %}
+                                Bạn thấy ngay từng câu hỏi được gắn mức Bloom, điểm số và mục tài liệu tương ứng. Không cần đoán hệ thống đang xử lý gì — mọi thứ đều hiển thị rõ trên dashboard sau khi sinh đề xong.
+                                {% endif %}
+                            </p>
+                            <div class="board-metrics">
+                                <div class="board-metric">
+                                    <div class="small text-uppercase mb-2" style="color: rgba(255,255,255,0.62);">{{ 'Input' if current_lang == 'en' else 'Đầu vào' }}</div>
+                                    <div class="fw-bold fs-4">PDF</div>
+                                    <div class="small">{{ 'Academic Source' if current_lang == 'en' else 'Tài liệu học phần' }}</div>
+                                </div>
+                                <div class="board-metric">
+                                    <div class="small text-uppercase mb-2" style="color: rgba(255,255,255,0.62);">{{ 'Control' if current_lang == 'en' else 'Điều khiển' }}</div>
+                                    <div class="fw-bold fs-4">Bloom</div>
+                                    <div class="small">{{ 'Cognitive Layering' if current_lang == 'en' else 'Phân tầng nhận thức' }}</div>
+                                </div>
+                                <div class="board-metric">
+                                    <div class="small text-uppercase mb-2" style="color: rgba(255,255,255,0.62);">{{ 'Output' if current_lang == 'en' else 'Đầu ra' }}</div>
+                                    <div class="fw-bold fs-4">PDF</div>
+                                    <div class="small">{{ 'Ready Exam Sheets' if current_lang == 'en' else 'Bộ đề sẵn dùng' }}</div>
+                                </div>
+                            </div>
+                            <div class="board-chart"></div>
+                        </div>
+                        <div class="showcase-mini">
+                            <div class="story-card fade-up delay-1">
+                                <div class="story-icon"><i class="bi bi-journal-check"></i></div>
+                                <h3>{{ t('Tiết kiệm hàng giờ soạn đề') }}</h3>
+                                <p>{{ 'Skip manual drafting. Upload textbooks, customize cognitive levels, and receive a comprehensive, structured test sheet in minutes.' if current_lang == 'en' else 'Bạn không cần ngồi viết từng câu hỏi bằng tay. Tải giáo trình lên, cấu hình Bloom và nhận bộ câu hỏi đầy đủ chỉ trong vài phút.' }}</p>
+                            </div>
+                            <div class="story-card fade-up delay-2">
+                                <div class="story-icon"><i class="bi bi-layers"></i></div>
+                                <h3>{{ t('Câu hỏi / trả lời bám sát tài liệu') }}</h3>
+                                <p>{{ 'Strict citation alignment ensures all generated answers are fully supported by your textbook, eliminating factual hallucination.' if current_lang == 'en' else 'Đầu ra được kiểm soát để bám sát nội dung giáo trình bạn cung cấp, không tự thêm thông tin ngoài tài liệu.' }}</p>
+                            </div>
+                            <div class="story-card fade-up delay-3">
+                                <div class="story-icon"><i class="bi bi-shield-check"></i></div>
+                                <h3>{{ t('Lưu lại, tái sử dụng nhiều lần') }}</h3>
+                                <p>{{ 'All questions and billing histories are saved securely under your account. Access, customize scores, and export to PDF at your convenience.' if current_lang == 'en' else 'Câu hỏi và lịch sử sinh đề được lưu theo tài khoản. Bạn có thể quay lại, chọn câu và xuất PDF bất cứ lúc nào.' }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="workflow" class="section">
+                <div class="container">
+                    <div class="section-heading fade-up">
+                        <div class="section-kicker">{{ 'How It Works' if current_lang == 'en' else 'Quy trình sử dụng' }}</div>
+                        <h2 class="section-title">{{ t('Từ giáo trình PDF đến bộ đề hoàn chỉnh — chỉ qua 4 bước.') }}</h2>
+                        <p class="section-text">{{ 'No deep AI or Bloom expertise needed. Just choose your question distribution — our platform does the heavy lifting.' if current_lang == 'en' else 'Không cần hiểu sâu về AI hay Bloom taxonomy. Bạn chỉ cần biết mình muốn bao nhiêu câu ở mỗi mức — hệ thống lo phần còn lại.' }}</p>
+                    </div>
+                    <div class="row g-4">
+                        <div class="col-md-6 col-xl-3 fade-up delay-1">
+                            <div class="step-card">
+                                <div class="step-index">01</div>
+                                <div class="step-icon"><i class="bi bi-person-plus"></i></div>
+                                <h3>{{ t('Tạo tài khoản') }}</h3>
+                                <p>{{ 'Register to get a dedicated workspace to manage uploaded textbooks, generation logs, and personalized settings.' if current_lang == 'en' else 'Đăng ký nhanh để có không gian quản lý tài liệu, lịch sử sinh đề và danh sách câu hỏi riêng theo tài khoản.' }}</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-xl-3 fade-up delay-2">
+                            <div class="step-card">
+                                <div class="step-index">02</div>
+                                <div class="step-icon"><i class="bi bi-cloud-arrow-up"></i></div>
+                                <h3>{{ t('Tải giáo trình') }}</h3>
+                                <p>{{ 'Upload any PDF textbook or choose from available system catalogs to serve as your source content.' if current_lang == 'en' else 'Upload PDF mới hoặc chọn lại giáo trình cũ để tiết kiệm thời gian khi cần sinh nhiều đề từ cùng nguồn nội dung.' }}</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-xl-3 fade-up delay-3">
+                            <div class="step-card">
+                                <div class="step-index">03</div>
+                                <div class="step-icon"><i class="bi bi-sliders"></i></div>
+                                <h3>{{ t('Phân bổ Bloom') }}</h3>
+                                <p>{{ 'Input point allocations and counts for desired cognitive layers to establish a balanced evaluation sheet.' if current_lang == 'en' else 'Điền số điểm và số lượng câu cho từng mức để có bộ đề cân bằng giữa nhớ, hiểu, vận dụng và các mức cao hơn.' }}</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6 col-xl-3 fade-up delay-4">
+                            <div class="step-card">
+                                <div class="step-index">04</div>
+                                <div class="step-icon"><i class="bi bi-download"></i></div>
+                                <h3>{{ t('Xuất đề kiểm tra') }}</h3>
+                                <p>{{ 'Review question sheets, select target items, and download official PDF exams with or without keys.' if current_lang == 'en' else 'Xem lại danh sách kết quả, chọn câu cần xuất và tải PDF có hoặc không có đáp án theo nhu cầu sử dụng.' }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section">
+                <div class="container">
+                    <div class="row g-4 align-items-stretch">
+                        <div class="col-lg-7 fade-up">
+                            <div class="cta-card">
+                                <div class="section-kicker">{{ 'Target Audience' if current_lang == 'en' else 'Dành cho ai' }}</div>
+                                <h3>{{ t('Dành cho giảng viên, trợ giảng và bất kỳ ai cần ra đề nhanh, đúng chuẩn nhận thức.') }}</h3>
+                                <p class="mb-4">{{ 'Whether preparing midterms, finals, or fast pop-quizzes — TEXTQAI delivers precise, cognitive-compliant results without hours of manual labor.' if current_lang == 'en' else 'Dù bạn đang chuẩn bị đề thi giữa kỳ, cuối kỳ hay bộ câu hỏi kiểm tra nhanh — TEXTQAI giúp bạn có đầu ra đúng cấp độ Bloom mà không phải mất nhiều giờ biên soạn thủ công.' }}</p>
+                                <div class="hero-actions mb-0">
+                                    {% if current_user.is_authenticated %}
+                                    <a class="btn btn-solid" href="{{ url_for('index') }}">{{ 'Go to Workspace' if current_lang == 'en' else 'Vào trang làm việc' }}</a>
+                                    {% else %}
+                                    <a class="btn btn-solid" href="{{ url_for('register') }}">{{ 'Create Account Now' if current_lang == 'en' else 'Tạo tài khoản ngay' }}</a>
+                                    <a class="btn btn-soft" href="{{ url_for('login') }}">{{ 'I already have an account' if current_lang == 'en' else 'Tôi đã có tài khoản' }}</a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-5 fade-up delay-1">
+                            <div class="pricing-card">
+                                <div class="section-kicker">{{ 'All-In-One Workspace' if current_lang == 'en' else 'Tất cả trong một nơi' }}</div>
+                                <h3>{{ t('Chỉ cần tài khoản và file giáo trình — không cài thêm gì.') }}</h3>
+                                <p>{{ 'TEXTQAI manages it all: parsing content, generating target questions, checking source authenticity, and packaging results instantly.' if current_lang == 'en' else 'TEXTQAI xử lý toàn bộ: phân tích nội dung, sinh câu hỏi, đánh giá chất lượng và đóng gói thành đề kiểm tra sẵn dùng ngay trên trình duyệt.' }}</p>
+                                <ul class="pricing-list">
+                                    <li><i class="bi bi-check-circle-fill"></i><span>{{ 'Upload PDF and get questions instantly' if current_lang == 'en' else 'Upload PDF và nhận câu hỏi ngay lập tức' }}</span></li>
+                                    <li><i class="bi bi-check-circle-fill"></i><span>{{ '6 separate Bloom configurations per generation' if current_lang == 'en' else '6 mức Bloom cấu hình độc lập cho mỗi lần sinh đề' }}</span></li>
+                                    <li><i class="bi bi-check-circle-fill"></i><span>{{ 'Save histories & export tests with/without keys' if current_lang == 'en' else 'Lưu lịch sử và xuất PDF có hoặc không có đáp án' }}</span></li>
+                                    <li><i class="bi bi-check-circle-fill"></i><span>{{ 'Cloud-based platform, accessible on any device' if current_lang == 'en' else 'Giao diện web, dùng được trên mọi thiết bị' }}</span></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ══ SUPPORT SECTION ══ -->
+            <section id="support" class="section">
+                <div class="container">
+                    <div class="section-heading fade-up">
+                        <div class="section-kicker">{{ 'Support & Legal' if current_lang == 'en' else 'Hỗ trợ & Pháp lý' }}</div>
+                        <h2 class="section-title">{{ 'We\'re here to help.' if current_lang == 'en' else 'Chúng tôi sẵn sàng hỗ trợ bạn.' }}</h2>
+                        <p class="section-text">
+                            {{ 'Have a question or issue? Reach out via email or browse the FAQ below. Our team responds within 1–2 business days.' if current_lang == 'en' else 'Có câu hỏi hoặc gặp sự cố? Liên hệ qua email hoặc xem FAQ bên dưới. Chúng tôi phản hồi trong vòng 1–2 ngày làm việc.' }}
+                        </p>
+                    </div>
+
+                    <div class="row g-4">
+                        <!-- Card liên hệ -->
+                        <div class="col-lg-4 fade-up delay-1">
+                            <div class="feature-card d-flex flex-column gap-4">
+                                <div>
+                                    <div class="feature-icon" style="background:linear-gradient(135deg,#10b981,#3b82f6);"><i class="bi bi-headset"></i></div>
+                                    <h3>{{ 'Contact Support' if current_lang == 'en' else 'Liên hệ hỗ trợ' }}</h3>
+                                    <p>{{ 'Send us a message and we\'ll get back to you as soon as possible.' if current_lang == 'en' else 'Gửi tin nhắn và chúng tôi sẽ phản hồi sớm nhất có thể.' }}</p>
+                                </div>
+                                <div style="display:flex;flex-direction:column;gap:12px;margin-top:auto;">
+                                    <a href="mailto:duy226466@student.nctu.edu.vn"
+                                       style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:12px;background:rgba(16,185,129,0.08);border:1.5px solid rgba(16,185,129,0.18);color:#065f46;text-decoration:none;font-weight:600;font-size:.92rem;transition:all .2s;"
+                                       onmouseover="this.style.background='rgba(16,185,129,0.14)'"
+                                       onmouseout="this.style.background='rgba(16,185,129,0.08)'">
+                                        <i class="bi bi-envelope-fill" style="color:#10b981;font-size:1.1rem;"></i>
+                                        duy226466@student.nctu.edu.vn
+                                    </a>
+                                    <a href="/support"
+                                       style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:12px;background:rgba(59,130,246,0.08);border:1.5px solid rgba(59,130,246,0.18);color:#1e3a8a;text-decoration:none;font-weight:600;font-size:.92rem;transition:all .2s;"
+                                       onmouseover="this.style.background='rgba(59,130,246,0.14)'"
+                                       onmouseout="this.style.background='rgba(59,130,246,0.08)'">
+                                        <i class="bi bi-box-arrow-up-right" style="color:#3b82f6;font-size:1.1rem;"></i>
+                                        {{ 'Open Support Page' if current_lang == 'en' else 'Mở trang hỗ trợ đầy đủ' }}
+                                    </a>
+                                    <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;background:rgba(29,36,51,0.04);border:1px solid rgba(29,36,51,0.08);font-size:.85rem;color:var(--muted);">
+                                        <i class="bi bi-clock" style="color:var(--accent);"></i>
+                                        {{ 'Mon–Fri · 8:00–17:00 (GMT+7)' if current_lang == 'en' else 'Thứ 2–6 · 8:00–17:00 (GMT+7)' }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- FAQ nhanh -->
+                        <div class="col-lg-5 fade-up delay-2">
+                            <div class="feature-card">
+                                <div class="feature-icon" style="background:linear-gradient(135deg,var(--secondary),#2a6f97);"><i class="bi bi-question-lg"></i></div>
+                                <h3>{{ 'Frequently Asked Questions' if current_lang == 'en' else 'Câu hỏi thường gặp' }}</h3>
+                                <div style="display:flex;flex-direction:column;gap:0;margin-top:8px;">
+                                    {% set faqs = [
+                                        ('How do credits work?', 'Each generated question costs 1 credit. New accounts receive 5 free credits. Top up via the Pricing page.',
+                                         'Credits hoạt động thế nào?', 'Mỗi câu hỏi sinh ra tốn 1 credit. Tài khoản mới nhận 5 credits miễn phí. Nạp thêm tại trang Bảng giá.'),
+                                        ('Is my PDF document kept private?', 'Yes. Your documents are only used to generate questions and are never shared with third parties.',
+                                         'Tài liệu PDF của tôi có được bảo mật không?', 'Có. Tài liệu chỉ dùng để sinh câu hỏi và không được chia sẻ với bên thứ ba.'),
+                                        ('Can I delete my account and data?', 'Yes. Email us at duy226466@student.nctu.edu.vn to request full data deletion within 30 days.',
+                                         'Tôi có thể xóa tài khoản và dữ liệu không?', 'Có. Gửi email yêu cầu tới duy226466@student.nctu.edu.vn, toàn bộ dữ liệu sẽ bị xóa trong 30 ngày.'),
+                                        ('What languages does TEXTQAI support?', 'Optimized for Vietnamese documents. English documents are supported but may yield lower quality outputs.',
+                                         'TEXTQAI hỗ trợ ngôn ngữ nào?', 'Tối ưu cho tài liệu Tiếng Việt. Tài liệu Tiếng Anh vẫn xử lý được nhưng chất lượng có thể không tối ưu.')
+                                    ] %}
+                                    {% for q_en, a_en, q_vi, a_vi in faqs %}
+                                    <details style="border-top:1px dashed rgba(29,36,51,0.10);padding:12px 0;" {% if loop.first %}open{% endif %}>
+                                        <summary style="font-weight:700;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;font-size:.95rem;color:var(--ink);">
+                                            {{ q_en if current_lang == 'en' else q_vi }}
+                                            <i class="bi bi-chevron-down" style="font-size:.75rem;color:var(--muted);flex-shrink:0;margin-left:8px;"></i>
+                                        </summary>
+                                        <p style="margin-top:8px;margin-bottom:0;color:var(--muted);font-size:.9rem;line-height:1.65;">
+                                            {{ a_en if current_lang == 'en' else a_vi }}
+                                        </p>
+                                    </details>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pháp lý -->
+                        <div class="col-lg-3 fade-up delay-3">
+                            <div class="feature-card d-flex flex-column gap-3">
+                                <div>
+                                    <div class="feature-icon" style="background:linear-gradient(135deg,#7c3aed,#a78bfa);"><i class="bi bi-file-earmark-text-fill"></i></div>
+                                    <h3>{{ 'Legal' if current_lang == 'en' else 'Pháp lý' }}</h3>
+                                    <p>{{ 'Review our policies before using the service.' if current_lang == 'en' else 'Xem các chính sách trước khi sử dụng dịch vụ.' }}</p>
+                                </div>
+                                <div style="display:flex;flex-direction:column;gap:8px;margin-top:auto;">
+                                    {% set legal_links = [
+                                        ('/privacy',   'bi-shield-check',  '#7c3aed', 'rgba(124,58,237,0.08)', 'rgba(124,58,237,0.18)', '#4c1d95', 'Privacy Policy',        'Chính sách quyền riêng tư'),
+                                        ('/terms',      'bi-file-text',     '#2563eb', 'rgba(37,99,235,0.08)',  'rgba(37,99,235,0.18)',  '#1e3a8a', 'Terms of Service',      'Điều khoản sử dụng'),
+                                        ('/data-deletion','bi-trash3',      '#dc2626', 'rgba(220,38,38,0.08)',  'rgba(220,38,38,0.18)',  '#7f1d1d', 'Data Deletion',         'Chính sách xóa dữ liệu'),
+                                    ] %}
+                                    {% for href, icon, icolor, bg, border, color, label_en, label_vi in legal_links %}
+                                    <a href="{{ href }}" target="_blank" rel="noopener"
+                                       style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:{{ bg }};border:1.5px solid {{ border }};color:{{ color }};text-decoration:none;font-weight:600;font-size:.88rem;transition:all .2s;"
+                                       onmouseover="this.style.filter='brightness(0.92)'"
+                                       onmouseout="this.style.filter='brightness(1)'">
+                                        <i class="bi {{ icon }}" style="color:{{ icolor }};font-size:1rem;flex-shrink:0;"></i>
+                                        {{ label_en if current_lang == 'en' else label_vi }}
+                                        <i class="bi bi-arrow-up-right-square ms-auto" style="font-size:.75rem;opacity:.5;"></i>
+                                    </a>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Offcanvas menu for landing (app hamburger) -->
+        <div class="offcanvas offcanvas-start landing-offcanvas" tabindex="-1" id="landingOffcanvas" aria-labelledby="landingOffcanvasLabel">
+            <div class="offcanvas-header">
+                    <a class="sb-brand" href="/?landing=1">
+                        <img src="{{ url_for('static', filename='logo.png') }}" alt="TEXTQAI" />
+                    </a>
+                    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+                </div>
+            <div class="offcanvas-body">
+                <nav class="nav flex-column">
+                    <div class="offcanvas-section">
+                        <div class="offcanvas-section-inner">
+                            <a class="nav-link" href="#features"><i class="bi bi-lightning-charge"></i>{{ 'Features' if current_lang == 'en' else 'Tính năng' }}</a>
+                            <a class="nav-link" href="#showcase"><i class="bi bi-grid"></i>{{ 'Showcase' if current_lang == 'en' else 'Minh họa' }}</a>
+                            <a class="nav-link" href="#workflow"><i class="bi bi-diagram-3"></i>{{ 'Workflow' if current_lang == 'en' else 'Quy trình' }}</a>
+                            <a class="nav-link" href="#support"><i class="bi bi-headset"></i>{{ 'Support' if current_lang == 'en' else 'Hỗ trợ' }}</a>
+                        </div>
+                    </div>
+                    <div class="offcanvas-section">
+                        <div class="offcanvas-section-inner">
+                            <a class="nav-link" href="/user-guide"><i class="bi bi-book"></i>{{ 'User Guide' if current_lang == 'en' else 'Hướng dẫn sử dụng' }}</a>
+                        </div>
+                    </div>
+
+                    <div class="offcanvas-section">
+                        <div class="offcanvas-section-inner">
+                        {% if current_user.is_authenticated %}
+                            <a class="nav-link" href="{{ url_for('index') }}">{{ 'Workspace' if current_lang == 'en' else 'Trang làm việc' }}</a>
+                            <a class="nav-link text-danger" href="{{ url_for('logout', next='/?landing=1') }}">{{ 'Logout' if current_lang == 'en' else 'Đăng xuất' }}</a>
+                        {% else %}
+                            <a class="nav-link" href="{{ url_for('login') }}">{{ 'Sign In' if current_lang == 'en' else 'Đăng nhập' }}</a>
+                            <a class="nav-link" href="{{ url_for('register') }}">{{ 'Register' if current_lang == 'en' else 'Đăng ký' }}</a>
+                        {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="offcanvas-section">
+                        <div class="offcanvas-section-inner">
+                            <div class="d-flex gap-2">
+                                <a class="lang-btn lang-btn--primary" href="/set-language/en?next=/?landing=1">🇺🇸 English</a>
+                                <a class="lang-btn lang-btn--secondary" href="/set-language/vi?next=/?landing=1">🇻🇳 Tiếng Việt</a>
+                            </div>
+                        </div>
+                    </div>
+                </nav>
+            </div>
+        </div>
+
+        <!-- ════════════════ FOOTER ════════════════ -->
+        <footer id="contact" style="background:var(--ink);color:rgba(255,255,255,0.85);padding:64px 0 0;">
+            <div class="container">
+                <div class="row g-5">
+
+                    <!-- Cột 1: Brand -->
+                    <div class="col-lg-4">
+                        <div class="mb-3">
+                            <img src="{{ url_for('static', filename='logo.png') }}" alt="TEXTQAI" style="height:48px;filter:brightness(0) invert(1);">
+                        </div>
+                        <p style="font-size:0.93rem;color:rgba(255,255,255,0.55);line-height:1.7;max-width:280px;">
+                            {{ 'Automatic question generation based on Bloom taxonomy — helping educators build tests rapidly, accurately, and aligned with standard pedagogy.' if current_lang == 'en' else 'Hệ thống sinh câu hỏi tự động theo thang Bloom — hỗ trợ giảng viên tạo đề thi nhanh, chính xác và đúng chuẩn giáo dục.' }}
+                        </p>
+                        <div class="d-flex gap-3 mt-4">
+                            <a href="mailto:duy226466@nctu.edu.vn" style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.7);text-decoration:none;transition:background .2s;" onmouseover="this.style.background='var(--accent)';this.style.color='#fff'" onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'">
+                                <i class="bi bi-envelope-fill"></i>
+                            </a>
+                            <a href="https://www.facebook.com/babyduytv0401/" target="_blank" style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.7);text-decoration:none;transition:background .2s;" onmouseover="this.style.background='#1877f2';this.style.color='#fff'" onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'">
+                                <i class="bi bi-facebook"></i>
+                            </a>
+                            <a href="https://github.com/minhduy0401" target="_blank" style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.7);text-decoration:none;transition:background .2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)';this.style.color='#fff'" onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'">
+                                <i class="bi bi-github"></i>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Cột 2: Liên hệ -->
+                    <div class="col-lg-4">
+                        <h6 style="color:#fff;font-weight:700;font-size:0.95rem;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:20px;">{{ 'Contact Us' if current_lang == 'en' else 'Liên hệ' }}</h6>
+                        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:14px;">
+                            <li style="display:flex;align-items:flex-start;gap:12px;">
+                                <i class="bi bi-envelope" style="color:var(--accent);margin-top:2px;flex-shrink:0;"></i>
+                                <div>
+                                    <div style="font-size:0.82rem;color:rgba(255,255,255,0.45);margin-bottom:2px;">{{ 'Support Email' if current_lang == 'en' else 'Email hỗ trợ' }}</div>
+                                    <a href="mailto:contact@textqai.edu.vn" style="color:rgba(255,255,255,0.85);text-decoration:none;font-size:0.93rem;">duy226466@nctu.edu.vn</a>
+                                </div>
+                            </li>
+                            <li style="display:flex;align-items:flex-start;gap:12px;">
+                                <i class="bi bi-telephone" style="color:var(--accent);margin-top:2px;flex-shrink:0;"></i>
+                                <div>
+                                    <div style="font-size:0.82rem;color:rgba(255,255,255,0.45);margin-bottom:2px;">{{ 'Phone Number' if current_lang == 'en' else 'Điện thoại' }}</div>
+                                    <a href="tel:+84931183550" style="color:rgba(255,255,255,0.85);text-decoration:none;font-size:0.93rem;">+84 93 118 3550</a>
+                                </div>
+                            </li>
+                            <li style="display:flex;align-items:flex-start;gap:12px;">
+                                <i class="bi bi-geo-alt" style="color:var(--accent);margin-top:2px;flex-shrink:0;"></i>
+                                <div>
+                                    <div style="font-size:0.82rem;color:rgba(255,255,255,0.45);margin-bottom:2px;">{{ 'Address' if current_lang == 'en' else 'Địa chỉ' }}</div>
+                                    <span style="color:rgba(255,255,255,0.85);font-size:0.93rem;">{{ 'Nam Can Tho University' if current_lang == 'en' else 'Trường Đại học Nam Cần Thơ' }}</span>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <!-- Cột 3: Phản hồi -->
+                    <div class="col-lg-4">
+                        <h6 style="color:#fff;font-weight:700;font-size:0.95rem;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:20px;">{{ 'Send Feedback' if current_lang == 'en' else 'Gửi phản hồi' }}</h6>
+                        <form id="feedbackForm" onsubmit="submitFeedback(event)">
+                            <div class="mb-3">
+                                {% if current_user.is_authenticated %}
+                                    {% set _is_google = current_user.auth_providers.filter_by(provider='google').first() %}
+                                    {% if _is_google and current_user.email %}
+                                <input type="email" id="fbEmail" value="{{ current_user.email }}"
+                                    style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.07);color:#fff;font-size:0.9rem;outline:none;transition:border .2s;"
+                                    onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='rgba(255,255,255,0.12)'" required>
+                                    {% else %}
+                                <input type="text" id="fbEmail" value="{{ current_user.username or current_user.display }}"
+                                    style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.07);color:#fff;font-size:0.9rem;outline:none;transition:border .2s;"
+                                    onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='rgba(255,255,255,0.12)'" required>
+                                    {% endif %}
+                                {% else %}
+                                <input type="email" id="fbEmail" placeholder="{{ 'Your email address' if current_lang == 'en' else 'Email của bạn' }}"
+                                    style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.07);color:#fff;font-size:0.9rem;outline:none;transition:border .2s;"
+                                    onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='rgba(255,255,255,0.12)'" required>
+                                {% endif %}
+                            </div>
+                            <div class="mb-3">
+                                <textarea id="fbMessage" rows="3" placeholder="{{ 'Suggestions, feedback, or bug reports...' if current_lang == 'en' else 'Ý kiến, góp ý hoặc báo lỗi...' }}" required
+                                    style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.07);color:#fff;font-size:0.9rem;resize:none;outline:none;transition:border .2s;"
+                                    onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='rgba(255,255,255,0.12)'"></textarea>
+                            </div>
+                            <button type="submit"
+                                style="width:100%;padding:10px;border-radius:10px;background:var(--accent);border:none;color:#fff;font-weight:600;font-size:0.93rem;cursor:pointer;transition:background .2s;letter-spacing:0.2px;"
+                                onmouseover="this.style.background='var(--accent-deep)'" onmouseout="this.style.background='var(--accent)'">
+                                <i class="bi bi-send-fill me-2"></i>{{ 'Submit Feedback' if current_lang == 'en' else 'Gửi phản hồi' }}
+                            </button>
+                            <p id="fbSuccess" style="display:none;margin-top:10px;color:#4ade80;font-size:0.88rem;">
+                                <i class="bi bi-check-circle-fill me-1"></i>{{ 'Thank you for your feedback!' if current_lang == 'en' else 'Cảm ơn bạn đã gửi phản hồi!' }}
+                            </p>
+                        </form>
+                    </div>
+
+                </div>
+
+                <!-- Bottom bar -->
+                <div style="margin-top:48px;padding:20px 0;border-top:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+                    <span style="font-size:0.85rem;color:rgba(255,255,255,0.35);">{{ '© 2026 TEXTQAI. Built for educational and research purposes.' if current_lang == 'en' else '© 2026 TEXTQAI. Được xây dựng cho mục đích nghiên cứu và giáo dục.' }}</span>
+                    <div class="d-flex gap-4 flex-wrap">
+                        <a href="#features" style="font-size:0.85rem;color:rgba(255,255,255,0.45);text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">{{ 'Features' if current_lang == 'en' else 'Tính năng' }}</a>
+                        <a href="#showcase" style="font-size:0.85rem;color:rgba(255,255,255,0.45);text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">{{ 'Showcase' if current_lang == 'en' else 'Minh họa' }}</a>
+                        <a href="#workflow" style="font-size:0.85rem;color:rgba(255,255,255,0.45);text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">{{ 'Workflow' if current_lang == 'en' else 'Quy trình' }}</a>
+                        <a href="#support" style="font-size:0.85rem;color:rgba(255,255,255,0.45);text-decoration:none;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='rgba(255,255,255,0.45)'">{{ 'Support' if current_lang == 'en' else 'Hỗ trợ' }}</a>
+                        <span style="color:rgba(255,255,255,0.15);font-size:0.85rem;">|</span>
+                        <a href="/user-guide" style="font-size:0.85rem;color:rgba(255,255,255,0.35);text-decoration:none;" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.35)'">{{ 'User Guide' if current_lang == 'en' else 'Hướng dẫn sử dụng' }}</a>
+                        <span style="color:rgba(255,255,255,0.15);font-size:0.85rem;">|</span>
+                        <a href="/privacy" style="font-size:0.85rem;color:rgba(255,255,255,0.35);text-decoration:none;" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.35)'">{{ 'Privacy' if current_lang == 'en' else 'Quyền riêng tư' }}</a>
+                        <a href="/terms" style="font-size:0.85rem;color:rgba(255,255,255,0.35);text-decoration:none;" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.35)'">{{ 'Terms' if current_lang == 'en' else 'Điều khoản' }}</a>
+                        <a href="/data-deletion" style="font-size:0.85rem;color:rgba(255,255,255,0.35);text-decoration:none;" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.35)'">{{ 'Data Deletion' if current_lang == 'en' else 'Xóa dữ liệu' }}</a>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        function submitFeedback(e) {
+            e.preventDefault();
+            const btn     = e.target.querySelector('button[type=submit]');
+            const email   = document.getElementById('fbEmail').value.trim();
+            const message = document.getElementById('fbMessage').value.trim();
+            if (!email || !message) return;
+            const isEn = document.documentElement.lang === 'en' || document.cookie.includes('lang=en') || navigator.language.startsWith('en');
+            const _lang = '{{ current_lang }}';
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-hourglass-split me-2"></i>' + (_lang === 'en' ? 'Sending...' : 'Đang gửi...');
+            fetch('/api/feedback', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({email, message})
+            })
+            .then(r => r.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-send-fill me-2"></i>' + (_lang === 'en' ? 'Submit Feedback' : 'Gửi phản hồi');
+                if (data.ok) {
+                    document.getElementById('feedbackForm').reset();
+                    const suc = document.getElementById('fbSuccess');
+                    suc.style.display = 'block';
+                    setTimeout(() => { suc.style.display = 'none'; }, 4000);
+                } else {
+                    alert((_lang === 'en' ? 'Submit failed: ' : 'Gửi thất bại: ') + (data.error || (_lang === 'en' ? 'Unknown error' : 'Lỗi không xác định')));
+                }
+            })
+            .catch(() => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-send-fill me-2"></i>' + (_lang === 'en' ? 'Submit Feedback' : 'Gửi phản hồi');
+                alert(_lang === 'en' ? 'Cannot connect to server. Please try again.' : 'Không thể kết nối đến máy chủ. Vui lòng thử lại.');
+            });
+        }
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach((entry) => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('is-visible');
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.16 });
+
+        document.querySelectorAll('.fade-up').forEach((element) => {
+            if (!element.classList.contains('is-visible')) {
+                observer.observe(element);
+            }
+        });
+
+        // App language toggle: fetch to set session, then reload current page
+        function setAppLang(lang) {
+            fetch('/set-language/' + lang, { redirect: 'follow', credentials: 'same-origin' })
+                .then(() => location.reload())
+                .catch(() => location.reload());
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

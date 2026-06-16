@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="{{ current_lang }}">
+<head>
+    <meta charset="UTF-8">
+    {% include '_favicon.html' %}
+    {% set ua = request.headers.get('User-Agent', '') %}
+    {% set is_app = 'TEXTQAI' in ua %}
+    {% if is_app %}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <style>
+        html, body {
+            overflow-x: hidden !important;
+            max-width: 100vw !important;
+        }
+        * { box-sizing: border-box; }
+        img, table, pre, iframe, video { max-width: 100% !important; }
+    </style>
+    {% else %}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    {% endif %}
+    <title>{{ t('TEXTQAI - Hệ thống sinh câu hỏi tự động') }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        
+        body { 
+            background:
+                radial-gradient(circle at top left, rgba(255, 107, 53, 0.18), transparent 32%),
+                radial-gradient(circle at top right, rgba(11, 60, 93, 0.14), transparent 28%),
+                linear-gradient(180deg, #fffaf4 0%, #f7efe5 42%, #f1f4f7 100%);
+            /* background-attachment:fixed is broken on iOS WebView — use scroll */
+            background-attachment: scroll;
+            min-height: 100vh;
+            padding-top: 120px;
+            padding-bottom: 3rem;
+        }
+
+        @media (max-width: 991.98px) {
+            body { padding-top: 80px; }
+        }
+        
+        .navbar { 
+            background: linear-gradient(to right, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.95)) !important;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            box-shadow: 0 4px 30px rgba(102, 126, 234, 0.15);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1030;
+            border-bottom: 2px solid rgba(102, 126, 234, 0.1);
+            -webkit-transform: translate3d(0,0,0);
+            transform: translate3d(0,0,0);
+        }
+        /* iOS WebView: safe-area + no backdrop-filter for app */
+        body.is-app .navbar {
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            background: linear-gradient(to right, #fffefb, #fffaf4) !important;
+            top: 0 !important;
+            /* Keep inner padding + push below iPhone status bar / notch / Dynamic Island */
+            padding-top: calc(8px + env(safe-area-inset-top, 0px)) !important;
+            padding-bottom: 8px !important;
+        }
+        body.is-app {
+            /* navbar height (logo 52px + padding ~20px) + safe area */
+            padding-top: calc(80px + env(safe-area-inset-top, 0px)) !important;
+        }
+        
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .card { 
+            border-radius: 20px;
+            border: none;
+            box-shadow: 0 10px 40px rgba(102, 126, 234, 0.15), 0 0 0 1px rgba(255, 255, 255, 0.1);
+            background: linear-gradient(to bottom, #ffffff 0%, #fafbff 100%);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 60px rgba(102, 126, 234, 0.25), 0 0 0 1px rgba(102, 126, 234, 0.1);
+        }
+        
+        .badge-bloom { 
+            font-size: 0.85em;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 12px;
+            padding: 12px 24px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .form-control, .form-select {
+            border-radius: 12px;
+            border: 2px solid #e9ecef;
+            padding: 12px 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+        }
+        
+        .table {
+            border-radius: 16px;
+            overflow: hidden;
+        }
+        
+        .table thead {
+            background: linear-gradient(135deg, #5a67d8 0%, #667eea 100%);
+            color: white;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+        
+        .table thead th {
+            border: none;
+            padding: 16px 12px;
+        }
+        
+        .table-hover tbody tr:hover {
+            background-color: rgba(102, 126, 234, 0.05);
+        }
+        
+        h5 {
+            font-weight: 700;
+            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        /* Icon gradient backgrounds */
+        .bg-gradient {
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .text-primary {
+            color: #667eea !important;
+        }
+        
+        /* Cải thiện table rows */
+        .table tbody td {
+            padding: 14px 12px;
+            vertical-align: middle;
+        }
+        
+        .table tbody tr {
+            transition: all 0.2s ease;
+            border-bottom: 1px solid rgba(102, 126, 234, 0.05);
+        }
+        
+        .modal-content {
+            border-radius: 20px;
+            border: none;
+        }
+        
+        .modal-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px 20px 0 0;
+        }
+        
+        .badge-info {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .btn-outline-light:hover {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: transparent;
+        }
+        
+        /* Bloom Grid Layout */
+        .bloom-grid {
+            margin-top: 15px;
+        }
+        
+        .bloom-box {
+            border: 2px solid rgba(102, 126, 234, 0.15);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            background: linear-gradient(to bottom, #ffffff 0%, #fafbff 100%);
+            box-shadow: 0 2px 10px rgba(102, 126, 234, 0.08);
+        }
+        
+        .bloom-box:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2);
+            border-color: rgba(102, 126, 234, 0.3);
+        }
+        
+        .bloom-header {
+            height: 56px;
+            padding: 4px 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            text-align: center;
+            color: white;
+            font-size: 0.95rem;
+            letter-spacing: 0.3px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            line-height: 1.25;
+        }
+        
+        .bloom-body {
+            padding: 15px;
+        }
+        
+        /* Màu cho từng Bloom level - Palette hài hòa */
+        .bg-bloom-1 {
+            background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+        }
+        
+        .bg-bloom-2 {
+            background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+        
+        .bg-bloom-3 {
+            background: linear-gradient(135deg, #6366f1 0%, #818cf8 100%);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        }
+        
+        .bg-bloom-4 {
+            background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.3);
+        }
+        
+        .bg-bloom-5 {
+            background: linear-gradient(135deg, #f97316 0%, #fb923c 100%);
+            box-shadow: 0 4px 15px rgba(249, 115, 22, 0.3);
+        }
+        
+        .bg-bloom-6 {
+            background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+        }
+        
+        .bloom-box .form-control-sm {
+            border-radius: 10px;
+            border: 2px solid rgba(102, 126, 234, 0.15);
+            padding: 10px 14px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        
+        .bloom-box .form-control-sm:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+            background: #fafbff;
+        }
+
+        /* Thanh tổng kết Bloom */
+        .bloom-summary-bar {
+            background: linear-gradient(135deg, #f0f4ff 0%, #f8f0ff 100%);
+            border: 2px solid rgba(102, 126, 234, 0.2);
+            border-radius: 14px;
+            padding: 14px 16px;
+        }
+
+        .bloom-total-input {
+            background: white !important;
+            border: 2px solid rgba(102, 126, 234, 0.25) !important;
+            border-radius: 10px !important;
+            font-size: 1rem !important;
+            color: #4c1d95;
+            pointer-events: none;
+        }
+
+        /* Thêm màu cho badges */
+        .badge-bloom {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+        
+        .badge.bg-success {
+            background: linear-gradient(135deg, #10b981 0%, #34d399 100%) !important;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+        
+        .badge.bg-warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%) !important;
+            color: #1f2937 !important;
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+        }
+        
+        .badge.bg-info {
+            background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%) !important;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+        }
+        
+        /* Cải thiện button đăng xuất */
+        .btn-outline-danger {
+            border: 2px solid #ef4444;
+            color: #ef4444;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-outline-danger:hover {
+            background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
+            border-color: #ef4444;
+            color: white;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+        }
+
+        /* Trang chủ button hover */
+        .btn-trangchu {
+            background: linear-gradient(135deg,#f0f4ff,#e8edff);
+            color: #667eea;
+            border: 1.5px solid rgba(102,126,234,0.25);
+            transition: all 0.2s ease;
+        }
+        .btn-trangchu:hover {
+            background: linear-gradient(135deg,#e8edff,#d4dbff);
+            color: #4f46e5;
+            border-color: rgba(102,126,234,0.55);
+            box-shadow: 0 3px 12px rgba(102,126,234,0.25);
+            transform: translateY(-1px);
+        }
+
+        /* LS giao dịch button hover */
+        .btn-ls-giaodich {
+            background: linear-gradient(135deg,#f0fdf4,#dcfce7);
+            color: #16a34a;
+            border: 1.5px solid rgba(22,163,74,0.25);
+            transition: all 0.2s ease;
+        }
+        .btn-ls-giaodich:hover {
+            background: linear-gradient(135deg,#dcfce7,#bbf7d0);
+            color: #15803d;
+            border-color: rgba(22,163,74,0.5);
+            box-shadow: 0 3px 12px rgba(22,163,74,0.2);
+            transform: translateY(-1px);
+        }
+        
+        /* Cải thiện form labels */
+        .form-label {
+            color: #374151;
+            font-weight: 600;
+        }
+        
+        .form-label i {
+            margin-right: 6px;
+        }
+        
+        /* Small text màu đẹp hơn */
+        small.text-muted {
+            color: #6b7280 !important;
+        }
+        /* ── RESPONSIVE MOBILE ──────────────────────────────── */
+        @media (max-width: 575.98px) {
+            /* Card padding nhỏ hơn trên mobile */
+            .card { border-radius: 14px; }
+            .card.p-4 { padding: 1rem !important; }
+            .card.p-3 { padding: .75rem !important; }
+
+            /* Navbar collapsed items stack dọc, dễ bấm */
+            #mainNavbar .btn { width: 100%; justify-content: flex-start; }
+            #mainNavbar .dropdown { width: 100%; }
+            #mainNavbar .dropdown > button { width: 100%; }
+
+            /* Table chữ nhỏ hơn */
+            .table { font-size: .82rem; }
+            .table thead th, .table tbody td { padding: 10px 8px; }
+
+            /* Bloom header nhỏ hơn */
+            .bloom-header { font-size: .78rem; height: 44px; }
+            .bloom-body { padding: 10px; }
+
+            /* Modal full-width */
+            .modal-dialog { margin: .5rem; }
+
+            /* Giảm font size h5 */
+            h5 { font-size: 1rem; }
+
+            /* Export toolbar buttons nhỏ hơn */
+            .btn-export { padding: 6px 10px 6px 8px; }
+            .btn-export .exp-icon { width: 26px; height: 26px; }
+        }
+
+        @media (max-width: 767.98px) {
+            /* Container main content padding */
+            .container-fluid.px-4 { padding-left: 10px !important; padding-right: 10px !important; }
+
+            /* Bloom grid 2 cột thay vì 6 */
+            .bloom-grid .col { flex: 0 0 50%; max-width: 50%; }
+
+            /* Alert full width */
+            .col-md-6 { max-width: 100%; flex: 0 0 100%; }
+        }
+
+        @media (min-width: 992px) {
+            /* Desktop: nav không cần py */
+            #mainNavbar { padding: 0; }
+        }
+
+        /* Navbar collapse animation smooth */
+        .navbar-collapse { transition: none; }
+
+        /* Touch-friendly: tăng kích thước tap target */
+        @media (max-width: 991.98px) {
+            .btn-sm { min-height: 36px; }
+            .dropdown-item { padding: .55rem 1rem; }
+        }
+        /* iOS: remove 300ms tap delay on interactive elements */
+        a, button, [role="button"], .dropdown-item, .nav-link {
+            touch-action: manipulation;
+        }
+
+    </style>
+    {% block extra_head %}{% endblock %}
+    
+</head>
+<body class="{{ 'is-app' if is_app else '' }}">
+    {% if is_app %}
+    <!-- iOS app back button — fixed, shows only when there's history to go back to -->
+    <button id="appBackBtn" onclick="history.back()"
+        style="display:none;position:fixed;z-index:2000;
+               top:calc(env(safe-area-inset-top, 0px) + 10px);
+               left:12px;
+               background:rgba(255,255,255,0.92);
+               border:1px solid rgba(0,0,0,0.1);
+               border-radius:999px;
+               padding:8px 14px 8px 10px;
+               font-size:.88rem;font-weight:600;color:#1d2433;
+               box-shadow:0 2px 12px rgba(0,0,0,0.12);
+               touch-action:manipulation;cursor:pointer;
+               align-items:center;gap:6px;">
+        <i class="bi bi-chevron-left" style="font-size:1rem;"></i>
+        <span>{{ 'Back' if current_lang == 'en' else 'Quay lại' }}</span>
+    </button>
+    <script>
+        (function() {
+            var btn = document.getElementById('appBackBtn');
+            if (btn && history.length > 1) btn.style.display = 'flex';
+        })();
+    </script>
+    {% endif %}
+    <nav class="navbar navbar-expand-lg mb-4">
+        <div class="container">
+            <a class="navbar-brand" href="/?landing=1"
+               style="touch-action:manipulation;-webkit-tap-highlight-color:rgba(0,0,0,0.06);">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="TEXTQAI Logo" style="height: 52px;">
+            </a>
+
+            <!-- Credits badge hiển thị ngay cả khi menu collapsed (mobile) -->
+            {% if current_user.is_authenticated %}
+            <a href="/pricing" class="btn btn-warning btn-sm rounded-pill fw-semibold px-3 d-lg-none ms-auto me-2" style="font-size:.8rem;touch-action:manipulation;">
+                <i class="bi bi-coin me-1"></i>{{ current_user.credits }}
+            </a>
+            {% endif %}
+
+            <button class="navbar-toggler border-0 shadow-none d-lg-none" type="button"
+                    id="mainNavToggle"
+                    aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation"
+                    style="min-width:48px;min-height:48px;padding:10px 12px;background:rgba(102,126,234,0.08);border-radius:10px;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:rgba(0,0,0,0.06);display:flex;align-items:center;justify-content:center;">
+                <span class="navbar-toggler-icon" style="filter:invert(40%) sepia(80%) saturate(400%) hue-rotate(210deg);"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="mainNavbar">
+                <div class="ms-auto d-flex align-items-center gap-2 flex-wrap justify-content-end py-2 py-lg-0">
+                    <!-- Language Dropdown -->
+                    <div class="dropdown">
+                        <button class="btn btn-sm rounded-pill fw-semibold px-3 dropdown-toggle d-flex align-items-center gap-1"
+                                style="background: white; border: 1.5px solid rgba(102,126,234,0.25); color: #4338ca;"
+                                type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-globe" style="font-size:1rem;"></i>
+                            <span>{{ 'English' if current_lang == 'en' else 'Tiếng Việt' }}</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                            <li><h6 class="dropdown-header" style="font-size:.78rem;">{{ t('Chọn ngôn ngữ') }}</h6></li>
+                            <li><hr class="dropdown-divider my-1"></li>
+                            <li>
+                                <a class="dropdown-item fw-medium {% if current_lang == 'en' %}active{% endif %}" href="/set-language/en">
+                                    🇺🇸 English
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item fw-medium {% if current_lang == 'vi' %}active{% endif %}" href="/set-language/vi">
+                                    🇻🇳 Tiếng Việt
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+
+                    {% if current_user.is_authenticated %}
+                    <a href="/?landing=1" class="btn btn-sm rounded-pill fw-semibold px-3 btn-trangchu">
+                        <i class="bi bi-house-door me-1"></i>{{ t('Trang chủ') }}
+                    </a>
+                    {% if current_user.is_admin %}
+                    <a href="/admin" class="btn btn-sm rounded-pill fw-semibold px-3" style="background:linear-gradient(135deg,#1e293b,#334155);color:#f8fafc;border:none;box-shadow:0 2px 10px rgba(30,41,59,0.35);letter-spacing:0.3px;">
+                        <i class="bi bi-shield-lock-fill me-1" style="color:#f59e0b;"></i>Admin
+                    </a>
+                    {% endif %}
+                    <a href="/pricing" class="btn btn-warning btn-sm rounded-pill fw-semibold px-3 d-none d-lg-inline-flex">
+                        <i class="bi bi-coin me-1"></i>{{ current_user.credits }} {{ t('credits') }}
+                    </a>
+                    <a href="/payment/history" class="btn btn-sm rounded-pill fw-semibold px-3 d-flex align-items-center gap-1 btn-ls-giaodich"
+                       style="white-space:nowrap;">
+                        <i class="bi bi-clock-history" style="font-size:0.95rem;"></i>
+                        <span>{{ t('LS giao dịch') }}</span>
+                    </a>
+                    <div class="dropdown">
+                        <button class="btn btn-sm rounded-pill fw-medium px-3 dropdown-toggle d-flex align-items-center gap-1"
+                                style="background:linear-gradient(135deg,#f0f4ff,#e8edff);color:#374151;border:1.5px solid rgba(102,126,234,0.2);"
+                                type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle" style="font-size:1.1rem;"></i>
+                            <span>{{ current_user.display }}</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width:180px;">
+                            <li><h6 class="dropdown-header text-truncate" style="max-width:170px;">{{ current_user.display }}</h6></li>
+                            <li><hr class="dropdown-divider my-1"></li>
+                            {% set is_google_user = current_user.auth_providers.filter_by(provider='google').first() %}
+                            {% if not is_google_user %}
+                            <li>
+                                <a class="dropdown-item fw-medium text-dark" href="/change-password">
+                                    <i class="bi bi-key me-2 text-muted"></i>{{ t('Đổi mật khẩu') }}
+                                </a>
+                            </li>
+                            {% endif %}
+                            <li>
+                                <a class="dropdown-item text-danger fw-medium" href="/logout">
+                                    <i class="bi bi-box-arrow-right me-2"></i>{{ t('Đăng xuất') }}
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    {% else %}
+                    <a href="/login" class="btn btn-outline-light btn-sm rounded-pill text-primary border-primary-subtle px-3">
+                        <i class="bi bi-box-arrow-in-right"></i> {{ t('Đăng nhập') }}
+                    </a>
+                    <a href="/register" class="btn btn-primary btn-sm rounded-pill px-3">
+                        <i class="bi bi-person-plus"></i> {{ t('Đăng ký') }}
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+    <div class="container-fluid px-4" style="max-width: 1800px; padding-left: 10px; padding-right: 10px;">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="row justify-content-center mt-3">
+              <div class="col-md-6">
+                {% for category, message in messages %}
+                  <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm" role="alert">
+                    {% if category == 'success' %}
+                      <i class="bi bi-check-circle-fill me-2"></i>
+                    {% else %}
+                      <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    {% endif %}
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </div>
+    
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Navbar hamburger toggle
+        var _navToggle = document.getElementById('mainNavToggle');
+        var _navMenu   = document.getElementById('mainNavbar');
+        if (_navToggle && _navMenu) {
+            _navToggle.addEventListener('click', function(e) {
+                e.stopPropagation();
+                var isOpen = _navMenu.classList.contains('show');
+                if (isOpen) {
+                    _navMenu.classList.remove('show');
+                    _navToggle.setAttribute('aria-expanded', 'false');
+                } else {
+                    _navMenu.classList.add('show');
+                    _navToggle.setAttribute('aria-expanded', 'true');
+                }
+            });
+            // Đóng menu khi click ngoài
+            document.addEventListener('click', function(e) {
+                if (!_navToggle.contains(e.target) && !_navMenu.contains(e.target)) {
+                    _navMenu.classList.remove('show');
+                    _navToggle.setAttribute('aria-expanded', 'false');
+                }
+            });
+        }
+
+        document.querySelectorAll('.alert-success').forEach(function(el) {
+            setTimeout(function() {
+                bootstrap.Alert.getOrCreateInstance(el).close();
+            }, 4000);
+        });
+    </script>
+    <script>
+        // Intercept language links to set lang cookie and persist choice (no rebuild needed)
+        (function(){
+            function setCookie(name, value, days) {
+                var expires = '';
+                if (days) {
+                    var date = new Date();
+                    date.setTime(date.getTime() + (days*24*60*60*1000));
+                    expires = '; expires=' + date.toUTCString();
+                }
+                document.cookie = name + '=' + (value || '')  + expires + '; path=/';
+            }
+
+            document.querySelectorAll('a[href^="/set-language"]').forEach(function(a){
+                a.addEventListener('click', function(e){
+                    try { e.preventDefault(); } catch(_) {}
+                    var href = a.getAttribute('href') || '';
+                    var lang = 'vi';
+                    try {
+                        var parts = href.split('/');
+                        if (parts.length > 2 && parts[1] === 'set-language') lang = parts[2] || lang;
+                        else {
+                            var u = new URL(href, location.origin);
+                            lang = u.searchParams.get('lang') || lang;
+                        }
+                    } catch(_){}
+                    setCookie('lang', lang, 365);
+                    try { localStorage.setItem('app_lang', lang); } catch(_){}
+                    // Notify Flutter if available (optional, non-breaking)
+                    try { if (window.FlutterBridge && FlutterBridge.postMessage) FlutterBridge.postMessage(JSON.stringify({type:'set-language', lang:lang})); } catch(_){}
+                    // small delay to ensure cookie/localStorage are set before navigating
+                    setTimeout(function(){ location.href = href; }, 60);
+                });
+            });
+        })();
+    </script>
+</body>
+</html>

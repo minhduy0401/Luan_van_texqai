@@ -1,0 +1,106 @@
+{% extends 'admin/base.html' %}
+{% block title %}{{ t('Người dùng') }}{% endblock %}
+{% block page_title %}{{ t('Quản lý người dùng') }}{% endblock %}
+
+{% block content %}
+<!-- Filter bar -->
+<div class="filter-bar">
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-md-5">
+            <label class="form-label">{{ t('Tìm kiếm') }}</label>
+            <div class="input-group input-group-sm">
+                <span class="input-group-text" style="border-radius:8px 0 0 8px;background:#f8fafc;"><i class="bi bi-search text-muted"></i></span>
+                <input type="text" name="q" value="{{ q }}" class="form-control" style="border-radius:0 8px 8px 0;"
+                       placeholder="{{ t('Tên, email, username...') }}">
+            </div>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">{{ t('Trạng thái') }}</label>
+            <select name="status" class="form-select form-select-sm">
+                <option value="" {% if not status %}selected{% endif %}>{{ t('Tất cả') }}</option>
+                <option value="active" {% if status=='active' %}selected{% endif %}>{{ t('Đang hoạt động') }}</option>
+                <option value="locked" {% if status=='locked' %}selected{% endif %}>{{ t('Đã khoá') }}</option>
+                <option value="admin" {% if status=='admin' %}selected{% endif %}>Admin</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-sm btn-admin-primary w-100">
+                <i class="bi bi-funnel-fill me-1"></i>{{ t('Lọc') }}
+            </button>
+        </div>
+        {% if q or status %}
+        <div class="col-md-2">
+            <a href="{{ url_for('admin_users') }}" class="btn btn-sm btn-outline-secondary w-100">
+                <i class="bi bi-x me-1"></i>{{ t('Xoá lọc') }}
+            </a>
+        </div>
+        {% endif %}
+    </form>
+</div>
+
+<div class="card-admin">
+    <div class="card-header">
+        <span><i class="bi bi-people me-2" style="color:#6366f1;"></i>{{ users.total }} {{ t('người dùng') }}</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead><tr>
+                <th>ID</th><th>{{ t('Người dùng') }}</th><th>{{ t('Liên hệ') }}</th>
+                <th>{{ t('Credits') }}</th><th>{{ t('Trạng thái') }}</th><th>{{ t('Ngày đăng ký') }}</th><th></th>
+            </tr></thead>
+            <tbody>
+            {% for user in users.items %}
+            <tr>
+                <td class="text-muted" style="font-size:.8rem;">#{{ user.id }}</td>
+                <td>
+                    <div class="d-flex align-items-center gap-2">
+                        <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;flex-shrink:0;">{{ user.display[0]|upper }}</div>
+                        <div>
+                            <div class="fw-semibold" style="line-height:1.3;">{{ user.display }}
+                                {% if user.is_admin %}<span class="badge ms-1" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:.62rem;vertical-align:middle;">ADMIN</span>{% endif %}
+                            </div>
+                            {% if user.username %}<div class="text-muted" style="font-size:.77rem;">@{{ user.username }}</div>{% endif %}
+                        </div>
+                    </div>
+                </td>
+                <td class="text-muted" style="font-size:.82rem;">{{ user.email or '—' }}</td>
+                <td><span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:.76rem;">{{ user.credits }} cr</span></td>
+                <td>
+                    {% if user.is_active %}
+                    <span class="status-pill status-active"><i class="bi bi-circle-fill me-1" style="font-size:.45rem;"></i>{{ t('Hoạt động') }}</span>
+                    {% else %}
+                    <span class="status-pill status-locked"><i class="bi bi-lock-fill me-1" style="font-size:.6rem;"></i>{{ t('Khoá') }}</span>
+                    {% endif %}
+                </td>
+                <td class="text-muted" style="font-size:.81rem;">{{ user.created_at.strftime('%d/%m/%Y') if user.created_at else '' }}</td>
+                <td>
+                    <a href="{{ url_for('admin_user_detail', user_id=user.id) }}"
+                       class="btn btn-sm btn-outline-secondary" style="font-size:.77rem;padding:4px 10px;">{{ t('Chi tiết') }}</a>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-center text-muted py-5">{{ t('Không tìm thấy user nào') }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if users.pages > 1 %}
+    <div class="d-flex justify-content-center py-3" style="border-top:1px solid #f1f5f9;">
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+                {% for p in users.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                {% if p %}
+                <li class="page-item {% if p == users.page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('admin_users', page=p, q=q, status=status) }}">{{ p }}</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+                {% endif %}
+                {% endfor %}
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

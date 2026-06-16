@@ -1,0 +1,175 @@
+{% extends 'admin/base.html' %}
+{% block title %}{{ t('Chi tiết user') }} #{{ user.id }}{% endblock %}
+{% block page_title %}{{ t('Chi tiết người dùng') }}{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="{{ url_for('admin_users') }}" class="btn btn-sm btn-outline-secondary" style="font-size:.8rem;">
+        <i class="bi bi-arrow-left me-1"></i>{{ t('Danh sách người dùng') }}
+    </a>
+</div>
+
+<div class="row g-3">
+    <!-- Left panel -->
+    <div class="col-lg-4">
+        <!-- Profile card -->
+        <div class="card-admin mb-3">
+            <div class="p-4 text-center" style="background:linear-gradient(135deg,#f8f9ff,#ede9fe);border-bottom:1px solid #e8e3ff;">
+                <div class="d-inline-flex align-items-center justify-content-center mb-3"
+                     style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);font-size:1.6rem;color:#fff;font-weight:700;box-shadow:0 4px 16px rgba(99,102,241,.35);">
+                    {{ user.display[0]|upper }}
+                </div>
+                <h5 class="fw-bold mb-1" style="font-size:.98rem;">{{ user.display }}</h5>
+                <div class="d-flex justify-content-center gap-1 flex-wrap">
+                    {% if user.is_admin %}
+                    <span class="badge" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;font-size:.68rem;">ADMIN</span>
+                    {% endif %}
+                    <span class="status-pill {% if user.is_active %}status-active{% else %}status-locked{% endif %}">
+                        {% if user.is_active %}<i class="bi bi-circle-fill me-1" style="font-size:.4rem;"></i>{{ t('Hoạt động') }}{% else %}<i class="bi bi-lock-fill me-1" style="font-size:.6rem;"></i>{{ t('Khoá') }}{% endif %}
+                    </span>
+                </div>
+            </div>
+            <div class="p-4">
+                <div class="small" style="color:#475569;">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <i class="bi bi-envelope" style="width:16px;"></i>
+                        <span>{{ user.email or '—' }}</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <i class="bi bi-at" style="width:16px;"></i>
+                        <span>{{ user.username or '—' }}</span>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-calendar3" style="width:16px;"></i>
+                        <span>{{ user.created_at.strftime('%d/%m/%Y %H:%M') if user.created_at else '—' }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Credits card -->
+        <div class="card-admin mb-3">
+            <div class="card-header">
+                <span><i class="bi bi-coin me-2" style="color:#f59e0b;"></i>Credits</span>
+                <span style="font-size:1.4rem;font-weight:700;color:#5b21b6;">{{ user.credits }}</span>
+            </div>
+            <div class="card-body-pad">
+                <form method="post" action="{{ url_for('admin_adjust_credits', user_id=user.id) }}">
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label">{{ t('Điều chỉnh (±)') }}</label>
+                            <input type="number" name="delta" class="form-control form-control-sm"
+                                   placeholder="{{ t('10 hoặc -5') }}" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">{{ t('Lý do') }}</label>
+                            <input type="text" name="reason" class="form-control form-control-sm" placeholder="{{ t('Bù credits...') }}">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-admin-primary w-100">
+                        <i class="bi bi-pencil-square me-1"></i>{{ t('Cập nhật credits') }}
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Lock/Unlock -->
+        <form method="post" action="{{ url_for('admin_toggle_user', user_id=user.id) }}"
+              onsubmit="return confirm('{{ t('Bạn chắc chắn muốn mở khoá tài khoản này?') if not user.is_active else t('Bạn chắc chắn muốn khoá tài khoản này?') }}')">
+            <button type="submit" class="btn btn-sm w-100 {% if user.is_active %}btn-outline-danger{% else %}btn-outline-success{% endif %}">
+                <i class="bi bi-{{ 'lock' if user.is_active else 'unlock' }}-fill me-1"></i>
+                {{ t('Khoá tài khoản') if user.is_active else t('Mở khoá tài khoản') }}
+            </button>
+        </form>
+
+        {% if not user.is_admin and user.id != current_user.id %}
+        <!-- Delete Account -->
+        <hr style="border-color:#fecaca;margin:14px 0;">
+        <form method="post" action="{{ url_for('admin_delete_user', user_id=user.id) }}"
+              onsubmit="return confirmDelete('{{ user.display|e }}')">
+            <button type="submit" class="btn btn-sm w-100"
+                    style="background:#fef2f2;border:1.5px solid #fca5a5;color:#dc2626;font-weight:600;">
+                <i class="bi bi-trash3-fill me-1"></i>{{ t('Xóa tài khoản') }}
+            </button>
+        </form>
+        <div id="deleteI18n" style="display:none"
+             data-confirm="{{ '⚠️ Delete account \"{name}\"?\\n\\nAll questions, documents and transactions will be permanently deleted.' if current_lang == 'en' else '⚠️ Xóa tài khoản \"{name}\"?\\n\\nToàn bộ câu hỏi, tài liệu và giao dịch sẽ bị xóa vĩnh viễn.' }}"
+             data-prompt="{{ 'Type the exact username \"{name}\" to confirm deletion:' if current_lang == 'en' else 'Nhập chính xác tên tài khoản \"{name}\" để xác nhận xóa:' }}"
+             data-mismatch="{{ 'Username does not match. Cancelled.' if current_lang == 'en' else 'Tên tài khoản không khớp. Đã hủy.' }}">
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Right panel -->
+    <div class="col-lg-8">
+        <!-- Transactions -->
+        <div class="card-admin mb-3">
+            <div class="card-header">
+                <span><i class="bi bi-credit-card me-2" style="color:#3b82f6;"></i>{{ t('Lịch sử giao dịch') }}</span>
+                <span class="text-muted" style="font-size:.78rem;">{{ t('20 gần nhất') }}</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead><tr><th>{{ t('Mã đơn') }}</th><th>{{ t('Số tiền') }}</th><th>{{ t('Credits') }}</th><th>{{ t('Trạng thái') }}</th><th>{{ t('Ngày') }}</th></tr></thead>
+                    <tbody>
+                    {% for txn in txns %}
+                    <tr>
+                        <td style="font-family:monospace;font-size:.78rem;color:#94a3b8;">{{ txn.order_code }}</td>
+                        <td class="fw-semibold" style="color:#059669;">{{ '{:,.0f}'.format(txn.amount_vnd) }}đ</td>
+                        <td><span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:.73rem;">+{{ txn.credits_added }}</span></td>
+                        <td><span class="status-pill status-{{ txn.status }}">{{ t(txn.status) }}</span></td>
+                        <td class="text-muted" style="font-size:.8rem;">{{ txn.created_at.strftime('%d/%m/%Y %H:%M') if txn.created_at else '' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="text-center text-muted py-4">{{ t('Chưa có giao dịch') }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Questions -->
+        <div class="card-admin">
+            <div class="card-header">
+                <span><i class="bi bi-patch-question me-2" style="color:#6366f1;"></i>{{ t('Câu hỏi đã tạo') }}</span>
+                <span class="text-muted" style="font-size:.78rem;">{{ t('20 gần nhất') }}</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead><tr><th>{{ t('Câu hỏi') }}</th><th>Bloom</th><th>{{ t('Thuật toán') }}</th><th>{{ t('Điểm') }}</th></tr></thead>
+                    <tbody>
+                    {% for q in questions %}
+                    <tr>
+                        <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.83rem;">
+                            {{ q.question or '—' }}
+                        </td>
+                        <td style="font-size:.8rem;white-space:nowrap;">{{ q.bloom_level or '—' }}</td>
+                        <td class="text-muted" style="font-size:.8rem;">{{ q.algorithm or '—' }}</td>
+                        <td class="fw-semibold" style="font-size:.83rem;">{{ q.total_points or 0 }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" class="text-center text-muted py-4">{{ t('Chưa có câu hỏi') }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function confirmDelete(username) {
+    const el = document.getElementById('deleteI18n');
+    const confirmMsg = el ? el.dataset.confirm.replace('{name}', username) : '⚠️ Delete "' + username + '"?';
+    const promptMsg  = el ? el.dataset.prompt.replace('{name}', username)  : 'Type username to confirm:';
+    const mismatch   = el ? el.dataset.mismatch : 'Username does not match.';
+    if (!confirm(confirmMsg)) return false;
+    const typed = prompt(promptMsg);
+    if (typed !== username) { alert(mismatch); return false; }
+    return true;
+}
+</script>
+{% endblock %}

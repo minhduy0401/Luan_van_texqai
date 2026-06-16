@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+{% block extra_head %}
+<style>
+  .page-title-strong {
+    color: #0b84ff; /* xanh nổi bật */
+    text-shadow: 0 1px 0 rgba(11,132,255,0.08), 0 2px 8px rgba(2,6,23,0.08);
+    letter-spacing: 0.2px;
+  }
+  @media (max-width: 576px) {
+    .page-title-strong { font-size: 1.1rem; }
+  }
+  /* Compact buy-more button variant for in-app WebView */
+  .btn-buy-more {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  .btn-buy-more .bi { font-size: 1rem; }
+  /* Specific styling for the payment-history buy button */
+  .btn-buy-more {
+    background: linear-gradient(135deg, #a9f3ff 0%, #3e6fff 100%);
+    color: #042a4a;
+    border: 1px solid rgba(11,132,255,0.12);
+    border-radius: 14px;
+    padding: .6rem .9rem;
+    box-shadow: 0 6px 18px rgba(11,132,255,0.08);
+    min-width: 140px;
+    justify-content: center;
+  }
+  .btn-buy-more .bi { color: rgba(4,42,74,0.9); }
+
+  .btn-buy-more.btn-compact {
+    padding: .35rem .6rem !important;
+    font-size: .88rem !important;
+    border-radius: 12px !important;
+    line-height: 1;
+    white-space: nowrap;
+    min-width: auto;
+    box-shadow: 0 4px 12px rgba(15,23,42,0.05);
+  }
+  @media (max-width: 420px) {
+    .btn-buy-more.btn-compact { font-size: .82rem !important; padding: .3rem .5rem !important; }
+  }
+</style>
+{% endblock %}
+
+
+{% block content %}
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-10">
+      <div class="d-flex align-items-center justify-content-between mb-4">
+        <h4 class="fw-bold page-title-strong mb-0"><i class="bi bi-receipt me-2"></i>{{ t('Lịch sử giao dịch') }}</h4>
+        <a href="/pricing" class="btn btn-light btn-sm btn-buy-more">
+          <i class="bi bi-plus-circle me-1"></i><span class="btn-buy-text">{{ t('Mua thêm credits') }}</span>
+        </a>
+      </div>
+
+      <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+          {% if transactions %}
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th class="ps-4">{{ t('Mã đơn') }}</th>
+                  <th>{{ t('Gói') }}</th>
+                  <th>{{ t('Credits') }}</th>
+                  <th>{{ t('Số tiền') }}</th>
+                  <th>{{ t('Trạng thái') }}</th>
+                  <th>{{ t('Thời gian') }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for txn in transactions %}
+                <tr>
+                  <td class="ps-4 font-monospace text-muted small">{{ txn.order_code }}</td>
+                  <td>
+                    {% if txn.package %}{{ txn.package.name }}
+                    {% else %}—{% endif %}
+                  </td>
+                  <td>
+                    <span class="fw-bold text-primary">+{{ txn.credits_added }}</span>
+                  </td>
+                  <td>{{ '{:,.0f}'.format(txn.amount_vnd) }}đ</td>
+                  <td>
+                    {% if txn.status == 'paid' %}
+                      <span class="badge bg-success">{{ t('Thành công') }}</span>
+                    {% elif txn.status == 'pending' %}
+                      <span class="badge bg-warning text-dark">{{ t('Chờ thanh toán') }}</span>
+                    {% elif txn.status == 'cancelled' %}
+                      <span class="badge bg-secondary">{{ t('Đã huỷ') }}</span>
+                    {% else %}
+                      <span class="badge bg-danger">{{ t('Thất bại') }}</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-muted small">
+                    {{ txn.created_at.strftime('%d/%m/%Y %H:%M') if txn.created_at else '—' }}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center py-5 text-muted">
+            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+            {{ t('Chưa có giao dịch nào') }}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Nếu mở trong app TEXTQAI (Flutter WebView), thu gọn nút "Mua thêm credits"
+if (/TEXTQAI/.test(navigator.userAgent)) {
+  var b = document.querySelector('.btn-buy-more');
+  if (b) b.classList.add('btn-compact');
+}
+</script>
+{% endblock %}

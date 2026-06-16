@@ -1,0 +1,799 @@
+{% extends 'admin/base.html' %}
+{% block title %}{{ t('Cài đặt hệ thống') }}{% endblock %}
+{% block page_title %}{{ t('Cài đặt hệ thống') }}{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+
+    <!-- General settings -->
+    <div class="col-lg-6">
+        <div class="card-admin h-100 d-flex flex-column">
+            <div class="card-header">
+                <span><i class="bi bi-sliders me-2" style="color:#6366f1;"></i>{{ t('Cài đặt chung') }}</span>
+            </div>
+            <div class="card-body-pad d-flex flex-column flex-grow-1">
+                <form method="post" class="d-flex flex-column flex-grow-1 justify-content-between">
+                    <input type="hidden" name="action" value="general">
+
+                    <div>
+                        <div class="mb-4">
+                            <label class="form-label">{{ t('Cho phép đăng ký mới') }}</label>
+                            <div class="d-flex align-items-center gap-3 mt-1">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="allow_register" value="1" {%
+                                        if settings.allow_register=='1' %}checked{% endif %} role="switch"
+                                        id="swRegister" style="width:2.4em;height:1.3em;cursor:pointer;">
+                                </div>
+                                <label for="swRegister" class="text-muted" style="font-size:.83rem;cursor:pointer;">
+                                    {% if settings.allow_register == '1' %}
+                                    <span class="status-pill status-active">{{ t('Cho phép') }}</span>
+                                    {% else %}
+                                    <span class="status-pill status-locked">{{ t('Tắt') }}</span>
+                                    {% endif %}
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label">{{ t('Credits tặng khi đăng ký') }}</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <input type="number" name="default_credits" class="form-control form-control-sm"
+                                    value="{{ settings.default_credits }}" min="0" max="1000" style="max-width:110px;">
+                                <span class="text-muted" style="font-size:.8rem;">{{ t('credits / tài khoản mới') }}</span>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label">{{ t('Bật OCR') }}</label>
+                            <div class="d-flex align-items-center gap-3 mt-1">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="enable_ocr" value="1" {% if
+                                        settings.enable_ocr=='1' %}checked{% endif %} role="switch" id="swOCR"
+                                        style="width:2.4em;height:1.3em;cursor:pointer;">
+                                </div>
+                                <label for="swOCR" class="text-muted" style="font-size:.83rem;cursor:pointer;">{{ t('Nhận dạng PDF scan (tesseract)') }}</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <button type="submit" class="btn btn-sm btn-admin-primary px-4 w-100">
+                            <i class="bi bi-check2 me-1"></i>{{ t('Lưu cài đặt chung') }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Model -->
+    <div class="col-lg-6">
+        <div class="card-admin h-100">
+            <style>
+                .ai-tabs .nav-link {
+                    color: var(--muted);
+                    font-weight: 500;
+                    border: 1px solid transparent;
+                    transition: all 0.18s ease-in-out;
+                    border-radius: 6px;
+                }
+
+                .ai-tabs .nav-link:hover {
+                    color: var(--text);
+                    background-color: rgba(0, 0, 0, 0.02);
+                }
+
+                .ai-tabs .nav-link.active {
+                    background-color: var(--accent-bg) !important;
+                    color: var(--accent) !important;
+                    font-weight: 600;
+                    border-color: rgba(99, 102, 241, 0.18);
+                }
+
+                .ai-badge-active {
+                    animation: pulse 2s infinite;
+                }
+
+                @keyframes pulse {
+                    0% {
+                        opacity: 0.7;
+                    }
+
+                    50% {
+                        opacity: 1;
+                    }
+
+                    100% {
+                        opacity: 0.7;
+                    }
+                }
+            </style>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-cpu me-2" style="color:#8b5cf6;"></i>{{ t('Cấu hình model AI') }}</span>
+                <div class="d-flex align-items-center gap-1.5 flex-wrap">
+                    {% if settings.active_ai_provider == 'openrouter' or not settings.active_ai_provider %}
+                    <span class="status-pill status-active ai-badge-active"><i
+                            class="bi bi-broadcast me-1"></i>OpenRouter</span>
+                    {% elif settings.active_ai_provider == 'openai' %}
+                    <span class="status-pill status-active ai-badge-active" style="background:#dbeafe;color:#1e40af;"><i
+                            class="bi bi-openai me-1"></i>OpenAI</span>
+                    {% elif settings.active_ai_provider == 'gemini' %}
+                    <span class="status-pill status-active ai-badge-active" style="background:#e0f2fe;color:#0369a1;"><i
+                            class="bi bi-google me-1"></i>Gemini API</span>
+                    {% endif %}
+                    <span class="badge bg-secondary font-monospace" style="font-size:0.75rem;"><i
+                            class="bi bi-robot me-1"></i>Model: {{ settings.ai_model }}</span>
+                </div>
+            </div>
+            <div class="card-body-pad">
+                <form method="post">
+                    <input type="hidden" name="action" value="ai_model">
+
+                    <!-- Provider Tabs Header -->
+                    <div class="mb-3 d-flex justify-content-between align-items-center">
+                        <label class="form-label mb-0">{{ t('Thiết lập Model & API Key theo từng cổng') }}</label>
+                    </div>
+
+                    <ul class="nav nav-pills ai-tabs mb-3 p-1 bg-light rounded" id="aiProviderTabs" role="tablist"
+                        style="font-size:0.8rem; border: 1px solid var(--border);">
+                        <li class="nav-item flex-fill" role="presentation">
+                            <button
+                                class="nav-link w-100 py-1.5 {% if settings.active_ai_provider == 'openrouter' or not settings.active_ai_provider %}active{% endif %}"
+                                id="tab-openrouter" data-bs-toggle="pill" data-bs-target="#pane-openrouter"
+                                type="button" role="tab" aria-controls="pane-openrouter" aria-selected="true">
+                                <i class="bi bi-clouds me-1"></i>OpenRouter
+                            </button>
+                        </li>
+                        <li class="nav-item flex-fill" role="presentation">
+                            <button
+                                class="nav-link w-100 py-1.5 {% if settings.active_ai_provider == 'openai' %}active{% endif %}"
+                                id="tab-openai" data-bs-toggle="pill" data-bs-target="#pane-openai" type="button"
+                                role="tab" aria-controls="pane-openai" aria-selected="false">
+                                <i class="bi bi-openai me-1"></i>OpenAI
+                            </button>
+                        </li>
+                        <li class="nav-item flex-fill" role="presentation">
+                            <button
+                                class="nav-link w-100 py-1.5 {% if settings.active_ai_provider == 'gemini' %}active{% endif %}"
+                                id="tab-gemini" data-bs-toggle="pill" data-bs-target="#pane-gemini" type="button"
+                                role="tab" aria-controls="pane-gemini" aria-selected="false">
+                                <i class="bi bi-google me-1"></i>Gemini
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content border rounded p-3 bg-white mb-2" id="aiProviderTabContent"
+                        style="font-size:0.82rem; border-color: var(--border) !important;">
+                        <!-- PANE: OpenRouter -->
+                        <div class="tab-pane fade {% if settings.active_ai_provider == 'openrouter' or not settings.active_ai_provider %}show active{% endif %}"
+                            id="pane-openrouter" role="tabpanel" aria-labelledby="tab-openrouter">
+                            <div class="text-muted mb-3" style="font-size:0.77rem; line-height: 1.45;">
+                                {{ t('Hỗ trợ hàng trăm model mã nguồn mở/đóng. Tương thích tốt với các model dạng') }}
+                                <code>google/gemini-2.5-flash-lite</code>, <code>openai/gpt-4o-mini</code>,...
+                            </div>
+
+                            <!-- Model Name -->
+                            <div class="mb-3">
+                                <label class="form-label">{{ t('Model sử dụng (OpenRouter)') }}</label>
+                                <input type="text" name="openrouter_model"
+                                    class="form-control form-control-sm font-monospace"
+                                    value="{{ settings.openrouter_model }}" list="suggestions-openrouter"
+                                    placeholder="google/gemini-2.5-flash-lite" autocomplete="off">
+                                <datalist id="suggestions-openrouter">
+                                    <option value="google/gemini-2.5-flash-lite">google/gemini-2.5-flash-lite
+                                        (~$0.075/1M)</option>
+                                    <option value="google/gemini-2.0-flash-lite">google/gemini-2.0-flash-lite
+                                        (~$0.075/1M)</option>
+                                    <option value="google/gemini-2.5-flash">google/gemini-2.5-flash (~$0.15/1M)</option>
+                                    <option value="openai/gpt-4o-mini">openai/gpt-4o-mini (~$0.15/1M)</option>
+                                    <option value="deepseek/deepseek-chat-v3-0324">deepseek/deepseek-chat-v3-0324
+                                        (~$0.27/1M)</option>
+                                    <option value="meta-llama/llama-4-scout">meta-llama/llama-4-scout (~$0.08/1M)
+                                    </option>
+                                </datalist>
+                            </div>
+
+                            <!-- API Key -->
+                            <div class="mb-3">
+                                <label class="form-label">{{ t('API Key OpenRouter') }}</label>
+                                <input type="password" name="openrouter_api_key"
+                                    class="form-control form-control-sm font-monospace"
+                                    value="{{ settings.openrouter_api_key or '' }}" placeholder="sk-or-v1-...">
+                            </div>
+                            <button type="submit" name="activate_provider" value="openrouter"
+                                class="btn btn-sm btn-admin-primary px-3 w-100">
+                                <i class="bi bi-check2-circle me-1"></i>{{ t('Kích hoạt & Lưu OpenRouter') }}
+                            </button>
+                        </div>
+
+                        <!-- PANE: OpenAI -->
+                        <div class="tab-pane fade {% if settings.active_ai_provider == 'openai' %}show active{% endif %}"
+                            id="pane-openai" role="tabpanel" aria-labelledby="tab-openai">
+                            <div class="text-muted mb-3" style="font-size:0.77rem; line-height: 1.45;">
+                                {{ t('Kết nối trực tiếp đến OpenAI API. Sử dụng cho các model gốc như') }}
+                                <code>gpt-4o-mini</code>, <code>gpt-4o</code>,...
+                            </div>
+
+                            <!-- Model Name -->
+                            <div class="mb-3">
+                                <label class="form-label">{{ t('Model sử dụng (OpenAI)') }}</label>
+                                <input type="text" name="openai_model"
+                                    class="form-control form-control-sm font-monospace"
+                                    value="{{ settings.openai_model }}" list="suggestions-openai"
+                                    placeholder="gpt-4o-mini" autocomplete="off">
+                                <datalist id="suggestions-openai">
+                                    <option value="gpt-4o-mini">gpt-4o-mini</option>
+                                    <option value="gpt-4o">gpt-4o</option>
+                                </datalist>
+                            </div>
+
+                            <!-- API Key -->
+                            <div class="mb-3">
+                                <label class="form-label">{{ t('API Key OpenAI') }}</label>
+                                <input type="password" name="openai_api_key"
+                                    class="form-control form-control-sm font-monospace"
+                                    value="{{ settings.openai_api_key or '' }}" placeholder="sk-proj-...">
+                            </div>
+                            <button type="submit" name="activate_provider" value="openai"
+                                class="btn btn-sm btn-admin-primary px-3 w-100" style="background:#2563eb;">
+                                <i class="bi bi-check2-circle me-1"></i>{{ t('Kích hoạt & Lưu OpenAI') }}
+                            </button>
+                        </div>
+
+                        <!-- PANE: Gemini -->
+                        <div class="tab-pane fade {% if settings.active_ai_provider == 'gemini' %}show active{% endif %}"
+                            id="pane-gemini" role="tabpanel" aria-labelledby="tab-gemini">
+                            <div class="text-muted mb-3" style="font-size:0.77rem; line-height: 1.45;">
+                                {{ t('API Google Gemini trực tiếp (qua endpoint tương thích OpenAI). Nhanh, rẻ, phù hợp với') }}
+                                <code>gemini-2.5-flash</code>, <code>gemini-2.5-flash-lite</code>,...
+                            </div>
+
+                            <!-- Model Name -->
+                            <div class="mb-3">
+                                <label class="form-label">{{ t('Model sử dụng (Gemini API)') }}</label>
+                                <input type="text" name="gemini_model"
+                                    class="form-control form-control-sm font-monospace"
+                                    value="{{ settings.gemini_model }}" list="suggestions-gemini"
+                                    placeholder="gemini-2.5-flash" autocomplete="off">
+                                <datalist id="suggestions-gemini">
+                                    <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+                                    <option value="gemini-2.5-flash-lite">gemini-2.5-flash-lite</option>
+                                    <option value="gemini-2.0-flash-exp">gemini-2.0-flash-exp</option>
+                                </datalist>
+                            </div>
+
+                            <!-- API Key -->
+                            <div class="mb-3">
+                                <label class="form-label">{{ t('API Key Gemini') }}</label>
+                                <input type="password" name="gemini_api_key"
+                                    class="form-control form-control-sm font-monospace"
+                                    value="{{ settings.gemini_api_key or '' }}" placeholder="AIzaSy...">
+                            </div>
+                            <button type="submit" name="activate_provider" value="gemini"
+                                class="btn btn-sm btn-admin-primary px-3 w-100" style="background:#0284c7;">
+                                <i class="bi bi-check2-circle me-1"></i>{{ t('Kích hoạt & Lưu Gemini API') }}
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Credit packages -->
+    <div class="col-12">
+        <div class="card-admin">
+            <div class="card-header">
+                <span><i class="bi bi-tags me-2" style="color:#f59e0b;"></i>{{ t('Quản lý gói credit lẻ') }}</span>
+                <span class="text-muted" style="font-size:.78rem;">{{ packages|length }} {{ t('gói') }}</span>
+            </div>
+            <div class="card-body-pad">
+                <div class="table-responsive mb-4">
+                    <table class="table table-hover align-middle mb-0" id="pkg-table">
+                        <thead>
+                            <tr>
+                                <th>{{ t('Tên gói') }}</th>
+                                <th>Credits</th>
+                                <th>{{ t('Giá (VNĐ)') }}</th>
+                                <th>{{ t('Phổ biến') }}</th>
+                                <th>{{ t('Trạng thái') }}</th>
+                                <th style="min-width:160px;">{{ t('Hành động') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pkg in packages %}
+                            <tr id="row-{{ pkg.id }}" class="{% if not pkg.is_active %}opacity-50{% endif %}">
+                                <td class="fw-semibold">{{ pkg.name }}</td>
+                                <td><span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:.76rem;">{{
+                                        pkg.credits }} cr</span></td>
+                                <td class="fw-semibold" style="color:#059669;">{{ '{:,.0f}'.format(pkg.price_vnd) }}đ
+                                </td>
+                                <td>
+                                    {% if pkg.is_popular %}
+                                    <span class="badge" style="background:#fef3c7;color:#92400e;">{{ t('Phỏ bién') }}</span>
+                                    {% else %}<span class="text-muted">—</span>{% endif %}
+                                </td>
+                                <td>
+                                    <span
+                                        class="status-pill {% if pkg.is_active %}status-active{% else %}status-cancelled{% endif %}">
+                                        {{ t('Hiển thị') if pkg.is_active else t('Ẩn') }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        <button type="button" onclick="toggleEdit({{ pkg.id }})" class="btn btn-sm"
+                                            style="background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;font-size:.76rem;padding:3px 10px;">
+                                            <i class="bi bi-pencil me-1"></i>{{ t('Sủa') }}
+                                        </button>
+                                        <form method="post">
+                                            <input type="hidden" name="action" value="package">
+                                            <input type="hidden" name="pkg_action" value="toggle">
+                                            <input type="hidden" name="pkg_id" value="{{ pkg.id }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary"
+                                                style="font-size:.76rem;padding:3px 10px;">{{ t('Ẩn') if pkg.is_active else
+                                                t('Hiện') }}</button>
+                                        </form>
+                                        <form method="post" onsubmit="return confirm('{{ t('Xoá gói này?') }}')">
+                                            <input type="hidden" name="action" value="package">
+                                            <input type="hidden" name="pkg_action" value="delete">
+                                            <input type="hidden" name="pkg_id" value="{{ pkg.id }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                style="font-size:.76rem;padding:3px 10px;"><i
+                                                    class="bi bi-trash"></i></button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr id="edit-{{ pkg.id }}" style="display:none;background:#f8f9ff;">
+                                <td colspan="6" class="p-3">
+                                    <form method="post" class="row g-2 align-items-end">
+                                        <input type="hidden" name="action" value="package">
+                                        <input type="hidden" name="pkg_action" value="edit">
+                                        <input type="hidden" name="pkg_id" value="{{ pkg.id }}">
+                                        <div class="col-md-3">
+                                            <label class="form-label" style="font-size:.78rem;">{{ t('Tên gói') }}</label>
+                                            <input type="text" name="pkg_name" class="form-control form-control-sm"
+                                                value="{{ pkg.name }}" required>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label" style="font-size:.78rem;">Credits</label>
+                                            <input type="number" name="pkg_credits" class="form-control form-control-sm"
+                                                value="{{ pkg.credits }}" min="1" required>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label" style="font-size:.78rem;">{{ t('Giá (VNĐ)') }}</label>
+                                            <input type="number" name="pkg_price" class="form-control form-control-sm"
+                                                value="{{ pkg.price_vnd }}" min="1000" required>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <div class="form-check mt-4">
+                                                <input class="form-check-input" type="checkbox" name="pkg_popular"
+                                                    id="pop-{{ pkg.id }}" {% if pkg.is_popular %}checked{% endif %}>
+                                                <label class="form-check-label" for="pop-{{ pkg.id }}"
+                                                    style="font-size:.82rem;">{{ t('Phỏ bién') }}</label>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="d-flex gap-1">
+                                                <button type="submit" class="btn btn-sm btn-admin-primary flex-fill">
+                                                    <i class="bi bi-check2 me-1"></i>{{ t('Lưu') }}
+                                                </button>
+                                                <button type="button" onclick="toggleEdit({{ pkg.id }})"
+                                                    class="btn btn-sm btn-outline-secondary">
+                                                    {{ t('Hủy') }}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">{{ t('Chưa có gói nào.') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="p-3 rounded" style="background:#f8fafc;border:1px solid #e2e8f0;">
+                    <div class="fw-semibold mb-3" style="font-size:.85rem;"><i class="bi bi-plus-circle me-1"
+                            style="color:#6366f1;"></i>{{ t('Thêm gói mới') }}</div>
+                    <form method="post">
+                        <input type="hidden" name="action" value="package">
+                        <input type="hidden" name="pkg_action" value="add">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label">{{ t('Tên gói') }}</label>
+                                <input type="text" name="pkg_name" class="form-control form-control-sm"
+                                    placeholder="{{ t('Vd: Pro Max') }}" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Credits</label>
+                                <input type="number" name="pkg_credits" class="form-control form-control-sm"
+                                    placeholder="500" min="1" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">{{ t('Giá (VNĐ)') }}</label>
+                                <input type="number" name="pkg_price" class="form-control form-control-sm"
+                                    placeholder="90000" min="1000" required>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="form-check mt-4">
+                                    <input class="form-check-input" type="checkbox" name="pkg_popular" id="pkgPopular">
+                                    <label class="form-check-label" style="font-size:.82rem;" for="pkgPopular">{{ t('Phỏ bién') }}</label>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <button type="submit" class="btn btn-admin-primary btn-sm w-100">
+                                    <i class="bi bi-plus me-1"></i>{{ t('Thêm gói') }}
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Subscription packages -->
+    <div class="col-12">
+        <div class="card-admin">
+            <div class="card-header">
+                <span><i class="bi bi-calendar-check me-2" style="color:#06b6d4;"></i>{{ t('Quản lý gói thuê bao') }}</span>
+                <span class="text-muted" style="font-size:.78rem;">{{ sub_packages|length }} {{ t('gói') }}</span>
+            </div>
+            <div class="card-body-pad">
+                <div class="table-responsive mb-4">
+                    <table class="table table-hover align-middle mb-0" id="sub-table">
+                        <thead>
+                            <tr>
+                                <th>{{ t('Tên gói') }}</th>
+                                <th>Credits</th>
+                                <th>{{ t('Giá (VNĐ)') }}</th>
+                                <th>{{ t('Chu kỳ') }}</th>
+                                <th>{{ t('Trạng thái') }}</th>
+                                <th style="min-width:160px;">{{ t('Hành động') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sub in sub_packages %}
+                            <tr id="subrow-{{ sub.id }}" class="{% if not sub.is_active %}opacity-50{% endif %}">
+                                <td class="fw-semibold">{{ sub.name }}</td>
+                                <td><span class="badge" style="background:#cffafe;color:#0e7490;font-size:.76rem;">{{
+                                        sub.credits }} cr</span></td>
+                                <td class="fw-semibold" style="color:#059669;">{{ '{:,.0f}'.format(sub.price_vnd) }}đ
+                                </td>
+                                <td><span class="text-muted" style="font-size:.82rem;">{{ t(sub.period) }}</span></td>
+                                <td>
+                                    <span
+                                        class="status-pill {% if sub.is_active %}status-active{% else %}status-cancelled{% endif %}">
+                                        {{ t('Hiển thị') if sub.is_active else t('Ẩn') }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="d-flex gap-1">
+                                        <button type="button" onclick="toggleSubEdit({{ sub.id }})" class="btn btn-sm"
+                                            style="background:#ecfeff;color:#0891b2;border:1px solid #a5f3fc;font-size:.76rem;padding:3px 10px;">
+                                            <i class="bi bi-pencil me-1"></i>{{ t('Sửa') }}
+                                        </button>
+                                        <form method="post">
+                                            <input type="hidden" name="action" value="sub_package">
+                                            <input type="hidden" name="sub_action" value="toggle">
+                                            <input type="hidden" name="sub_id" value="{{ sub.id }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary"
+                                                style="font-size:.76rem;padding:3px 10px;">{{ t('Ẩn') if sub.is_active else
+                                                t('Hiện') }}</button>
+                                        </form>
+                                        <form method="post" onsubmit="return confirm('{{ t('Xoá gói này?') }}')">
+                                            <input type="hidden" name="action" value="sub_package">
+                                            <input type="hidden" name="sub_action" value="delete">
+                                            <input type="hidden" name="sub_id" value="{{ sub.id }}">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger"
+                                                style="font-size:.76rem;padding:3px 10px;"><i
+                                                    class="bi bi-trash"></i></button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr id="subedit-{{ sub.id }}" style="display:none;background:#f0fdfe;">
+                                <td colspan="6" class="p-3">
+                                    <form method="post" class="row g-2 align-items-end">
+                                        <input type="hidden" name="action" value="sub_package">
+                                        <input type="hidden" name="sub_action" value="edit">
+                                        <input type="hidden" name="sub_id" value="{{ sub.id }}">
+                                        <div class="col-md-3">
+                                            <label class="form-label" style="font-size:.78rem;">{{ t('Tên gói') }}</label>
+                                            <input type="text" name="sub_name" class="form-control form-control-sm"
+                                                value="{{ sub.name }}" required>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label" style="font-size:.78rem;">Credits</label>
+                                            <input type="number" name="sub_credits" class="form-control form-control-sm"
+                                                value="{{ sub.credits }}" min="1" required>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label" style="font-size:.78rem;">{{ t('Giá (VNĐ)') }}</label>
+                                            <input type="number" name="sub_price" class="form-control form-control-sm"
+                                                value="{{ sub.price_vnd }}" min="1000" required>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label" style="font-size:.78rem;">{{ t('Chu kỳ') }}</label>
+                                            <input type="text" name="sub_period" class="form-control form-control-sm"
+                                                value="{{ sub.period }}">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="d-flex gap-1">
+                                                <button type="submit" class="btn btn-sm btn-admin-primary flex-fill">
+                                                    <i class="bi bi-check2 me-1"></i>{{ t('Lưu') }}
+                                                </button>
+                                                <button type="button" onclick="toggleSubEdit({{ sub.id }})"
+                                                    class="btn btn-sm btn-outline-secondary">
+                                                    {{ t('Hủy') }}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">{{ t('Chưa có gói nào.') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="p-3 rounded" style="background:#f0fdfe;border:1px solid #a5f3fc;">
+                    <div class="fw-semibold mb-3" style="font-size:.85rem;"><i class="bi bi-plus-circle me-1"
+                            style="color:#06b6d4;"></i>{{ t('Thêm gói thuê bao') }}</div>
+                    <form method="post">
+                        <input type="hidden" name="action" value="sub_package">
+                        <input type="hidden" name="sub_action" value="add">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label">{{ t('Tên gói') }}</label>
+                                <input type="text" name="sub_name" class="form-control form-control-sm"
+                                    placeholder="{{ t('Vd: Doanh nghiệp') }}" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Credits</label>
+                                <input type="number" name="sub_credits" class="form-control form-control-sm"
+                                    placeholder="500" min="1" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">{{ t('Giá (VNĐ)') }}</label>
+                                <input type="number" name="sub_price" class="form-control form-control-sm"
+                                    placeholder="89000" min="1000" required>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">{{ t('Chu kỳ') }}</label>
+                                <input type="text" name="sub_period" class="form-control form-control-sm" value="tháng"
+                                    placeholder="{{ t('tháng') }}">
+                            </div>
+                            <div class="col-md-3">
+                                <button type="submit" class="btn btn-sm w-100" style="background:#06b6d4;color:#fff;">
+                                    <i class="bi bi-plus me-1"></i>{{ t('Thêm gói') }}
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Ngân hàng -->
+<div class="row g-3 mt-0">
+    <div class="col-12">
+        <div class="card-admin">
+            <div class="card-header">
+                <span><i class="bi bi-bank me-2" style="color:#10b981;"></i>{{ t('Cài đặt thanh toán (Ngân hàng)') }}</span>
+            </div>
+            <div class="card-body-pad">
+                <form method="post">
+                    <input type="hidden" name="action" value="payment">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">{{ t('Tên ngân hàng') }}</label>
+                            <input type="text" name="bank_name" class="form-control form-control-sm"
+                                value="{{ settings.bank_name or '' }}" placeholder="Vietcombank">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">{{ t('BIN ngân hàng (VietQR)') }}
+                                <a href="https://api.vietqr.io/v2/banks" target="_blank" class="ms-1 text-muted"
+                                    style="font-size:.75rem;"><i class="bi bi-box-arrow-up-right"></i></a>
+                            </label>
+                            <input type="text" name="bank_bin" class="form-control form-control-sm font-monospace"
+                                value="{{ settings.bank_bin or '' }}" placeholder="970436">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">{{ t('Số tài khoản') }}</label>
+                            <input type="text" name="bank_account" class="form-control form-control-sm font-monospace"
+                                value="{{ settings.bank_account or '' }}" placeholder="1234567890">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ t('Tên chủ tài khoản') }}</label>
+                            <input type="text" name="bank_holder" class="form-control form-control-sm text-uppercase"
+                                value="{{ settings.bank_holder or '' }}" placeholder="NGUYEN VAN A">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ t('Chi nhánh (không bắt buộc)') }}</label>
+                            <input type="text" name="bank_branch" class="form-control form-control-sm"
+                                value="{{ settings.bank_branch or '' }}" placeholder="HCM">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ t('Cổng thanh toán VNPAY') }}</label>
+                            <div class="d-flex align-items-center gap-3 mt-1">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="enable_vnpay" value="1" {% if
+                                        settings.enable_vnpay=='1' %}checked{% endif %} role="switch" id="swVNPAY"
+                                        style="width:2.4em;height:1.3em;cursor:pointer;">
+                                </div>
+                                <label for="swVNPAY" class="text-muted" style="font-size:.83rem;cursor:pointer;">
+                                    {% if settings.enable_vnpay == '1' %}
+                                    <span class="status-pill status-active">{{ t('Bật') }}</span>
+                                    {% else %}
+                                    <span class="status-pill status-locked">{{ t('Ẩn') }}</span>
+                                    {% endif %}
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ t('Sepay - VietQR') }}</label>
+                            <div class="d-flex align-items-center gap-3 mt-1">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="enable_bank_transfer"
+                                        value="1" {% if settings.enable_bank_transfer=='1' %}checked{% endif %}
+                                        role="switch" id="swBankTransfer"
+                                        style="width:2.4em;height:1.3em;cursor:pointer;">
+                                </div>
+                                <label for="swBankTransfer" class="text-muted" style="font-size:.83rem;cursor:pointer;">
+                                    {% if settings.enable_bank_transfer == '1' %}
+                                    <span class="status-pill status-active">{{ t('Bật') }}</span>
+                                    {% else %}
+                                    <span class="status-pill status-locked">{{ t('Ẩn') }}</span>
+                                    {% endif %}
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-sm btn-admin-primary">
+                                <i class="bi bi-save me-1"></i>{{ t('Lưu cài đặt thanh toán') }}
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bảo mật & Captcha -->
+<div class="row g-3 mt-3">
+    <div class="col-12">
+        <div class="card-admin">
+            <div class="card-header">
+                <span><i class="bi bi-shield-lock me-2" style="color:#ef4444;"></i>{{ t('Cấu hình Bảo mật & Captcha') }}</span>
+            </div>
+            <div class="card-body-pad">
+                <form method="post">
+                    <input type="hidden" name="action" value="security">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">{{ t('Cho phép người dùng tự khôi phục mật khẩu') }}</label>
+                            <div class="d-flex align-items-center gap-3 mt-1">
+                                <div class="form-check form-switch mb-0">
+                                    <input class="form-check-input" type="checkbox" name="allow_forgot_password"
+                                        value="1" {% if settings.allow_forgot_password=='1' %}checked{% endif %}
+                                        role="switch" id="swForgot" style="width:2.4em;height:1.3em;cursor:pointer;">
+                                </div>
+                                <label for="swForgot" class="text-muted" style="font-size:.83rem;cursor:pointer;">
+                                    {% if settings.allow_forgot_password == '1' %}
+                                    <span class="status-pill status-active">{{ t('Bật') }}</span>
+                                    {% else %}
+                                    <span class="status-pill status-locked">{{ t('Tắt') }}</span>
+                                    {% endif %}
+                                </label>
+                            </div>
+                            <div class="form-text mt-2">{{ t('Cho phép hiển thị liên kết "Quên mật khẩu?" tại trang đăng nhập và truy cập trang đặt lại mật khẩu bằng Username & Email.') }}</div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">{{ t('Google reCAPTCHA Type') }}</label>
+                            <select name="captcha_type" class="form-select form-select-sm" style="max-width:300px;">
+                                <option value="none" {% if settings.captcha_type=='none' %}selected{% endif %}>{{ t('Không sử dụng (Tắt)') }}</option>
+                                <option value="v2" {% if settings.captcha_type=='v2' %}selected{% endif %}>{{ t('reCAPTCHA v2 – Checkbox (Hiện hộp tích)') }}</option>
+                                <option value="v2_invisible" {% if settings.captcha_type=='v2_invisible' %}selected{% endif %}>{{ t('reCAPTCHA v2 – Invisible (Ẩn hoàn toàn)') }}</option>
+                                <option value="v3" {% if settings.captcha_type=='v3' %}selected{% endif %}>{{ t('reCAPTCHA v3 – Score (Chạy ẩn, cho điểm)') }}</option>
+                            </select>
+                            <div class="form-text">{{ t('Bảo vệ các form Đăng nhập, Đăng ký, Quên mật khẩu khỏi tấn công Brute-force & Bot spam.') }} <strong>v2 Invisible</strong>: dùng cùng Site Key với v2 Checkbox nhưng không hiện hộp tích — tự chạy ẩn khi submit.</div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">{{ t('Google reCAPTCHA Site Key') }}</label>
+                            <input type="text" name="recaptcha_site_key"
+                                class="form-control form-control-sm font-monospace"
+                                value="{{ settings.recaptcha_site_key or '' }}" placeholder="{{ t('Nhập Google Site Key') }}">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">{{ t('Google reCAPTCHA Secret Key') }}</label>
+                            <input type="password" name="recaptcha_secret_key"
+                                class="form-control form-control-sm font-monospace"
+                                value="{{ settings.recaptcha_secret_key or '' }}" placeholder="{{ t('Nhập Google Secret Key') }}">
+                        </div>
+
+                        <div class="col-12 mt-4">
+                            <h6 class="fw-bold text-dark border-bottom pb-2" style="font-size: .88rem;"><i
+                                    class="bi bi-envelope-at me-2" style="color:#0ea5e9;"></i>{{ t('Cấu hình Máy chủ Gửi Mail (SMTP)') }}</h6>
+                            <div class="form-text mb-3">{{ t('Hệ thống sẽ gửi mật khẩu khôi phục tạm thời tới email đăng ký của người dùng qua cấu hình này.') }}</div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label">SMTP Server</label>
+                            <input type="text" name="smtp_server" class="form-control form-control-sm font-monospace"
+                                value="{{ settings.smtp_server or '' }}" placeholder="smtp.gmail.com">
+                        </div>
+
+                        <div class="col-md-2">
+                            <label class="form-label">SMTP Port</label>
+                            <input type="text" name="smtp_port" class="form-control form-control-sm font-monospace"
+                                value="{{ settings.smtp_port or '587' }}" placeholder="587">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">{{ t('SMTP Tên người gửi (Sender Name)') }}</label>
+                            <input type="text" name="smtp_sender_name" class="form-control form-control-sm"
+                                value="{{ settings.smtp_sender_name or 'TEXTQAI Support' }}"
+                                placeholder="TEXTQAI Support">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">{{ t('SMTP Username (Email)') }}</label>
+                            <input type="email" name="smtp_user" class="form-control form-control-sm font-monospace"
+                                value="{{ settings.smtp_user or '' }}" placeholder="myemail@gmail.com">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">{{ t('SMTP Password / Mật khẩu ứng dụng') }}</label>
+                            <input type="password" name="smtp_password"
+                                class="form-control form-control-sm font-monospace"
+                                value="{{ settings.smtp_password or '' }}"
+                                placeholder="{{ t('Nhập SMTP Password / App Password') }}">
+                        </div>
+
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-sm btn-admin-primary"
+                                style="background:#ef4444;border-color:#ef4444;">
+                                <i class="bi bi-shield-check me-1"></i>{{ t('Lưu cấu hình bảo mật') }}
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleEdit(id) {
+        var editRow = document.getElementById('edit-' + id);
+        var dispRow = document.getElementById('row-' + id);
+        var visible = editRow.style.display !== 'none';
+        editRow.style.display = visible ? 'none' : 'table-row';
+        dispRow.style.opacity = visible ? '' : '0.4';
+    }
+
+    function toggleSubEdit(id) {
+        var editRow = document.getElementById('subedit-' + id);
+        var dispRow = document.getElementById('subrow-' + id);
+        var visible = editRow.style.display !== 'none';
+        editRow.style.display = visible ? 'none' : 'table-row';
+        dispRow.style.opacity = visible ? '' : '0.4';
+    }
+</script>
+{% endblock %}

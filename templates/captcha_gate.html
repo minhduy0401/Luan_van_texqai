@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    {% include '_favicon.html' %}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>{{ t('Xác minh an toàn') }} — TEXTQAI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        :root {
+            --ink: #1d2433;
+            --accent: #f97316;
+            --accent-deep: #ea6c0a;
+        }
+
+        html,
+        body {
+            min-height: 100vh;
+            margin: 0;
+            background: var(--ink);
+            font-family: 'Inter', system-ui, sans-serif;
+        }
+
+        .bg-blobs {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(90px);
+            opacity: .18;
+        }
+
+        .blob-1 {
+            width: 520px;
+            height: 520px;
+            background: #f97316;
+            top: -140px;
+            left: -140px;
+        }
+
+        .blob-2 {
+            width: 420px;
+            height: 420px;
+            background: #6366f1;
+            bottom: -120px;
+            right: -100px;
+        }
+
+        .blob-3 {
+            width: 260px;
+            height: 260px;
+            background: #ec4899;
+            top: 40%;
+            left: 60%;
+        }
+
+        .gate-wrap {
+            position: relative;
+            z-index: 1;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 16px;
+        }
+
+        .gate-card {
+            width: 100%;
+            max-width: 440px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            border-radius: 20px;
+            padding: 44px 36px 36px;
+            backdrop-filter: blur(18px);
+            box-shadow: 0 24px 64px rgba(0, 0, 0, .35);
+            text-align: center;
+        }
+
+        .logo-wrap {
+            margin-bottom: 24px;
+        }
+
+        .gate-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+
+        .gate-sub {
+            color: rgba(255, 255, 255, 0.55);
+            font-size: .9rem;
+            margin-bottom: 32px;
+            line-height: 1.5;
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 13px;
+            background: var(--accent);
+            border: none;
+            border-radius: 12px;
+            color: #fff;
+            font-weight: 700;
+            font-size: .97rem;
+            cursor: pointer;
+            letter-spacing: .2px;
+            transition: background .18s, box-shadow .18s;
+            margin-top: 20px;
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        .btn-submit:hover {
+            background: var(--accent-deep);
+            box-shadow: 0 6px 20px rgba(249, 115, 22, .40);
+        }
+
+        .flash-msg {
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: .86rem;
+            margin-bottom: 22px;
+            text-align: left;
+        }
+
+        .flash-danger {
+            background: rgba(239, 68, 68, .15);
+            border: 1px solid rgba(239, 68, 68, .3);
+            color: #fca5a5;
+        }
+
+        .flash-success {
+            background: rgba(74, 222, 128, .12);
+            border: 1px solid rgba(74, 222, 128, .25);
+            color: #86efac;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="bg-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <div class="gate-wrap">
+        <div class="gate-card">
+
+            <div class="logo-wrap">
+                <img src="{{ url_for('static', filename='logo.png') }}" alt="TEXTQAI"
+                    style="height:54px;filter:brightness(0) invert(1);">
+            </div>
+
+            <h1 class="gate-title">{{ t('Xác minh bảo mật') }}</h1>
+            <p class="gate-sub">{{ t('Vui lòng hoàn thành Captcha dưới đây để xác nhận bạn không phải là robot.') }}</p>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            {% for cat, msg in messages %}
+            <div class="flash-msg flash-{{ cat }}">
+                <i class="bi bi-{{ 'exclamation-circle' if cat == 'danger' else 'check-circle' }} me-2"></i>{{ msg }}
+            </div>
+            {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            <form method="POST" id="gateForm">
+                {% if captcha_type == 'v2' and site_key %}
+                <div class="d-flex justify-content-center">
+                    <div class="g-recaptcha" data-sitekey="{{ site_key }}" data-theme="dark"></div>
+                </div>
+                {% elif captcha_type == 'v2_invisible' and site_key %}
+                <div class="g-recaptcha"
+                     data-sitekey="{{ site_key }}"
+                     data-callback="onInvisibleSubmit"
+                     data-size="invisible"
+                     style="display:none;"></div>
+                <input type="hidden" name="g-recaptcha-response" id="g-recaptcha-response">
+                {% elif captcha_type == 'v3' and site_key %}
+                <input type="hidden" name="g-recaptcha-response" id="g-recaptcha-response">
+                {% endif %}
+
+                <button type="submit" class="btn-submit">
+                    <i class="bi bi-shield-check-fill me-2"></i>{{ t('Truy cập Website') }}
+                </button>
+            </form>
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    {% if captcha_type == 'v2' and site_key %}
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <script>
+        document.getElementById('gateForm').addEventListener('submit', function (e) {
+            var response = grecaptcha.getResponse();
+            if (response.length === 0) {
+                e.preventDefault();
+                alert('{{ t('Vui lòng tích chọn Captcha "Tôi không phải là robot" trước khi gửi!') }}');
+            }
+        });
+    </script>
+    {% elif captcha_type == 'v2_invisible' and site_key %}
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    <script>
+        function onInvisibleSubmit(token) {
+            document.getElementById('g-recaptcha-response').value = token;
+            document.getElementById('gateForm').submit();
+        }
+        document.getElementById('gateForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            grecaptcha.execute();
+        });
+    </script>
+    {% elif captcha_type == 'v3' and site_key %}
+    <script src="https://www.google.com/recaptcha/api.js?render={{ site_key }}"></script>
+    <script>
+        document.getElementById('gateForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            grecaptcha.ready(function () {
+                grecaptcha.execute('{{ site_key }}', { action: 'entrance_gate' }).then(function (token) {
+                    document.getElementById('g-recaptcha-response').value = token;
+                    document.getElementById('gateForm').submit();
+                });
+            });
+        });
+    </script>
+    {% endif %}
+</body>
+
+</html>

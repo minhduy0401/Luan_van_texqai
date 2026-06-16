@@ -1,0 +1,292 @@
+{% extends 'base.html' %}
+{% block extra_head %}
+<style>
+  .bank-btn-premium {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    color: #ffffff !important;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 100%;
+  }
+
+  .bank-btn-premium:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
+    filter: brightness(1.1);
+  }
+
+  .bank-btn-premium:active {
+    transform: translateY(0);
+  }
+
+  .vnpay-btn-premium {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #005baa 0%, #004080 100%);
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    padding: 6px 12px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 91, 170, 0.25);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    width: 100%;
+  }
+
+  .vnpay-btn-premium:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 91, 170, 0.4);
+    background: linear-gradient(135deg, #0069c4 0%, #004994 100%);
+  }
+
+  .vnpay-btn-premium:active {
+    transform: translateY(0);
+  }
+
+  .vnpay-logo-pill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    padding: 2px 6px;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    height: 18px;
+  }
+  .vnpay-logo-pill svg { height: 12px; width: auto; display: block; }
+
+  /* Mobile tweaks */
+  @media (max-width: 520px) {
+    .vnpay-btn-premium { padding: 6px 10px; font-size: 13px; gap: 6px; }
+    .vnpay-logo-pill { padding: 1px 6px; height: 16px; }
+    .vnpay-logo-pill svg { height: 11px; }
+  }
+</style>
+{% endblock %}
+{% block content %}
+<div class="container py-4">
+
+  <!-- Header -->
+  <div class="text-center mb-5">
+    <h2 class="fw-bold mb-2"
+      style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+      {{ t('Nạp Credits') }}</h2>
+    <p class="fw-medium mb-3" style="color: #475569;">{{ t('1 credit = 1 câu hỏi AI. Credits không hết hạn.') }}</p>
+    {% if current_user.is_authenticated %}
+    <span class="badge bg-white text-primary fs-6 px-3 py-2 border shadow-sm">
+      <i class="bi bi-coin me-1"></i> {{ 'You have' if current_lang == 'en' else 'Bạn còn' }} <strong>{{ current_user.credits }}</strong> {{ t('credits') }}
+    </span>
+    {% endif %}
+  </div>
+
+  <!-- Credit lẻ -->
+  <h5 class="fw-bold mb-3" style="color: #1e293b;"><i class="bi bi-bag-fill text-primary me-2"></i>{{ t('Mua credit lẻ') }}</h5>
+  <div class="row g-3 mb-5">
+    {% for pkg in credit_packages %}
+    <div class="col-6 col-md-4 col-lg">
+      <div
+        class="card h-100 border-0 shadow-sm text-center position-relative {% if pkg.is_popular %}border border-2 border-primary{% endif %}">
+        {% if pkg.is_popular %}
+        <span class="badge bg-primary position-absolute top-0 start-50 translate-middle px-3">{{ 'Popular' if current_lang == 'en' else 'Phổ biến' }}</span>
+        {% endif %}
+        <div class="card-body pt-4">
+          <h6 class="fw-semibold text-muted">{{ pkg.name }}</h6>
+          <div class="display-6 fw-bold text-primary my-2">{{ pkg.credits }}</div>
+          <p class="text-muted small mb-1">{{ 'questions' if current_lang == 'en' else 'câu hỏi' }}</p>
+          <p class="fw-bold fs-5 text-dark">{{ '{:,.0f}'.format(pkg.price_vnd) }}{{ ' VND' if current_lang == 'en' else 'đ' }}</p>
+          <p class="text-muted small">~{{ '{:,.0f}'.format((pkg.price_vnd / pkg.credits)|int) }}{{ ' VND/Q' if current_lang == 'en' else 'đ/câu' }}</p>
+          {% if current_user.is_authenticated %}
+          
+          {% if enable_bank_transfer %}
+          <form method="POST" action="/payment/create" class="mt-2">
+            <input type="hidden" name="package_id" value="{{ pkg.id }}">
+            <button class="bank-btn-premium" type="submit">
+              <i class="bi bi-bank"></i>
+              <span>{{ 'Bank Transfer' if current_lang == 'en' else 'Chuyển khoản' }}</span>
+            </button>
+          </form>
+          {% endif %}
+
+          {% if enable_vnpay %}
+          <form method="POST" action="/payment/vnpay/create" class="mt-2">
+            <input type="hidden" name="package_id" value="{{ pkg.id }}">
+            <button type="submit" class="vnpay-btn-premium">
+              <div class="vnpay-logo-pill">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 28" width="65" height="18" fill="none">
+                  <!-- Diamond icon -->
+                  <path d="M 4 14 L 12 6 L 12 14 Z" fill="#00b0f0" />
+                  <path d="M 12 6 L 20 14 L 12 14 Z" fill="#f58220" />
+                  <path d="M 20 14 L 12 22 L 12 14 Z" fill="#e5101e" />
+                  <path d="M 12 22 L 4 14 L 12 14 Z" fill="#005baa" />
+                  <!-- Text VN -->
+                  <text x="26" y="20" font-family="'Inter', Arial, sans-serif" font-weight="900" font-size="15"
+                    fill="#005baa" letter-spacing="-0.5">VN</text>
+                  <!-- Text PAY -->
+                  <text x="49" y="20" font-family="'Inter', Arial, sans-serif" font-weight="900" font-size="15"
+                    fill="#e5101e" letter-spacing="-0.5">PAY</text>
+                </svg>
+              </div>
+              <span>{{ 'Checkout' if current_lang == 'en' else 'Thanh toán' }}</span>
+            </button>
+          </form>
+          {% endif %}
+
+          {% if not enable_bank_transfer and not enable_vnpay %}
+          <p class="text-danger small mt-2">{{ 'Gateways temporarily offline' if current_lang == 'en' else 'Cổng thanh toán tạm khóa' }}</p>
+          {% endif %}
+
+          {% else %}
+          <a href="/login" class="btn btn-outline-primary w-100 mt-2">{{ 'Login to Purchase' if current_lang == 'en' else 'Đăng nhập để mua' }}</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Thuê bao -->
+  <h5 class="fw-bold mb-3" style="color: #1e293b;"><i class="bi bi-calendar-check-fill text-success me-2"></i>{{ 'Monthly Subscription' if current_lang == 'en' else 'Thuê bao tháng' }}</h5>
+  <div class="row g-3 mb-5">
+    {% for pkg in sub_packages %}
+    <div class="col-12 col-sm-6 col-md-4">
+      <div class="card h-100 border-0 shadow-sm text-center">
+        <div class="card-body py-4">
+          <h5 class="fw-bold">{{ pkg.name }}</h5>
+          <div class="display-5 fw-bold text-primary my-2">{{ pkg.credits }}</div>
+          <p class="text-muted">{{ 'questions' if current_lang == 'en' else 'câu hỏi' }} / {{ 'month' if (current_lang == 'en' and pkg.period == 'tháng') else pkg.period }}</p>
+          <p class="fw-bold fs-4">{{ '{:,.0f}'.format(pkg.price_vnd) }}{{ ' VND' if current_lang == 'en' else 'đ' }}<span class="fs-6 text-muted">/{{ 'mo' if (current_lang == 'en' and pkg.period == 'tháng') else pkg.period }}</span></p>
+          <p class="text-muted small">~{{ '{:,.0f}'.format((pkg.price_vnd / pkg.credits)|int) }}{{ ' VND/Q' if current_lang == 'en' else 'đ/câu' }}</p>
+          {% if current_user.is_authenticated %}
+          
+          {% if enable_bank_transfer %}
+          <form method="POST" action="/payment/create" class="mt-2">
+            <input type="hidden" name="package_id" value="{{ pkg.id }}">
+            <input type="hidden" name="pkg_type" value="subscription">
+            <button class="bank-btn-premium" type="submit">
+              <i class="bi bi-bank"></i>
+              <span>{{ 'Bank Transfer' if current_lang == 'en' else 'Chuyển khoản' }}</span>
+            </button>
+          </form>
+          {% endif %}
+
+          {% if enable_vnpay %}
+          <form method="POST" action="/payment/vnpay/create" class="mt-2">
+            <input type="hidden" name="package_id" value="{{ pkg.id }}">
+            <input type="hidden" name="pkg_type" value="subscription">
+            <button type="submit" class="vnpay-btn-premium">
+              <div class="vnpay-logo-pill">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 28" width="65" height="18" fill="none">
+                  <!-- Diamond icon -->
+                  <path d="M 4 14 L 12 6 L 12 14 Z" fill="#00b0f0" />
+                  <path d="M 12 6 L 20 14 L 12 14 Z" fill="#f58220" />
+                  <path d="M 20 14 L 12 22 L 12 14 Z" fill="#e5101e" />
+                  <path d="M 12 22 L 4 14 L 12 14 Z" fill="#005baa" />
+                  <!-- Text VN -->
+                  <text x="26" y="20" font-family="'Inter', Arial, sans-serif" font-weight="900" font-size="15"
+                    fill="#005baa" letter-spacing="-0.5">VN</text>
+                  <!-- Text PAY -->
+                  <text x="49" y="20" font-family="'Inter', Arial, sans-serif" font-weight="900" font-size="15"
+                    fill="#e5101e" letter-spacing="-0.5">PAY</text>
+                </svg>
+              </div>
+              <span>{{ 'Checkout' if current_lang == 'en' else 'Thanh toán' }}</span>
+            </button>
+          </form>
+          {% endif %}
+
+          {% if not enable_bank_transfer and not enable_vnpay %}
+          <p class="text-danger small mt-2">{{ 'Gateways temporarily offline' if current_lang == 'en' else 'Cổng thanh toán tạm khóa' }}</p>
+          {% endif %}
+
+          {% else %}
+          <a href="/login" class="btn btn-outline-success w-100 mt-2">{{ 'Login to Subscribe' if current_lang == 'en' else 'Đăng nhập để đăng ký' }}</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Bottom Grid (Hướng dẫn + Liên hệ) -->
+  <div class="row g-4 mt-2 mb-5">
+    <!-- Hướng dẫn thanh toán -->
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body py-4 px-4">
+          <p class="mb-3 fw-bold" style="color: #1e293b;"><i class="bi bi-info-circle-fill text-primary me-2"></i>{{ 'Payment Instructions' if current_lang == 'en' else 'Hướng dẫn thanh toán' }}</p>
+          <ol class="text-muted small ps-3 mb-0" style="line-height: 1.8;">
+            <li class="mb-2">{{ 'Select a credits package and click <strong>Bank Transfer</strong> (VietQR) or <strong>Checkout</strong> (VNPAY).' if current_lang == 'en' else 'Chọn gói credits và nhấn <strong>Chuyển khoản</strong> (VietQR) hoặc <strong>Thanh toán</strong> (VNPAY).' }}</li>
+            <li class="mb-2">{{ 'Scan the generated VietQR code or enter card details to transfer the exact amount.' if current_lang == 'en' else 'Thực hiện quét mã QR hoặc nhập thông tin thẻ để chuyển khoản chính xác số tiền.' }}</li>
+            <li class="mb-2">{{ 'The system automatically verifies the transaction and grants credits to your balance within <strong>2 to 5 minutes</strong>.' if current_lang == 'en' else 'Hệ thống sẽ tự động đối soát giao dịch và cộng credits vào tài khoản của bạn trong <strong>2 đến 5 phút</strong>.' }}</li>
+          </ol>
+          <p class="text-danger small fw-semibold mt-3 mb-0"
+            style="font-size: 12px; display: flex; align-items: center; gap: 6px;">
+            <i class="bi bi-exclamation-triangle-fill" style="font-size: 14px;"></i>
+            <span>{{ 'Note: If credits are not added after 5 minutes, please contact support immediately!' if current_lang == 'en' else 'Lưu ý: Nếu sau 5 phút chưa được cộng credits, vui lòng liên hệ ngay thông tin hỗ trợ!' }}</span>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Liên hệ hỗ trợ -->
+    <div class="col-md-6">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body py-4 px-4">
+          <p class="mb-3 fw-bold" style="color: #1e293b;"><i
+              class="bi bi-telephone-inbound-fill text-danger me-2"></i>{{ 'Support Contact' if current_lang == 'en' else 'Thông tin liên hệ' }}</p>
+
+          <div class="d-flex align-items-center mb-3">
+            <div class="rounded-circle p-2 me-3 d-flex align-items-center justify-content-center"
+              style="width: 38px; height: 38px; background: rgba(239, 68, 68, 0.1);">
+              <i class="bi bi-envelope-fill text-danger" style="font-size: 16px;"></i>
+            </div>
+            <div>
+              <span class="text-muted small d-block" style="font-size: 11px;">{{ 'Support Email' if current_lang == 'en' else 'Email hỗ trợ' }}</span>
+              <a href="mailto:duy226466@nctu.edu.vn"
+                class="fw-semibold text-dark text-decoration-none small">duy226466@nctu.edu.vn</a>
+            </div>
+          </div>
+
+          <div class="d-flex align-items-center mb-3">
+            <div class="rounded-circle p-2 me-3 d-flex align-items-center justify-content-center"
+              style="width: 38px; height: 38px; background: rgba(245, 158, 11, 0.1);">
+              <i class="bi bi-telephone-fill text-warning" style="font-size: 16px;"></i>
+            </div>
+            <div>
+              <span class="text-muted small d-block" style="font-size: 11px;">{{ 'Phone' if current_lang == 'en' else 'Điện thoại' }}</span>
+              <a href="tel:+84931183550" class="fw-semibold text-dark text-decoration-none small">+84 93 118 3550</a>
+            </div>
+          </div>
+
+          <div class="d-flex align-items-center">
+            <div class="rounded-circle p-2 me-3 d-flex align-items-center justify-content-center"
+              style="width: 38px; height: 38px; background: rgba(59, 130, 246, 0.1);">
+              <i class="bi bi-geo-alt-fill text-primary" style="font-size: 16px;"></i>
+            </div>
+            <div>
+              <span class="text-muted small d-block" style="font-size: 11px;">{{ 'Address' if current_lang == 'en' else 'Địa chỉ' }}</span>
+              <span class="fw-semibold text-dark small">{{ 'Nam Can Tho University' if current_lang == 'en' else 'Trường Đại học Nam Cần Thơ' }}</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

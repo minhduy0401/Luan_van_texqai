@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+{% include '_favicon.html' %}
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Admin{% endblock %} — TEXTQAI</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+:root {
+    --sw: 248px;
+    --sb: #0f172a;
+    --sb2: #1e293b;
+    --accent: #6366f1;
+    --accent2: #4f46e5;
+    --accent-bg: rgba(99,102,241,.13);
+    --bg: #f1f5f9;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --text: #0f172a;
+    --muted: #64748b;
+    --radius: 12px;
+}
+body {
+    background: var(--bg);
+    font-family: 'Inter','Segoe UI',system-ui,sans-serif;
+    font-size: 14px; color: var(--text);
+}
+
+/* ── Sidebar ── */
+.sidebar {
+    position: fixed; top: 0; left: 0; height: 100vh;
+    width: var(--sw); background: var(--sb);
+    display: flex; flex-direction: column;
+    z-index: 200; overflow-y: auto; scrollbar-width: none;
+}
+.sidebar::-webkit-scrollbar { display: none; }
+
+.sb-brand {
+    padding: 18px 16px 15px;
+    border-bottom: 1px solid var(--sb2);
+    display: flex; align-items: center; gap: 10px;
+    text-decoration: none;
+}
+.sb-brand-icon {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: linear-gradient(135deg,#6366f1,#8b5cf6);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem; color: #fff; flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(99,102,241,.35);
+}
+.sb-brand-name { color: #f1f5f9; font-weight: 700; font-size: .9rem; }
+.sb-brand-sub  { color: #475569; font-size: .67rem; }
+
+.sb-section {
+    padding: 14px 16px 4px;
+    color: #475569; font-size: .65rem; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .1em;
+}
+.sb-link {
+    display: flex; align-items: center; gap: 8px;
+    margin: 1px 8px; padding: 7px 10px;
+    border-radius: 8px;
+    color: #94a3b8; font-size: .83rem; font-weight: 500;
+    text-decoration: none;
+    transition: background .14s, color .14s;
+}
+.sb-link i { font-size: .9rem; width: 17px; text-align: center; flex-shrink: 0; }
+.sb-link:hover { background: var(--sb2); color: #e2e8f0; }
+.sb-link.active { background: var(--accent-bg); color: #a5b4fc; font-weight: 600; }
+.sb-link.active i { color: #818cf8; }
+.sb-footer { margin-top: auto; padding: 10px 8px; border-top: 1px solid var(--sb2); }
+
+/* ── Main ── */
+.main-wrap { margin-left: var(--sw); min-height: 100vh; display: flex; flex-direction: column; }
+
+/* ── Topbar ── */
+.topbar {
+    background: var(--card); border-bottom: 1px solid var(--border);
+    padding: 0 24px; height: 54px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+}
+.topbar-title { font-weight: 600; font-size: .94rem; color: var(--text); }
+.topbar-avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: linear-gradient(135deg,#6366f1,#8b5cf6);
+    color: #fff; font-size: .72rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+}
+
+/* ── Page body ── */
+.page-body { padding: 20px 24px; flex: 1; }
+.flash-area { padding: 0 24px 0; }
+
+/* ── Cards ── */
+.card-admin {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+    overflow: hidden;
+}
+.card-admin .card-header {
+    padding: 13px 18px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    display: flex; align-items: center; justify-content: space-between;
+    font-weight: 600; font-size: .87rem; color: var(--text);
+    background: transparent;
+}
+.card-admin .card-body-pad { padding: 18px; }
+
+/* ── Stat cards ── */
+.stat-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+    padding: 18px 20px;
+    position: relative; overflow: hidden;
+    transition: box-shadow .2s, transform .2s;
+}
+.stat-card::after {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--stat-accent,#6366f1);
+    border-radius: var(--radius) var(--radius) 0 0;
+}
+.stat-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,.09); transform: translateY(-2px); }
+.stat-icon {
+    width: 40px; height: 40px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center; font-size: 1.15rem;
+}
+.stat-value { font-size: 1.65rem; font-weight: 700; color: var(--text); line-height: 1.15; }
+.stat-label { color: var(--muted); font-size: .77rem; font-weight: 500; }
+.stat-sub   { font-size: .75rem; color: var(--muted); margin-top: 4px; }
+
+/* ── Tables ── */
+.table { margin-bottom: 0; }
+.table th {
+    font-size: .71rem; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .055em;
+    padding: 9px 14px; border-bottom: 1px solid var(--border) !important;
+    background: #fafbfc; white-space: nowrap;
+}
+.table td { padding: 11px 14px; font-size: .85rem; vertical-align: middle; border-color: #f1f5f9; }
+.table tbody tr:last-child td { border-bottom: none; }
+.table-hover tbody tr:hover td { background: #f8f9ff; }
+
+/* ── Status pills ── */
+.status-pill {
+    display: inline-flex; align-items: center;
+    padding: 3px 9px; border-radius: 99px;
+    font-size: .72rem; font-weight: 600;
+}
+.status-paid      { background: #dcfce7; color: #15803d; }
+.status-pending   { background: #fef9c3; color: #92400e; }
+.status-cancelled { background: #f1f5f9; color: #475569; }
+.status-failed    { background: #fee2e2; color: #b91c1c; }
+.status-active    { background: #dcfce7; color: #15803d; }
+.status-locked    { background: #fee2e2; color: #b91c1c; }
+
+/* ── Compat for old badge-status-* ── */
+.badge-status-paid      { background: #dcfce7 !important; color: #15803d !important; }
+.badge-status-pending   { background: #fef9c3 !important; color: #92400e !important; }
+.badge-status-cancelled { background: #f1f5f9 !important; color: #475569 !important; }
+.badge-status-failed    { background: #fee2e2 !important; color: #b91c1c !important; }
+
+/* ── Forms ── */
+.form-control, .form-select {
+    border-radius: 8px; border-color: var(--border);
+    font-size: .85rem;
+    transition: border-color .15s, box-shadow .15s;
+}
+.form-control:focus, .form-select:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(99,102,241,.12);
+}
+.form-label { font-size: .79rem; font-weight: 600; color: #374151; margin-bottom: 5px; }
+
+/* ── Buttons ── */
+.btn { border-radius: 8px; font-size: .83rem; font-weight: 500; }
+.btn-admin-primary {
+    background: var(--accent); color: #fff; border: none;
+    transition: background .15s, box-shadow .15s;
+}
+.btn-admin-primary:hover { background: var(--accent2); box-shadow: 0 3px 10px rgba(99,102,241,.3); color: #fff; }
+
+/* ── Pagination ── */
+.pagination .page-link {
+    border-radius: 7px; border-color: var(--border); color: var(--muted);
+    font-size: .81rem; padding: 5px 11px; margin: 0 1px; transition: all .15s;
+}
+.pagination .page-item.active .page-link { background: var(--accent); border-color: var(--accent); color: #fff; }
+.pagination .page-link:hover { background: #f1f5f9; color: var(--accent); border-color: var(--border); }
+
+/* ── Filter bar ── */
+.filter-bar {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px 18px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04); margin-bottom: 16px;
+}
+
+/* ── Progress ── */
+.progress { background: #f1f5f9; }
+.progress-bar { border-radius: 99px; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* ── Mobile responsive ── */
+.sb-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,.45); z-index: 1040;
+    backdrop-filter: blur(2px);
+}
+.sb-overlay.show { display: block; }
+.sb-toggle {
+    display: none;
+    width: 36px; height: 36px; padding: 0;
+    background: none; border: 1px solid var(--border);
+    border-radius: 8px; cursor: pointer;
+    align-items: center; justify-content: center;
+    color: var(--text); flex-shrink: 0;
+}
+@media (max-width: 767.98px) {
+    .sidebar {
+        transform: translateX(-100%);
+        transition: transform .25s cubic-bezier(.4,0,.2,1);
+        z-index: 1050;
+    }
+    .sidebar.show { transform: translateX(0); }
+    .main-wrap { margin-left: 0; }
+    .topbar { padding: 0 14px; }
+    .page-body { padding: 14px 12px; }
+    .flash-area { padding: 0 12px; }
+    .sb-toggle { display: inline-flex !important; }
+    .topbar-title { font-size: .87rem; }
+    /* stat cards full width on small phones */
+    .stat-card { padding: 14px 16px; }
+    .stat-value { font-size: 1.35rem; }
+    /* tables scroll horizontally */
+    .card-admin .table-responsive { overflow-x: auto; }
+}
+</style>
+</head>
+<body>
+
+<!-- ──────── SIDEBAR ──────── -->
+<nav class="sidebar">
+    <a href="{{ url_for('admin_dashboard') }}" class="sb-brand">
+        <img src="{{ url_for('static', filename='logo.png') }}" alt="TEXTQAI" style="height:36px;filter:brightness(0) invert(1);">
+        <div class="sb-brand-sub" style="margin-left:4px;white-space:nowrap;">Admin Panel</div>
+    </a>
+
+    <div class="sb-section">{{ t('Tổng quan') }}</div>
+    <a href="{{ url_for('admin_dashboard') }}"
+       class="sb-link {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
+        <i class="bi bi-grid-3x3-gap-fill"></i> Dashboard
+    </a>
+
+    <div class="sb-section">{{ t('Quản lý') }}</div>
+    <a href="{{ url_for('admin_users') }}"
+       class="sb-link {% if 'admin_user' in request.endpoint %}active{% endif %}">
+        <i class="bi bi-people-fill"></i> {{ t('Người dùng') }}
+    </a>
+    <a href="{{ url_for('admin_transactions') }}"
+       class="sb-link {% if request.endpoint == 'admin_transactions' %}active{% endif %}">
+        <i class="bi bi-credit-card-2-front-fill"></i> {{ t('Giao dịch') }}
+    </a>
+    <a href="{{ url_for('admin_feedback') }}"
+       class="sb-link {% if 'admin_feedback' in request.endpoint %}active{% endif %}">
+        <i class="bi bi-chat-dots-fill"></i> {{ t('Phản hồi') }}
+    </a>
+
+    <div class="sb-section">{{ t('Phân tích') }}</div>
+    <a href="{{ url_for('admin_stats') }}"
+       class="sb-link {% if request.endpoint == 'admin_stats' %}active{% endif %}">
+        <i class="bi bi-bar-chart-line-fill"></i> {{ t('Thống kê') }}
+    </a>
+    <div class="sb-section">{{ t('Hệ thống') }}</div>
+    <a href="{{ url_for('admin_settings') }}"
+       class="sb-link {% if request.endpoint == 'admin_settings' %}active{% endif %}">
+        <i class="bi bi-gear-wide-connected"></i> {{ t('Cài đặt') }}
+    </a>
+
+    <div class="sb-footer">
+        <a href="{{ url_for('index') }}" class="sb-link" style="margin:0;">
+            <i class="bi bi-arrow-left-short" style="font-size:1.1rem;"></i> {{ t('Về trang chính') }}
+        </a>
+    </div>
+</nav>
+
+<!-- Sidebar overlay (mobile) -->
+<div class="sb-overlay" id="sbOverlay" onclick="toggleSidebar()"></div>
+
+<!-- ──────── MAIN ──────── -->
+<div class="main-wrap">
+    <div class="topbar">
+        <div class="d-flex align-items-center gap-2">
+            <button class="sb-toggle" id="sbToggle" onclick="toggleSidebar()" aria-label="Menu">
+                <i class="bi bi-list" style="font-size:1.25rem;"></i>
+            </button>
+            <span class="topbar-title">{% block page_title %}Admin{% endblock %}</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <div class="topbar-avatar">
+                {{ current_user.display[0]|upper if current_user.display else 'A' }}
+            </div>
+            <span class="text-muted d-none d-sm-inline" style="font-size:.82rem;font-weight:500;">{{ current_user.display }}</span>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-area pt-3">
+        {% for cat, msg in messages %}
+        <div class="alert alert-{{ 'danger' if cat == 'danger' else ('warning' if cat == 'warning' else 'success') }} alert-dismissible fade show py-2" role="alert">
+            {{ msg }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    <div class="page-body">
+        {% block content %}{% endblock %}
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function toggleSidebar() {
+    document.querySelector('.sidebar').classList.toggle('show');
+    document.getElementById('sbOverlay').classList.toggle('show');
+}
+// Close sidebar on link click (mobile)
+document.querySelectorAll('.sb-link').forEach(function(el) {
+    el.addEventListener('click', function() {
+        if (window.innerWidth < 768) toggleSidebar();
+    });
+});
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,39 @@
+# TEXTQAI – Python dependencies
+# Python 3.10+
+# Install: pip install -r requirements.txt
+
+# ── Web app ──────────────────────────────────────────────────────────────────
+Flask==3.1.2
+Flask-Login==0.6.3
+Flask-SQLAlchemy==3.1.1
+SQLAlchemy==2.0.46
+Werkzeug==3.1.5
+python-dotenv==1.2.2
+waitress==3.0.2
+
+# ── Database (MySQL) ─────────────────────────────────────────────────────────
+mysql-connector-python==9.5.0
+
+# ── AI / OAuth ───────────────────────────────────────────────────────────────
+openai==2.17.0
+Authlib==1.7.0
+requests==2.32.5
+
+# ── PDF extraction ───────────────────────────────────────────────────────────
+pdfplumber==0.11.9
+PyMuPDF==1.27.2.3
+Pillow==12.1.1
+
+# ── OCR fallback (scanned PDFs) ──────────────────────────────────────────────
+# pytesseract also requires Tesseract OCR installed on the system:
+#   Windows: https://github.com/UB-Mannheim/tesseract/wiki
+#   Ubuntu:  sudo apt install tesseract-ocr tesseract-ocr-vie
+pytesseract==0.3.13
+rapidocr-onnxruntime==1.2.3
+numpy==2.4.3
+
+# ── Export Q&A to PDF ────────────────────────────────────────────────────────
+reportlab==4.4.10
+
+# ── Experiments (experiment/*.py) ──────────────────────────────────────────
+nltk==3.9.4

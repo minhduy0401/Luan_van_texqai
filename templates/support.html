@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-9 col-xl-8">
+
+    <div class="text-center mb-4">
+      <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3"
+           style="width:64px;height:64px;background:linear-gradient(135deg,#10b981,#3b82f6);">
+        <i class="bi bi-headset text-white fs-4"></i>
+      </div>
+      <h1 class="fw-bold" style="font-size:1.9rem;background:linear-gradient(135deg,#10b981,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
+        {{ 'Support Center' if current_lang == 'en' else 'Trang Hỗ trợ' }}
+      </h1>
+      <p class="text-muted">Support — TEXTQAI</p>
+    </div>
+
+    <!-- Contact cards -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-4">
+        <div class="card p-3 text-center h-100">
+          <i class="bi bi-envelope-fill fs-2 mb-2" style="color:#667eea;"></i>
+          <div class="fw-semibold mb-1">{{ 'Support Email' if current_lang == 'en' else 'Email hỗ trợ' }}</div>
+          <a href="mailto:duy226466@student.nctu.edu.vn" class="text-decoration-none" style="color:#667eea;font-size:.9rem;">
+            duy226466@student.nctu.edu.vn
+          </a>
+          <small class="text-muted d-block mt-1">
+            {{ 'Response within 1–2 business days' if current_lang == 'en' else 'Phản hồi trong 1–2 ngày làm việc' }}
+          </small>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card p-3 text-center h-100">
+          <i class="bi bi-clock-fill fs-2 mb-2" style="color:#10b981;"></i>
+          <div class="fw-semibold mb-1">{{ 'Support Hours' if current_lang == 'en' else 'Giờ hỗ trợ' }}</div>
+          <div style="font-size:.9rem;color:#374151;">{{ 'Monday – Friday' if current_lang == 'en' else 'Thứ 2 – Thứ 6' }}</div>
+          <small class="text-muted d-block mt-1">8:00 – 17:00 (GMT+7)</small>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="card p-3 text-center h-100">
+          <i class="bi bi-trash3-fill fs-2 mb-2" style="color:#ef4444;"></i>
+          <div class="fw-semibold mb-1">{{ 'Delete Account' if current_lang == 'en' else 'Xoá tài khoản' }}</div>
+          <a href="/data-deletion" class="text-decoration-none" style="color:#ef4444;font-size:.9rem;">
+            {{ 'View instructions' if current_lang == 'en' else 'Xem hướng dẫn' }}
+          </a>
+          <small class="text-muted d-block mt-1">
+            {{ 'Processed within 30 days' if current_lang == 'en' else 'Xử lý trong vòng 30 ngày' }}
+          </small>
+        </div>
+      </div>
+    </div>
+
+    <!-- FAQ -->
+    <div class="card p-4 mb-4">
+      <h5 class="mb-3">
+        <i class="bi bi-question-circle-fill me-2" style="color:#667eea;"></i>
+        {{ 'Frequently Asked Questions (FAQ)' if current_lang == 'en' else 'Câu hỏi thường gặp (FAQ)' }}
+      </h5>
+
+      <div class="accordion accordion-flush" id="faqAccordion">
+
+        {% set faqs = [
+          ('How does TEXTQAI work?',
+           'You upload a PDF file, the system extracts the text and uses a 3-Agent pipeline (analyze → generate → evaluate) to create Q&A pairs classified by Bloom\'s taxonomy (6 cognitive levels).',
+           'TEXTQAI hoạt động như thế nào?',
+           'Bạn upload file PDF, hệ thống trích xuất văn bản và dùng pipeline 3-Agent (phân tích → sinh câu hỏi → đánh giá) để tạo ra các cặp câu hỏi / trả lời phân loại theo thang Bloom (6 cấp độ tư duy).'),
+          ('What are credits? Where can I top them up?',
+           'Each credit corresponds to one generated question. New accounts receive 5 free credits. You can add more on the Pricing page via the Sepay - VNPay payment gateway.',
+           'Credits là gì? Tôi nạp ở đâu?',
+           'Mỗi credit tương ứng với một câu hỏi được sinh ra. Tài khoản mới nhận 5 credits dùng thử. Bạn có thể nạp thêm tại trang Bảng giá qua cổng thanh toán Sepay - VNPay.'),
+          ('Is my document kept private?',
+           'Yes. Your documents are only used for question generation and are not shared with third parties beyond what is needed to call the LLM API (OpenRouter). See our Privacy Policy for details.',
+           'Tài liệu của tôi có được bảo mật không?',
+           'Có. Tài liệu chỉ dùng để sinh câu hỏi và không được chia sẻ với bên thứ ba ngoài việc gửi đến API LLM (OpenRouter) để xử lý. Xem thêm tại Chính sách quyền riêng tư.'),
+          ('I was charged credits but see no results?',
+           'This may be a temporary technical issue. Try refreshing the page and check the results tab. If the problem persists, email us with the time the action was taken — we will refund your credits if the error is confirmed.',
+           'Tôi bị trừ credit nhưng không thấy kết quả?',
+           'Đây có thể là lỗi kỹ thuật tạm thời. Vui lòng thử tải lại trang, kiểm tra lại tab kết quả. Nếu vẫn không thấy, gửi email kèm thời gian thực hiện — chúng tôi sẽ hoàn lại credit nếu xác nhận lỗi.'),
+          ('How do I delete my account?',
+           'Send an email to duy226466@student.nctu.edu.vn with the subject "Account Deletion Request" and your registered email. All data will be deleted within 30 days. See the Data Deletion Policy for full details.',
+           'Làm thế nào để xoá tài khoản?',
+           'Gửi email tới duy226466@student.nctu.edu.vn với tiêu đề "Yêu cầu xoá tài khoản" kèm email đã đăng ký. Toàn bộ dữ liệu sẽ bị xoá trong vòng 30 ngày. Xem chi tiết tại Chính sách xoá dữ liệu.'),
+          ('What languages does TEXTQAI support?',
+           'TEXTQAI is optimized for Vietnamese documents. English documents are supported but output quality may not be optimal.',
+           'Ứng dụng hỗ trợ ngôn ngữ nào?',
+           'TEXTQAI tối ưu cho tài liệu Tiếng Việt. Tài liệu tiếng Anh vẫn có thể xử lý nhưng chất lượng câu hỏi có thể không tối ưu.')
+        ] %}
+
+        {% for q_en, a_en, q_vi, a_vi in faqs %}
+        <div class="accordion-item border rounded-3 mb-2" style="border-color:rgba(102,126,234,0.15)!important;">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed fw-medium" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#faq{{ loop.index }}"
+                    style="border-radius:12px;background:transparent;">
+              {{ q_en if current_lang == 'en' else q_vi }}
+            </button>
+          </h2>
+          <div id="faq{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+            <div class="accordion-body text-muted" style="font-size:.93rem;">
+              {{ a_en if current_lang == 'en' else a_vi }}
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+
+      </div>
+    </div>
+
+    <!-- Send request form -->
+    <div class="card p-4 mb-4">
+      <h5 class="mb-3">
+        <i class="bi bi-chat-dots-fill me-2" style="color:#10b981;"></i>
+        {{ 'Send a Support Request' if current_lang == 'en' else 'Gửi yêu cầu hỗ trợ' }}
+      </h5>
+      <form id="supportForm">
+        <div class="mb-3">
+          <label class="form-label">{{ 'Your Email' if current_lang == 'en' else 'Email của bạn' }}</label>
+          <input type="email" class="form-control" id="supportEmail"
+                 placeholder="email@example.com"
+                 value="{{ current_user.email if current_user.is_authenticated else '' }}">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">{{ 'Message' if current_lang == 'en' else 'Nội dung' }}</label>
+          <textarea class="form-control" id="supportMessage" rows="4"
+                    placeholder="{{ 'Describe the issue you are experiencing...' if current_lang == 'en' else 'Mô tả vấn đề bạn gặp phải...' }}"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-send me-1"></i>{{ 'Send Request' if current_lang == 'en' else 'Gửi yêu cầu' }}
+        </button>
+        <div id="supportResult" class="mt-3"></div>
+      </form>
+    </div>
+
+    <div class="text-center text-muted mb-5" style="font-size:.85rem;">
+      <a href="/privacy" class="me-3">{{ 'Privacy Policy' if current_lang == 'en' else 'Chính sách quyền riêng tư' }}</a>
+      <a href="/terms" class="me-3">{{ 'Terms of Service' if current_lang == 'en' else 'Điều khoản sử dụng' }}</a>
+      <a href="/data-deletion">{{ 'Data Deletion' if current_lang == 'en' else 'Chính sách xoá dữ liệu' }}</a>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function(){
+  var _lang = '{{ current_lang }}';
+  document.getElementById('supportForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var email  = document.getElementById('supportEmail').value.trim();
+    var msg    = document.getElementById('supportMessage').value.trim();
+    var result = document.getElementById('supportResult');
+    if (!email || !msg) {
+      result.innerHTML = '<div class="alert alert-warning">' + (_lang === 'en' ? 'Please fill in all fields.' : 'Vui lòng điền đầy đủ thông tin.') + '</div>';
+      return;
+    }
+    fetch('/api/feedback', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({email: email, message: msg})
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        result.innerHTML = '<div class="alert alert-success"><i class="bi bi-check-circle-fill me-2"></i>' + (_lang === 'en' ? 'Sent! We will respond as soon as possible.' : 'Đã gửi! Chúng tôi sẽ phản hồi sớm nhất có thể.') + '</div>';
+        document.getElementById('supportMessage').value = '';
+      } else {
+        result.innerHTML = '<div class="alert alert-danger">' + (_lang === 'en' ? 'Failed to send. Please try again or email us directly.' : 'Gửi thất bại. Vui lòng thử lại hoặc email trực tiếp.') + '</div>';
+      }
+    })
+    .catch(function() {
+      result.innerHTML = '<div class="alert alert-danger">' + (_lang === 'en' ? 'Connection error. Please email duy226466@student.nctu.edu.vn directly.' : 'Lỗi kết nối. Vui lòng email trực tiếp tới duy226466@student.nctu.edu.vn') + '</div>';
+    });
+  });
+})();
+</script>
+{% endblock %}

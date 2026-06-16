@@ -1,0 +1,137 @@
+{% extends 'admin/base.html' %}
+{% block title %}{{ t('Thống kê') }}{% endblock %}
+{% block page_title %}{{ t('Thống kê sử dụng') }}{% endblock %}
+
+{% block content %}
+<div class="row g-3 mb-3">
+    <!-- Bloom chart -->
+    <div class="col-lg-6">
+        <div class="card-admin h-100">
+            <div class="card-header">
+                <span><i class="bi bi-pie-chart-fill me-2" style="color:#6366f1;"></i>{{ t('Phân bố mức Bloom') }}</span>
+            </div>
+            <div class="card-body-pad">
+                {% set bloom_colors = ['#6366f1','#3b82f6','#06b6d4','#10b981','#f59e0b','#ef4444'] %}
+                {% set total_bloom = namespace(val=0) %}
+                {% for level, cnt in bloom_stats %}{% set total_bloom.val = total_bloom.val + cnt %}{% endfor %}
+                {% for level, cnt in bloom_stats %}
+                {% set pct = (cnt / (total_bloom.val or 1) * 100)|round(1) %}
+                {% set color = bloom_colors[loop.index0 % 6] %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:.82rem;">
+                        <span class="fw-semibold">{{ t(level) or t('Không xác định') }}</span>
+                        <span style="color:{{ color }};font-weight:600;">{{ cnt }} {{ t('câu') }} &nbsp;<span class="text-muted fw-normal">({{ pct }}%)</span></span>
+                    </div>
+                    <div class="progress" style="height:8px;">
+                        <div class="progress-bar" style="width:{{ pct }}%;background:{{ color }};transition:width 0.6s ease;"></div>
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-4">{{ t('Chưa có dữ liệu') }}</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Algorithm chart -->
+    <div class="col-lg-6">
+        <div class="card-admin h-100">
+            <div class="card-header">
+                <span><i class="bi bi-cpu me-2" style="color:#8b5cf6;"></i>{{ t('Tỷ lệ thuật toán') }}</span>
+            </div>
+            <div class="card-body-pad">
+                {% set total_algo = namespace(val=0) %}
+                {% for algo, cnt in algo_stats %}{% set total_algo.val = total_algo.val + cnt %}{% endfor %}
+                {% for algo, cnt in algo_stats %}
+                {% set pct = (cnt / (total_algo.val or 1) * 100)|round(1) %}
+                {% set color = '#6366f1' if 'TEXTQAI' in (algo or '') and 'Fallback' not in (algo or '') else '#94a3b8' %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:.82rem;">
+                        <span class="fw-semibold">{{ t(algo) or t('Không rõ') }}</span>
+                        <span style="color:{{ color }};font-weight:600;">{{ cnt }} {{ t('câu') }} &nbsp;<span class="text-muted fw-normal">({{ pct }}%)</span></span>
+                    </div>
+                    <div class="progress" style="height:8px;">
+                        <div class="progress-bar" style="width:{{ pct }}%;background:{{ color }};transition:width 0.6s ease;"></div>
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-4">{{ t('Chưa có dữ liệu') }}</p>
+                {% endfor %}
+
+                <div class="mt-3 p-3 rounded d-flex align-items-center gap-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
+                    <div class="stat-icon" style="background:#ede9fe;color:#6366f1;flex-shrink:0;"><i class="bi bi-stopwatch"></i></div>
+                    <div>
+                        <div style="font-size:.75rem;color:#64748b;font-weight:500;">{{ t('Thời gian xử lý TB') }}</div>
+                        <div style="font-size:1.5rem;font-weight:700;color:#0f172a;line-height:1.15;">{{ '%.2f'|format(avg_time) }}<span style="font-size:.85rem;font-weight:400;color:#64748b;">s</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Top docs -->
+    <div class="col-lg-6">
+        <div class="card-admin">
+            <div class="card-header">
+                <span><i class="bi bi-file-earmark-text me-2" style="color:#3b82f6;"></i>{{ t('Top tài liệu') }}</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead><tr><th>#</th><th>{{ t('Tên tài liệu') }}</th><th>User</th><th>{{ t('Câu hỏi') }}</th></tr></thead>
+                    <tbody>
+                    {% for doc, q_count in top_docs %}
+                    <tr>
+                        <td class="text-muted fw-semibold">{{ loop.index }}</td>
+                        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.83rem;font-weight:600;">
+                            {{ doc.title or doc.filename or '—' }}
+                        </td>
+                        <td class="text-muted" style="font-size:.8rem;">#{{ doc.user_id }}</td>
+                        <td><span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:.74rem;">{{ q_count }}</span></td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" class="text-center text-muted py-4">{{ t('Chưa có dữ liệu') }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top users -->
+    <div class="col-lg-6">
+        <div class="card-admin">
+            <div class="card-header">
+                <span><i class="bi bi-trophy me-2" style="color:#f59e0b;"></i>{{ t('Top người dùng') }}</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead><tr><th>#</th><th>{{ t('Người dùng') }}</th><th>{{ t('Credits') }}</th><th>{{ t('Câu hỏi') }}</th><th></th></tr></thead>
+                    <tbody>
+                    {% for user, q_count in top_users %}
+                    <tr>
+                        <td class="text-muted fw-semibold">{{ loop.index }}</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div style="width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;flex-shrink:0;">{{ user.display[0]|upper }}</div>
+                                <span class="fw-semibold" style="font-size:.85rem;">{{ user.display }}</span>
+                            </div>
+                        </td>
+                        <td><span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:.74rem;">{{ user.credits }}</span></td>
+                        <td class="fw-semibold">{{ q_count }}</td>
+                        <td>
+                            <a href="{{ url_for('admin_user_detail', user_id=user.id) }}"
+                               class="btn btn-sm btn-outline-secondary" style="font-size:.76rem;padding:3px 9px;">{{ t('Chi tiết') }}</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="text-center text-muted py-4">{{ t('Chưa có dữ liệu') }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,1193 @@
+{% extends 'base.html' %}
+{% block content %}
+<style>
+    /* Giữ panel cấu hình bên trái đứng yên khi cuộn danh sách kết quả bên phải */
+    .generator-sticky {
+        position: sticky;
+        top: 132px;
+        max-height: calc(100vh - 152px);
+        overflow-y: auto;
+        scrollbar-gutter: stable;
+    }
+
+    .generator-sticky::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .generator-sticky::-webkit-scrollbar-thumb {
+        background: rgba(102, 126, 234, 0.35);
+        border-radius: 999px;
+    }
+
+    @media (max-width: 991.98px) {
+        .generator-sticky {
+            position: static;
+            max-height: none;
+            overflow-y: visible;
+        }
+    }
+
+    /* Mobile table: ẩn cột ít quan trọng */
+    @media (max-width: 767.98px) {
+        /* Ẩn cột "Mức tài liệu" và "Thuật toán" trên mobile */
+        .table th:nth-child(4),
+        .table td:nth-child(4),
+        .table th:nth-child(6),
+        .table td:nth-child(6) { display: none; }
+
+        /* Câu hỏi và đáp án chiếm nhiều hơn */
+        .table { table-layout: auto !important; font-size: .8rem; }
+        .table thead th, .table tbody td { padding: 8px 6px; }
+
+        /* Sticky submit button full width */
+        #submitWrap { left: 0 !important; right: 0 !important; border-radius: 0 !important; padding: 8px !important; }
+
+        /* Export toolbar cuộn ngang */
+        .export-toolbar { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
+        .toolbar-divider { display: none; }
+    }
+
+    @media (max-width: 575.98px) {
+        /* Bloom box inputs nhỏ hơn */
+        .bloom-body .form-label { font-size: .72rem; margin-bottom: 2px !important; }
+        .bloom-body input { padding: 6px 8px !important; font-size: .82rem !important; }
+        .bloom-header { font-size: .72rem; height: 38px; padding: 2px 6px; }
+    }
+
+    /* ── Export toolbar ────────────────────────────────── */
+    .export-toolbar {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 12px 14px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .export-toolbar .toolbar-divider {
+        width: 1px;
+        height: 28px;
+        background: #e2e8f0;
+        flex-shrink: 0;
+    }
+
+    .btn-sel {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border-radius: 8px;
+        font-size: .82rem;
+        font-weight: 600;
+        border: 1.5px solid;
+        cursor: pointer;
+        transition: background .18s, border-color .18s, color .18s, box-shadow .18s, transform .1s;
+        background: none;
+        white-space: nowrap;
+    }
+    .btn-sel-all {
+        color: #3b82f6;
+        border-color: #bfdbfe;
+        background: #eff6ff;
+    }
+    .btn-sel-all:hover {
+        background: #3b82f6;
+        border-color: #3b82f6;
+        color: #fff;
+        box-shadow: 0 4px 12px rgba(59,130,246,.30);
+        transform: translateY(-1px);
+    }
+    .btn-sel-none {
+        color: #64748b;
+        border-color: #e2e8f0;
+        background: #fff;
+    }
+    .btn-sel-none:hover {
+        background: #f1f5f9;
+        border-color: #94a3b8;
+        color: #334155;
+        box-shadow: 0 4px 12px rgba(100,116,139,.15);
+        transform: translateY(-1px);
+    }
+
+    .btn-export {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 16px 8px 10px;
+        border-radius: 10px;
+        border: 1.5px solid;
+        cursor: pointer;
+        transition: background .18s, border-color .18s, box-shadow .18s, transform .12s, opacity .18s;
+        text-align: left;
+    }
+    .btn-export:disabled {
+        opacity: .42;
+        cursor: not-allowed;
+        transform: none !important;
+        box-shadow: none !important;
+    }
+    .btn-export .exp-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        flex-shrink: 0;
+        transition: background .18s;
+    }
+    .btn-export .exp-label {
+        font-size: .73rem;
+        line-height: 1.15;
+        display: block;
+    }
+    .btn-export .exp-count {
+        font-size: .88rem;
+        font-weight: 700;
+        display: block;
+    }
+
+    /* No-answers: slate */
+    .btn-export-noans {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+        color: #475569;
+    }
+    .btn-export-noans .exp-icon  { background: #e2e8f0; }
+    .btn-export-noans .exp-label { color: #94a3b8; }
+    .btn-export-noans:not(:disabled):hover {
+        background: #475569;
+        border-color: #475569;
+        color: #fff;
+        box-shadow: 0 6px 18px rgba(71,85,105,.28);
+        transform: translateY(-2px);
+    }
+    .btn-export-noans:not(:disabled):hover .exp-icon  { background: rgba(255,255,255,.18); }
+    .btn-export-noans:not(:disabled):hover .exp-icon i { color: #fff !important; }
+    .btn-export-noans:not(:disabled):hover .exp-label  { color: rgba(255,255,255,.75); }
+    .btn-export-noans:not(:disabled):hover .exp-count  { color: #fff; }
+    .btn-export-noans:not(:disabled):active { transform: translateY(0); box-shadow: none; }
+
+    /* With-answers: green */
+    .btn-export-ans {
+        background: #f0fdf4;
+        border-color: #86efac;
+        color: #166534;
+    }
+    .btn-export-ans .exp-icon  { background: #dcfce7; }
+    .btn-export-ans .exp-label { color: #4ade80; }
+    .btn-export-ans:not(:disabled):hover {
+        background: #16a34a;
+        border-color: #16a34a;
+        color: #fff;
+        box-shadow: 0 6px 18px rgba(22,163,74,.30);
+        transform: translateY(-2px);
+    }
+    .btn-export-ans:not(:disabled):hover .exp-icon  { background: rgba(255,255,255,.20); }
+    .btn-export-ans:not(:disabled):hover .exp-icon i { color: #fff !important; }
+    .btn-export-ans:not(:disabled):hover .exp-label  { color: rgba(255,255,255,.75); }
+    .btn-export-ans:not(:disabled):hover .exp-count  { color: #fff; }
+    .btn-export-ans:not(:disabled):active { transform: translateY(0); box-shadow: none; }
+</style>
+<div class="row g-4">
+    <div class="col-lg-6 col-xl-5">
+        <div class="card shadow-lg p-4 mb-4 generator-sticky">
+
+            <!-- ░░ PROGRESS OVERLAY ░░ -->
+            <div id="progressOverlay" style="
+                display:none;
+                position:absolute; inset:0;
+                border-radius:inherit;
+                background:rgba(255,255,255,0.97);
+                z-index:10;
+                flex-direction:column;
+                align-items:center;
+                justify-content:center;
+                padding:2.5rem 2rem;
+                text-align:center;
+            ">
+                <h5 class="fw-bold mb-1" style="color:#2d3748;">{{ 'Generating questions...' if current_lang == 'en' else 'Đang sinh câu hỏi...' }}</h5>
+                <p class="text-muted small mb-4">{{ 'Please do not close this window' if current_lang == 'en' else 'Vui lòng không đóng trang' }}</p>
+
+                <!-- % number -->
+                <div id="ovPctNum" style="
+                    font-size:3.5rem; font-weight:700; line-height:1;
+                    background:linear-gradient(135deg,#667eea,#764ba2);
+                    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+                    background-clip:text; margin-bottom:.75rem;
+                ">0%</div>
+
+                <!-- progress bar -->
+                <div style="width:100%;background:#e9ecef;border-radius:99px;height:12px;overflow:hidden;margin-bottom:1rem;">
+                    <div id="ovBar" style="
+                        height:100%; width:0%;
+                        background:linear-gradient(90deg,#667eea,#764ba2);
+                        border-radius:99px;
+                        transition:width .6s ease;
+                    "></div>
+                </div>
+
+                <!-- message -->
+                <p id="ovMsg" class="text-muted small mb-0">{{ 'Starting pipeline...' if current_lang == 'en' else 'Đang khởi động...' }}</p>
+            </div>
+            <!-- ░░ END OVERLAY ░░ -->
+            <div class="d-flex align-items-center mb-4">
+                <i class="bi bi-lightning-charge-fill fs-3 me-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;"></i>
+                <h5 class="mb-0">{{ 'Automatic Question Generation' if current_lang == 'en' else 'Tạo Bộ Câu Hỏi Tự Động' }}</h5>
+            </div>
+            <form action="/process" method="POST" enctype="multipart/form-data" id="uploadForm">
+                <!-- TAB 1: Upload PDF mới với Drag & Drop -->
+                <div class="mb-4">
+                    <label class="form-label fw-semibold mb-3">
+                        <i class="bi bi-file-earmark-pdf" style="color: #ef4444;"></i> {{ 'Upload New PDF' if current_lang == 'en' else 'Upload PDF Mới' }}
+                    </label>
+                    <div id="dropZone" style="border: 3px dashed rgba(102, 126, 234, 0.4); border-radius: 18px; padding: 45px; text-align: center; background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%); cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.1);">
+                        <input type="file" name="pdf_file" id="pdfFileInput" class="d-none" accept=".pdf">
+                        <div id="dropText">
+                            <i id="dropIcon" class="bi bi-cloud-upload" style="font-size: 3.5rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; display:block; margin:0 auto;"></i>
+                            <p id="dropTextMain" class="mb-2 fw-bold fs-5" style="color: #2d3748;">{{ 'Drag & drop PDF file here' if current_lang == 'en' else 'Kéo thả file PDF vào đây' }}</p>
+                            <p id="dropTextSub" class="mb-0" style="color: #6b7280;">{{ 'or click to browse' if current_lang == 'en' else 'hoặc click để chọn file' }}</p>
+                        </div>
+                        <div id="fileName" class="fw-bold fs-5" style="display: none; color: #10b981;"></div>
+                    </div>
+                    <small class="text-muted mt-2 d-block">
+                        <i class="bi bi-info-circle"></i> {{ 'Upload a new textbook (will be saved for future use)' if current_lang == 'en' else 'Tải lên giáo trình mới (sẽ được lưu lại cho lần sau)' }}
+                    </small>
+                </div>
+
+                <div class="text-center my-4">
+                    <span class="badge px-4 py-2 rounded-pill" style="background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3); color: white; font-weight: 600;">{{ 'OR' if current_lang == 'en' else 'HOẶC' }}</span>
+                </div>
+
+                <!-- TAB 2: Chọn từ giáo trình đã lưu -->
+                <div class="mb-4">
+                    <label class="form-label fw-semibold mb-3">
+                        <i class="bi bi-journal-bookmark" style="color: #667eea;"></i> {{ 'Select Saved Textbook' if current_lang == 'en' else 'Chọn Giáo Trình Đã Lưu' }}
+                    </label>
+                    <div class="input-group">
+                        <select name="document_id" id="documentSelect" class="form-select form-select-lg">
+                            <option value="">{{ '-- Select textbook --' if current_lang == 'en' else '-- Chọn giáo trình --' }}</option>
+                            {% for doc in documents %}
+                            <option value="{{ doc.id }}" data-name="{{ doc.title }}">{{ doc.title }} ({{ doc.upload_date.strftime('%d/%m/%Y') }})</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" id="btnRenameDoc" class="btn btn-outline-secondary" title="Rename" disabled>
+                            <i class="bi bi-pencil-square"></i>
+                        </button>
+                    </div>
+                    <small class="text-muted mt-2 d-block">
+                        <i class="bi bi-info-circle"></i> {{ 'Generate new questions from a previously uploaded textbook' if current_lang == 'en' else 'Sinh câu hỏi mới từ giáo trình đã upload trước đó' }}
+                    </small>
+                </div>
+
+                <!-- Phần chọn câu hỏi theo Bloom Taxonomy -->
+                <div id="bloomSection" class="mb-4">
+                    <label class="form-label fw-semibold mb-3">
+                        <i class="bi bi-graph-up" style="color: #667eea;"></i> {{ 'Configure questions based on Bloom Taxonomy' if current_lang == 'en' else 'Cấu hình câu hỏi theo thang đo Bloom' }}
+                    </label>
+                    <div class="bloom-grid">
+                        <div class="row g-3">
+                            <!-- Bloom 1 -->
+                            <div class="col-6 col-md-4">
+                                <div class="bloom-box">
+                                    <div class="bloom-header bg-bloom-1">Bloom 1 ({{ 'Remember' if current_lang == 'en' else 'Nhớ' }})</div>
+                                    <div class="bloom-body">
+                                        <label class="form-label small mb-1">{{ 'Number of questions' if current_lang == 'en' else 'Số lượng câu hỏi' }}</label>
+                                        <input type="number" name="bloom1_count" class="form-control form-control-sm bloom-count mb-2" placeholder="0" min="0" max="50" value="0">
+                                        <label class="form-label small mb-1">{{ 'Points / Q' if current_lang == 'en' else 'Số điểm / câu' }}</label>
+                                        <input type="number" name="bloom1_points" class="form-control form-control-sm bloom-points" placeholder="0" min="0" max="10" step="0.25" value="0">
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Bloom 2 -->
+                            <div class="col-6 col-md-4">
+                                <div class="bloom-box">
+                                    <div class="bloom-header bg-bloom-2">Bloom 2 ({{ 'Understand' if current_lang == 'en' else 'Hiểu' }})</div>
+                                    <div class="bloom-body">
+                                        <label class="form-label small mb-1">{{ 'Number of questions' if current_lang == 'en' else 'Số lượng câu hỏi' }}</label>
+                                        <input type="number" name="bloom2_count" class="form-control form-control-sm bloom-count mb-2" placeholder="0" min="0" max="50" value="0">
+                                        <label class="form-label small mb-1">{{ 'Points / Q' if current_lang == 'en' else 'Số điểm / câu' }}</label>
+                                        <input type="number" name="bloom2_points" class="form-control form-control-sm bloom-points" placeholder="0" min="0" max="10" step="0.25" value="0">
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Bloom 3 -->
+                            <div class="col-6 col-md-4">
+                                <div class="bloom-box">
+                                    <div class="bloom-header bg-bloom-3">Bloom 3 ({{ 'Apply' if current_lang == 'en' else 'Vận dụng' }})</div>
+                                    <div class="bloom-body">
+                                        <label class="form-label small mb-1">{{ 'Number of questions' if current_lang == 'en' else 'Số lượng câu hỏi' }}</label>
+                                        <input type="number" name="bloom3_count" class="form-control form-control-sm bloom-count mb-2" placeholder="0" min="0" max="50" value="0">
+                                        <label class="form-label small mb-1">{{ 'Points / Q' if current_lang == 'en' else 'Số điểm / câu' }}</label>
+                                        <input type="number" name="bloom3_points" class="form-control form-control-sm bloom-points" placeholder="0" min="0" max="10" step="0.25" value="0">
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Bloom 4 -->
+                            <div class="col-6 col-md-4">
+                                <div class="bloom-box">
+                                    <div class="bloom-header bg-bloom-4">Bloom 4 ({{ 'Analyze' if current_lang == 'en' else 'Phân tích' }})</div>
+                                    <div class="bloom-body">
+                                        <label class="form-label small mb-1">{{ 'Number of questions' if current_lang == 'en' else 'Số lượng câu hỏi' }}</label>
+                                        <input type="number" name="bloom4_count" class="form-control form-control-sm bloom-count mb-2" placeholder="0" min="0" max="50" value="0">
+                                        <label class="form-label small mb-1">{{ 'Points / Q' if current_lang == 'en' else 'Số điểm / câu' }}</label>
+                                        <input type="number" name="bloom4_points" class="form-control form-control-sm bloom-points" placeholder="0" min="0" max="10" step="0.25" value="0">
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Bloom 5 -->
+                            <div class="col-6 col-md-4">
+                                <div class="bloom-box">
+                                    <div class="bloom-header bg-bloom-5">Bloom 5 ({{ 'Evaluate' if current_lang == 'en' else 'Đánh giá' }})</div>
+                                    <div class="bloom-body">
+                                        <label class="form-label small mb-1">{{ 'Number of questions' if current_lang == 'en' else 'Số lượng câu hỏi' }}</label>
+                                        <input type="number" name="bloom5_count" class="form-control form-control-sm bloom-count mb-2" placeholder="0" min="0" max="50" value="0">
+                                        <label class="form-label small mb-1">{{ 'Points / Q' if current_lang == 'en' else 'Số điểm / câu' }}</label>
+                                        <input type="number" name="bloom5_points" class="form-control form-control-sm bloom-points" placeholder="0" min="0" max="10" step="0.25" value="0">
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Bloom 6 -->
+                            <div class="col-6 col-md-4">
+                                <div class="bloom-box">
+                                    <div class="bloom-header bg-bloom-6">Bloom 6 ({{ 'Create' if current_lang == 'en' else 'Sáng tạo' }})</div>
+                                    <div class="bloom-body">
+                                        <label class="form-label small mb-1">{{ 'Number of questions' if current_lang == 'en' else 'Số lượng câu hỏi' }}</label>
+                                        <input type="number" name="bloom6_count" class="form-control form-control-sm bloom-count mb-2" placeholder="0" min="0" max="50" value="0">
+                                        <label class="form-label small mb-1">{{ 'Points / Q' if current_lang == 'en' else 'Số điểm / câu' }}</label>
+                                        <input type="number" name="bloom6_points" class="form-control form-control-sm bloom-points" placeholder="0" min="0" max="10" step="0.25" value="0">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Nút tự động điền Bloom -->
+                    <div class="d-flex justify-content-end mb-2 mt-3">
+                        <button type="button" id="btnAutoBloom" onclick="autoFillBloom()"
+                            style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:10px;font-size:.82rem;font-weight:600;border:1.5px solid #a78bfa;background:linear-gradient(135deg,#ede9fe,#f5f3ff);color:#6d28d9;cursor:pointer;transition:all .18s;"
+                            onmouseover="this.style.background='linear-gradient(135deg,#7c3aed,#6d28d9)';this.style.color='#fff';this.style.borderColor='#6d28d9';this.style.boxShadow='0 4px 14px rgba(109,40,217,.35)';"
+                            onmouseout="this.style.background='linear-gradient(135deg,#ede9fe,#f5f3ff)';this.style.color='#6d28d9';this.style.borderColor='#a78bfa';this.style.boxShadow='none';">
+                            <i class="bi bi-shuffle"></i> {{ 'Auto-fill up to 10 points' if current_lang == 'en' else 'Tự động điền đủ 10 điểm' }}
+                        </button>
+                    </div>
+
+                    <!-- Tổng kết -->
+                    <div class="bloom-summary-bar mt-3">
+                        <div class="d-flex gap-2">
+                            <div style="flex:1;min-width:0;">
+                                <label class="form-label small fw-semibold mb-1 d-flex align-items-center gap-1" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                    <i class="bi bi-list-ol flex-shrink-0" style="color:#667eea;"></i>
+                                    <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ 'Total questions' if current_lang == 'en' else 'Tổng số câu' }}</span>
+                                </label>
+                                <input type="text" id="totalQuestions" class="form-control form-control-sm text-center fw-bold bloom-total-input" readonly value="0">
+                            </div>
+                            <div style="flex:1;min-width:0;">
+                                <label class="form-label small fw-semibold mb-1 d-flex align-items-center gap-1" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                    <i class="bi bi-star-fill flex-shrink-0" style="color:#f59e0b;"></i>
+                                    <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ 'Total points' if current_lang == 'en' else 'Tổng điểm' }}</span>
+                                </label>
+                                <input type="text" id="totalPoints" class="form-control form-control-sm text-center fw-bold bloom-total-input" readonly value="0">
+                            </div>
+                        </div>
+                    </div>
+
+                    <small class="text-muted mt-2 d-block">
+                        <i class="bi bi-info-circle"></i> {{ 'Each question score is divided into items of 0.25 pts.' if current_lang == 'en' else 'Điểm mỗi câu chia thành các ý x 0.25đ.' }}
+                    </small>
+                </div>
+
+                <button type="submit" id="submitBtn" class="btn btn-primary w-100 py-3 fw-bold fs-5">
+                    <i class="bi bi-rocket-takeoff"></i> {{ 'ANALYZE & GENERATE QUESTIONS' if current_lang == 'en' else 'PHÂN TÍCH & SINH CÂU HỎI' }}
+                </button>
+            </form>
+            <!-- placeholder giữ chiều cao khi ẩn bloomSection -->
+        </div>
+    </div>
+
+<script>
+(function () {
+    const form    = document.getElementById('uploadForm');
+    const overlay = document.getElementById('progressOverlay');
+    const bar     = document.getElementById('ovBar');
+    const pctNum  = document.getElementById('ovPctNum');
+    const msgEl   = document.getElementById('ovMsg');
+
+    let pollTimer = null;
+
+    function updateUI(pct, msg) {
+        bar.style.width  = pct + '%';
+        pctNum.textContent = pct + '%';
+        msgEl.textContent  = msg;
+    }
+
+    async function poll(jobId) {
+        try {
+            const res  = await fetch('/api/progress/' + jobId);
+            const data = await res.json();
+            if (data.error === 'not_found') { location.reload(); return; }
+
+            updateUI(data.percent || 0, data.message || '');
+
+            if (data.done) {
+                updateUI(100, data.message || 'Hoàn tất!');
+                clearTimeout(pollTimer);
+                const cat  = encodeURIComponent(data.flash_cat  || 'success');
+                const fmsg = encodeURIComponent(data.flash_msg  || data.message);
+                setTimeout(() => {
+                    window.location.href = '/?flash_msg=' + fmsg + '&flash_cat=' + cat;
+                }, 900);
+                return;
+            }
+            pollTimer = setTimeout(() => poll(jobId), 1000);
+        } catch (e) {
+            pollTimer = setTimeout(() => poll(jobId), 2000);
+        }
+    }
+
+    const bloomSection = document.getElementById('bloomSection');
+    const submitBtn     = document.getElementById('submitBtn');
+
+    // ── Tính tổng số câu hỏi và tổng số điểm ────────────────────────────
+    function updateBloomTotals() {
+        const countInputs  = document.querySelectorAll('.bloom-count');
+        const pointInputs  = document.querySelectorAll('.bloom-points');
+        let totalQ = 0, totalP = 0;
+        countInputs.forEach((el, i) => {
+            const q = parseFloat(el.value) || 0;
+            const p = parseFloat(pointInputs[i]?.value) || 0;
+            totalQ += q;
+            totalP += q * p;
+        });
+        document.getElementById('totalQuestions').value = totalQ;
+        document.getElementById('totalPoints').value    = Math.round(totalP * 100) / 100;
+    }
+
+    // Gắn sự kiện vào tất cả input Bloom (cả count và points)
+    document.querySelectorAll('.bloom-count, .bloom-points').forEach(el => {
+        el.addEventListener('input', updateBloomTotals);
+    });
+    updateBloomTotals(); // khởi tạo ban đầu
+
+    // ── Tự động điền Bloom đủ 10 điểm ───────────────────────────────────
+    window.autoFillBloom = function () {
+        // Phân hoạch ngẫu nhiên 10 điểm thành 6 phần, mỗi phần ≥ 1
+        let scores = [1, 1, 1, 1, 1, 1]; // tổng = 6
+        for (let extra = 0; extra < 4; extra++) {
+            scores[Math.floor(Math.random() * 6)]++;
+        }
+        // Mỗi bloom: tách score[i] thành count * points (cả 2 đều là số nguyên ≥ 1)
+        for (let i = 0; i < 6; i++) {
+            let s = scores[i];
+            // Tìm tất cả ước số của s → đó là các giá trị count hợp lệ
+            let divisors = [];
+            for (let c = 1; c <= s; c++) {
+                if (s % c === 0) divisors.push(c);
+            }
+            let count = divisors[Math.floor(Math.random() * divisors.length)];
+            let pts   = s / count;
+            document.querySelector(`[name="bloom${i+1}_count"]`).value  = count;
+            document.querySelector(`[name="bloom${i+1}_points"]`).value = pts;
+        }
+        updateBloomTotals();
+    };
+
+    function showOverlay() {
+        overlay.style.display = 'flex';
+        // Ẩn Bloom config + nút submit để overlay che hoàn toàn
+        bloomSection.style.display = 'none';
+        submitBtn.style.display    = 'none';
+        // Cuộn card lên đầu để overlay hiện đúng vị trí
+        overlay.closest('.generator-sticky').scrollTop = 0;
+    }
+
+    function hideOverlay() {
+        overlay.style.display      = 'none';
+        bloomSection.style.display = '';
+        submitBtn.style.display    = '';
+    }
+
+    form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+
+        // Kiểm tra file / tài liệu TRƯỚC khi hiện overlay
+        const _pdfFile = document.getElementById('pdfFileInput');
+        const _docSel  = document.querySelector('select[name="document_id"]');
+        if ((!_pdfFile || _pdfFile.files.length === 0) && (!_docSel || !_docSel.value)) {
+            alert('{{ "⚠️ Please upload a PDF file or select a saved textbook!" if current_lang == "en" else "⚠️ Vui lòng upload file PDF hoặc chọn giáo trình có sẵn!" }}');
+            return;
+        }
+
+        showOverlay();
+        updateUI(0, '{{ "Sending request..." if current_lang == "en" else "Đang gửi yêu cầu..." }}');
+
+        try {
+            const fd  = new FormData(form);
+            const res = await fetch('/process', {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: fd,
+            });
+            const data = await res.json();
+
+            if (data.error) {
+                hideOverlay();
+                alert(data.error);
+                return;
+            }
+
+            poll(data.job_id);
+        } catch (err) {
+            hideOverlay();
+            alert('{{ "Connection error. Please try again." if current_lang == "en" else "Lỗi kết nối. Vui lòng thử lại." }}');
+        }
+    });
+}());
+</script>
+
+    <div class="col-lg-6 col-xl-7">
+        <div class="card shadow-lg p-4">
+            <div class="d-flex align-items-center justify-content-between mb-4">
+                <div class="d-flex align-items-center">
+                    <i class="bi bi-journal-text fs-3 me-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;"></i>
+                    <h5 class="mb-0">{{ t('Kết Quả Đã Lưu') }}</h5>
+                </div>
+                <span class="badge bg-info text-dark">{{ history|length }} {{ t('câu') }}</span>
+            </div>
+            {% if history %}
+            <form action="/export-pdf-both" method="POST" id="exportPdfForm">
+                <div class="export-toolbar mb-3">
+                    <!-- Export buttons -->
+                    <span class="small text-muted fw-semibold" style="font-size:.78rem;">
+                        <i class="bi bi-download me-1"></i>{{ 'Export PDF:' if current_lang == 'en' else 'Xuất PDF:' }}
+                    </span>
+
+                    <!-- Xuất 2 bản PDF theo form đề chính thức -->
+                    <button type="button"
+                            id="btnExportExam"
+                            disabled
+                            data-bs-toggle="modal" data-bs-target="#exportExamModal"
+                            style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px 8px 10px;border-radius:10px;border:1.5px solid #6366f1;background:linear-gradient(135deg,#eef2ff,#f5f3ff);color:#4338ca;font-size:.82rem;font-weight:700;cursor:pointer;transition:all .18s;"
+                            onmouseover="if(!this.disabled){this.style.background='linear-gradient(135deg,#4338ca,#6366f1)';this.style.color='#fff';this.style.boxShadow='0 6px 18px rgba(67,56,202,.35)';}"
+                            onmouseout="if(!this.disabled){this.style.background='linear-gradient(135deg,#eef2ff,#f5f3ff)';this.style.color='#4338ca';this.style.boxShadow='none';}">
+                        <span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:#e0e7ff;flex-shrink:0;">
+                            <i class="bi bi-journal-richtext" style="font-size:.95rem;color:#4338ca;"></i>
+                        </span>
+                        <span>
+                            <span style="font-size:.73rem;line-height:1.15;display:block;opacity:.8;">{{ '2 PDFs (question and answer)' if current_lang == 'en' else '2 bản PDF (có đáp án và không đáp án)' }}</span>
+                            <span id="exportExamCount" style="font-size:.88rem;font-weight:700;display:block;">0 {{ t('câu') }}</span>
+                        </span>
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table align-middle table-hover" style="table-layout:fixed;width:100%;">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:36px;"></th>
+                                <th style="width:22%;vertical-align:middle;">{{ t('Câu hỏi / Bloom') }}</th>
+                                <th style="width:30%;vertical-align:middle;">{{ t('Đáp án') }}</th>
+                                <th style="width:22%;vertical-align:middle;">{{ t('Mục tài liệu') }}</th>
+                                <th style="width:12%;vertical-align:middle;">{{ t('Điểm') }}</th>
+                                <th style="vertical-align:middle;">{{ t('Thuật toán') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for grp in batches %}
+                            {# --- Section header row --- #}
+                            <tr class="table-secondary">
+                                <td class="text-center" style="vertical-align:middle;">
+                                    <input type="checkbox" class="form-check-input batch-checkbox"
+                                           data-batch="{{ grp.batch_id }}"
+                                           title="Select all">
+                                </td>
+                                <td colspan="5" style="vertical-align:middle;padding:6px 8px;">
+                                    {% if grp.batch_id != 'legacy' %}
+                                        {% set b = grp.batch_id %}
+                                        {% set ts = b[:4] ~ '/' ~ b[4:6] ~ '/' ~ b[6:8] ~ ' ' ~ b[8:10] ~ ':' ~ b[10:12] %}
+                                    {% else %}
+                                        {% set ts = '' %}
+                                    {% endif %}
+                                    <span class="fw-semibold text-secondary" style="font-size:0.82rem;">
+                                        &#128200;
+                                        {% if ts %}&nbsp;&middot;&nbsp;{{ ts }}{% endif %}
+                                        {% if grp.doc_title %}&nbsp;&middot;&nbsp;<span class="text-info">{{ grp.doc_title }}</span>{% endif %}
+                                        &nbsp;&middot;&nbsp;<span class="text-muted">{{ grp.questions | length }} {{ t('câu') }}</span>
+                                    </span>
+                                </td>
+                            </tr>
+                            {# --- Question rows --- #}
+                            {% for item in grp.questions %}
+                            <tr>
+                                <td class="text-center">
+                                    <input type="checkbox" class="form-check-input question-checkbox"
+                                           name="selected_question_ids" value="{{ item.id }}"
+                                           data-batch="{{ grp.batch_id }}">
+                                </td>
+                                <td style="overflow:hidden;text-overflow:ellipsis;">
+                                    <strong style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">{{ item.question }}</strong><br>
+                                    <span class="badge bg-success badge-bloom">{{ t(item.bloom_level|normalize_bloom) }}</span>
+                                </td>
+                                <td style="overflow:hidden;">
+                                    <small class="text-secondary" style="display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;">{{ item.answer[:200] }}{% if item.answer|length > 200 %}...{% endif %}</small>
+                                    <br><a href="#" class="text-primary" data-bs-toggle="modal" data-bs-target="#answerModal{{ item.id }}" style="text-decoration: none;">&#128214; {{ 'View Details' if current_lang == 'en' else 'Xem đầy đủ' }}</a>
+                                </td>
+                                <td style="vertical-align:middle;">
+                                    {% if item.section_mapping %}
+                                    <div style="font-size:0.75rem;line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;color:#0dcaf0;">
+                                        📍 {{ item.section_mapping|fix_enc }}
+                                    </div>
+                                    {% else %}
+                                    <small class="text-muted">N/A</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="text-center">
+                                        <span class="badge bg-warning text-dark mb-1" style="font-size:0.75rem;">
+                                            <i class="bi bi-star-fill"></i> {{ "%.2f"|format(item.total_points) }}{{ 'pt' if current_lang == 'en' else 'đ' }}
+                                        </span>
+                                        <br>
+                                        <small class="text-muted" style="font-size:0.7rem;">{{ item.sub_points_count }} {{ 'items × 0.25 pts' if current_lang == 'en' else 'ý × 0.25đ' }}</small>
+                                    </div>
+                                </td>
+                                <td><small class="text-muted" style="font-size:0.72rem;word-break:keep-all;white-space:nowrap;">{{ item.algorithm }}</small></td>
+                            </tr>
+                            {% endfor %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </form>
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-inbox" style="font-size: 2rem;"></i>
+                <p class="mt-3 mb-0">{{ 'No questions generated yet to export.' if current_lang == 'en' else 'Chưa có câu hỏi nào để xuất PDF.' }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- MODALS - Đặt ngoài table để tránh conflict -->
+
+<!-- Modal: Xuất Đề Thi Chính Thức -->
+<div class="modal fade" id="exportExamModal" tabindex="-1" aria-labelledby="exportExamModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background:linear-gradient(135deg,#312e81,#4338ca);color:#fff;">
+                <h5 class="modal-title" id="exportExamModalLabel">
+                    <i class="bi bi-journal-richtext me-2"></i>{{ 'Export Official Essay Exam Sheet' if current_lang == 'en' else 'Xuất Đề Thi Tự Luận Chính Thức' }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="/export-exam" method="POST" id="exportExamForm">
+                <!-- Hidden: selected question IDs will be injected here by JS -->
+                <div id="exportExamHiddenIds"></div>
+                <div class="modal-body">
+                    <div class="alert alert-info d-flex align-items-center gap-2 py-2 mb-3" style="font-size:.85rem;">
+                        <i class="bi bi-info-circle-fill"></i>
+                        <span>{{ 'Provide details to generate the exam header (optional).' if current_lang == 'en' else 'Điền thông tin để tạo phần đầu đề thi. Có thể để trống nếu không cần.' }}</span>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold mb-1">{{ 'School / Institution' if current_lang == 'en' else 'Tên trường' }}</label>
+                            <input type="text" name="school_name" class="form-control form-control-sm"
+                                   placeholder="VD: TRƯỜNG ĐẠI HỌC XYZ">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold mb-1">{{ 'Faculty / Department' if current_lang == 'en' else 'Khoa / Bộ môn' }}</label>
+                            <input type="text" name="faculty_name" class="form-control form-control-sm"
+                                   placeholder="VD: KHOA CÔNG NGHỆ THÔNG TIN">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold mb-1">{{ 'Subject Name' if current_lang == 'en' else 'Tên môn học' }} <span class="text-danger">*</span></label>
+                            <input type="text" name="subject_name" class="form-control form-control-sm"
+                                   placeholder="VD: Cơ sở Dữ liệu" required>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold mb-1">{{ 'Duration' if current_lang == 'en' else 'Thời gian làm bài' }}</label>
+                            <input type="text" name="exam_duration" class="form-control form-control-sm"
+                                   value="{{ '90 mins' if current_lang == 'en' else '90 phút' }}" placeholder="90 phút">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold mb-1">{{ 'Semester' if current_lang == 'en' else 'Học kỳ' }}</label>
+                            <input type="text" name="semester" class="form-control form-control-sm"
+                                   placeholder="VD: 1 / 2 / Hè">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small fw-semibold mb-1">{{ 'Academic Year' if current_lang == 'en' else 'Năm học' }}</label>
+                            <input type="text" name="academic_year" class="form-control form-control-sm"
+                                   placeholder="VD: 2025–2026">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label small fw-semibold mb-1">{{ 'Student Instructions' if current_lang == 'en' else 'Ghi chú cho sinh viên' }}</label>
+                            <textarea name="notes" class="form-control form-control-sm" rows="2"
+                                      placeholder="VD: Được sử dụng tài liệu / Không được sử dụng tài liệu">{{ 'Students are not allowed to use reference materials.' if current_lang == 'en' else 'Sinh viên không được sử dụng tài liệu.' }}</textarea>
+                        </div>
+                        <div class="col-12">
+                            <div class="alert alert-success py-2 mb-0 small">
+                                <i class="bi bi-info-circle me-1"></i>
+                                {{ 'Will export 2 PDFs: one with answers &amp; one without — packaged as ZIP.' if current_lang == 'en' else 'Sẽ xuất 2 bản PDF: có đáp án và không đáp án — đóng gói thành file ZIP.' }}
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" name="export_mode" value="both">
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">{{ 'Cancel' if current_lang == 'en' else 'Hủy' }}</button>
+                    <button type="submit" class="btn btn-sm text-white fw-bold"
+                            style="background:linear-gradient(135deg,#4338ca,#6366f1);border:none;">
+                        <i class="bi bi-file-earmark-zip me-1"></i>{{ 'Download 2 PDFs (ZIP)' if current_lang == 'en' else 'Tải 2 bản PDF (ZIP)' }}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% for item in history %}
+<!-- Modal cho từng câu trả lời -->
+<div class="modal fade" id="answerModal{{ item.id }}" tabindex="-1" aria-labelledby="answerModalLabel{{ item.id }}" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="answerModalLabel{{ item.id }}">📝 {{ 'Full Answer Key' if current_lang == 'en' else 'Câu trả lời đầy đủ' }}</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <strong>{{ 'Question:' if current_lang == 'en' else 'Câu hỏi:' }}</strong> {{ item.question }}<br>
+                    <span class="badge bg-success mt-2">{{ t(item.bloom_level|normalize_bloom) }}</span>
+                    {% if item.section_mapping %}
+                    <span class="badge bg-info text-dark mt-2">📍 {{ item.section_mapping|fix_enc }}</span>
+                    {% endif %}
+                </div>
+                <hr>
+                <div style="white-space: pre-line; line-height: 1.8; word-wrap: break-word;">{{ item.answer }}</div>
+            </div>
+            <div class="modal-footer bg-light">
+                <small class="text-muted me-auto">{{ item.algorithm }} - {{ "%.3f"|format(item.process_time) }}s</small>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> {{ t('Đóng') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal cho chi tiết điểm -->
+<div class="modal fade" id="pointsModal{{ item.id }}" tabindex="-1" aria-labelledby="pointsModalLabel{{ item.id }}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title" id="pointsModalLabel{{ item.id }}">
+                    <i class="bi bi-star-fill"></i> {{ t('Chi tiết điểm') }} - {{ t(item.bloom_level|normalize_bloom) }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <strong>{{ t('Tổng điểm:') }}</strong> {{ "%.2f"|format(item.total_points) }} {{ t('điểm') }}<br>
+                    <strong>{{ t('Số ý:') }}</strong> {{ item.sub_points_count }} {{ t('ý (mỗi ý 0.25đ)') }}
+                </div>
+                <hr>
+                <h6 class="mb-3">{{ t('Phân chia điểm theo ý:') }}</h6>
+                <div class="row">
+                    {% if item.points_breakdown %}
+                    {% set breakdown_list = item.points_breakdown.split(' | ') %}
+                    {% for point_item in breakdown_list %}
+                    <div class="col-6 mb-2">
+                        <span class="badge bg-light text-dark w-100 py-2" style="font-size: 0.9rem;">
+                            {{ point_item }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <div class="col-12 text-center text-muted">
+                        <em>{{ t('Chưa có thông tin breakdown') }}</em>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-circle"></i> {{ t('Đóng') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<script>
+// Nếu mở trong app TEXTQAI (Flutter WebView), ẩn hướng dẫn drag-and-drop
+if (/TEXTQAI/.test(navigator.userAgent)) {
+    document.getElementById('dropTextMain').textContent = '{{ "Click to select file" if current_lang == "en" else "Click để chọn file" }}';
+    var sub = document.getElementById('dropTextSub');
+    if (sub) sub.style.display = 'none';
+}
+
+// Drag & Drop cho PDF upload
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('pdfFileInput');
+const dropText = document.getElementById('dropText');
+const fileName = document.getElementById('fileName');
+
+// Click vào vùng drop để mở file dialog
+dropZone.addEventListener('click', () => {
+    fileInput.click();
+});
+
+// Khi chọn file từ dialog
+fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        showFileName(e.target.files[0]);
+    }
+});
+
+// Ngăn chặn hành vi mặc định khi kéo file
+['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, preventDefaults, false);
+});
+
+function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+}
+
+// Highlight khi kéo file vào
+['dragenter', 'dragover'].forEach(eventName => {
+    dropZone.addEventListener(eventName, () => {
+        dropZone.style.borderColor = '#667eea';
+        dropZone.style.background = 'linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%)';
+        dropZone.style.transform = 'scale(1.02)';
+        dropZone.style.boxShadow = '0 8px 30px rgba(102, 126, 234, 0.25)';
+    }, false);
+});
+
+// Bỏ highlight khi kéo file ra
+['dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, () => {
+        dropZone.style.borderColor = 'rgba(102, 126, 234, 0.4)';
+        dropZone.style.background = 'linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%)';
+        dropZone.style.transform = 'scale(1)';
+        dropZone.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.1)';
+    }, false);
+});
+
+// Xử lý khi thả file
+dropZone.addEventListener('drop', (e) => {
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        const file = files[0];
+        // Kiểm tra định dạng PDF
+        if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+            fileInput.files = files; // Gán file vào input
+            showFileName(file);
+        } else {
+            alert('⚠️ Vui lòng chọn file PDF!');
+        }
+    }
+});
+
+function showFileName(file) {
+    const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
+    dropText.style.display = 'none';
+    fileName.style.display = 'block';
+    fileName.innerHTML = `✅ ${file.name} (${sizeInMB} MB)`;
+}
+
+// ── Đổi tên giáo trình ─────────────────────────────────────────────────────
+const docSelect = document.getElementById('documentSelect');
+const btnRename = document.getElementById('btnRenameDoc');
+
+docSelect.addEventListener('change', () => {
+    btnRename.disabled = !docSelect.value;
+});
+
+btnRename.addEventListener('click', () => {
+    const opt = docSelect.options[docSelect.selectedIndex];
+    const renameInput = document.getElementById('renameInput');
+    renameInput.value = opt.dataset.name || opt.text.replace(/\s*\(\d{2}\/\d{2}\/\d{4}\)$/, '').trim();
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('renameDocModal')).show();
+    setTimeout(() => { renameInput.select(); }, 300);
+});
+
+document.addEventListener('click', async (e) => {
+    if (!e.target.closest('#btnRenameConfirm')) return;
+    const renameInput = document.getElementById('renameInput');
+    const newName = renameInput.value.trim();
+    if (!newName) return;
+    const docId = docSelect.value;
+    const fd = new FormData();
+    fd.append('doc_id', docId);
+    fd.append('new_name', newName);
+    const res = await fetch('/document/rename', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.ok) {
+        const opt = docSelect.options[docSelect.selectedIndex];
+        const datePart = opt.text.match(/\(\d{2}\/\d{2}\/\d{4}\)$/)?.[0] || '';
+        opt.text = newName + (datePart ? ' ' + datePart : '');
+        opt.dataset.name = newName;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('renameDocModal')).hide();
+    } else {
+        alert('Lỗi: ' + data.error);
+    }
+});
+
+// ✨ VALIDATION CHO BLOOM FORM
+const uploadForm = document.getElementById('uploadForm');
+const submitButton = uploadForm.querySelector('button[type="submit"]');
+
+// Tính và hiển thị tổng số câu hỏi khi thay đổi input
+const bloomInputs = [
+    'bloom1_count', 'bloom2_count', 'bloom3_count',
+    'bloom4_count', 'bloom5_count', 'bloom6_count'
+];
+
+bloomInputs.forEach(inputName => {
+    const input = document.querySelector(`input[name="${inputName}"]`);
+    if (input) {
+        input.addEventListener('input', updateTotalQuestions);
+    }
+});
+
+function updateTotalQuestions() {
+    let total = 0;
+    bloomInputs.forEach(inputName => {
+        const input = document.querySelector(`input[name="${inputName}"]`);
+        if (input) {
+            const value = parseInt(input.value) || 0;
+            total += value;
+        }
+    });
+    
+}
+
+// Validation trước khi submit
+uploadForm.addEventListener('submit', (e) => {
+    let totalQuestions = 0;
+    bloomInputs.forEach(inputName => {
+        const input = document.querySelector(`input[name="${inputName}"]`);
+        if (input) {
+            totalQuestions += parseInt(input.value) || 0;
+        }
+    });
+    
+    if (totalQuestions === 0) {
+        e.preventDefault();
+        alert('{{ "⚠️ Please enter the number of questions for at least 1 Bloom level!" if current_lang == "en" else "⚠️ Vui lòng nhập số lượng câu hỏi cho ít nhất 1 mức Bloom!" }}');
+        return false;
+    }
+    
+    // Kiểm tra có file hoặc document được chọn
+    const pdfFile = fileInput.files.length > 0;
+    const docId = document.querySelector('select[name="document_id"]').value;
+    
+    if (!pdfFile && !docId) {
+        e.preventDefault();
+        alert('{{ "⚠️ Please upload a PDF file or select a saved textbook!" if current_lang == "en" else "⚠️ Vui lòng upload file PDF hoặc chọn giáo trình có sẵn!" }}');
+        return false;
+    }
+    
+    return true;
+});
+
+// Chọn câu hỏi để xuất PDF
+const exportPdfForm = document.getElementById('exportPdfForm');
+if (exportPdfForm) {
+    const toggleAllQuestions = document.getElementById('toggleAllQuestions');
+    const selectAllQuestionsBtn = document.getElementById('selectAllQuestionsBtn');
+    const clearQuestionsBtn = document.getElementById('clearQuestionsBtn');
+    const btnExportExam = document.getElementById('btnExportExam');
+
+    function getQuestionCheckboxes() {
+        return Array.from(document.querySelectorAll('.question-checkbox'));
+    }
+
+    function updateExportButtonState() {
+        const checkboxes = getQuestionCheckboxes();
+        const checkedCount = checkboxes.filter(cb => cb.checked).length;
+
+        if (btnExportExam) {
+            btnExportExam.disabled = checkedCount === 0;
+            const countEl = document.getElementById('exportExamCount');
+            if (countEl) countEl.textContent = checkedCount + '{{ " questions" if current_lang == "en" else " câu" }}';
+            btnExportExam.style.opacity = checkedCount === 0 ? '.42' : '1';
+            btnExportExam.style.cursor  = checkedCount === 0 ? 'not-allowed' : 'pointer';
+        }
+
+        if (toggleAllQuestions) {
+            toggleAllQuestions.checked = checkboxes.length > 0 && checkedCount === checkboxes.length;
+        }
+    }
+
+    if (toggleAllQuestions) {
+        toggleAllQuestions.addEventListener('change', () => {
+            const shouldCheck = toggleAllQuestions.checked;
+            getQuestionCheckboxes().forEach(cb => {
+                cb.checked = shouldCheck;
+            });
+            // Sync batch checkboxes
+            document.querySelectorAll('.batch-checkbox').forEach(bc => bc.checked = shouldCheck);
+            updateExportButtonState();
+        });
+    }
+
+    // Batch-level checkbox: toggle all questions in that section
+    document.addEventListener('change', function(e) {
+        if (e.target.classList.contains('batch-checkbox')) {
+            const batch = e.target.dataset.batch;
+            document.querySelectorAll(`.question-checkbox[data-batch="${batch}"]`)
+                .forEach(cb => { cb.checked = e.target.checked; });
+            updateExportButtonState();
+        }
+    });
+
+    if (selectAllQuestionsBtn) {
+        selectAllQuestionsBtn.addEventListener('click', () => {
+            getQuestionCheckboxes().forEach(cb => {
+                cb.checked = true;
+            });
+            updateExportButtonState();
+        });
+    }
+
+    if (clearQuestionsBtn) {
+        clearQuestionsBtn.addEventListener('click', () => {
+            getQuestionCheckboxes().forEach(cb => {
+                cb.checked = false;
+            });
+            updateExportButtonState();
+        });
+    }
+
+    document.addEventListener('change', (e) => {
+        if (e.target.classList.contains('question-checkbox')) {
+            updateExportButtonState();
+        }
+    });
+
+    exportPdfForm.addEventListener('submit', (e) => {
+        const checkedCount = getQuestionCheckboxes().filter(cb => cb.checked).length;
+        if (checkedCount === 0) {
+            e.preventDefault();
+            alert('⚠️ Vui lòng chọn ít nhất 1 câu hỏi để xuất PDF!');
+            return false;
+        }
+        return true;
+    });
+
+    // Khi mở modal: copy selected IDs vào hidden fields
+    const exportExamModal = document.getElementById('exportExamModal');
+    if (exportExamModal) {
+        exportExamModal.addEventListener('show.bs.modal', () => {
+            const container = document.getElementById('exportExamHiddenIds');
+            container.innerHTML = '';
+            getQuestionCheckboxes().filter(cb => cb.checked).forEach(cb => {
+                const inp = document.createElement('input');
+                inp.type = 'hidden'; inp.name = 'selected_question_ids'; inp.value = cb.value;
+                container.appendChild(inp);
+            });
+        });
+    }
+
+    updateExportButtonState();
+}
+
+// exportExamForm: Flutter intercept for ZIP download
+const exportExamForm = document.getElementById('exportExamForm');
+if (exportExamForm && /TEXTQAI/i.test(navigator.userAgent)) {
+    exportExamForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(exportExamForm);
+        fetch('/export-exam', { method: 'POST', headers: {'X-Flutter-DL': '1'}, body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.both && data.files && data.files.length >= 2) {
+                    const f0 = data.files[0], f1 = data.files[1];
+                    if (window.FlutterDownload) {
+                        // Gửi file 2 khi Flutter báo lưu xong file 1
+                        window._onFlutterDownloadDone = function() {
+                            window._onFlutterDownloadDone = null;
+                            FlutterDownload.postMessage(JSON.stringify({status: 'token', token: f1.token, filename: f1.filename}));
+                        };
+                        FlutterDownload.postMessage(JSON.stringify({status: 'token', token: f0.token, filename: f0.filename}));
+                    } else {
+                        window.open('/dl/' + f0.token, '_blank');
+                        setTimeout(() => window.open('/dl/' + f1.token, '_blank'), 800);
+                    }
+                } else if (data.token) {
+                    if (window.FlutterDownload) {
+                        FlutterDownload.postMessage(JSON.stringify({status: 'token', token: data.token, filename: data.filename}));
+                    } else {
+                        window.location.href = '/dl/' + data.token;
+                    }
+                }
+                const bsModal = bootstrap.Modal.getInstance(document.getElementById('exportExamModal'));
+                if (bsModal) bsModal.hide();
+            })
+            .catch(err => { console.error('Export error', err); alert('{{ "Export failed!" if current_lang == "en" else "Xuất PDF thất bại!" }}'); });
+    });
+}
+
+// Gọi hàm này lần đầu khi load trang
+updateTotalQuestions();
+</script>
+    <script>
+        // Replace font icon with inline SVG only if the font icon fails to render (iOS WebView fallback)
+        (function(){
+            function createUploadSVG(){
+                var ns = 'http://www.w3.org/2000/svg';
+                var svg = document.createElementNS(ns, 'svg');
+                svg.setAttribute('width','56'); svg.setAttribute('height','56'); svg.setAttribute('viewBox','0 0 16 16'); svg.setAttribute('aria-hidden','true'); svg.style.display='block'; svg.style.margin='0 auto';
+                var defs = document.createElementNS(ns,'defs');
+                var lg = document.createElementNS(ns,'linearGradient'); lg.setAttribute('id','g_upload'); lg.setAttribute('x1','0'); lg.setAttribute('x2','1');
+                var s1 = document.createElementNS(ns,'stop'); s1.setAttribute('offset','0%'); s1.setAttribute('stop-color','#667eea');
+                var s2 = document.createElementNS(ns,'stop'); s2.setAttribute('offset','100%'); s2.setAttribute('stop-color','#764ba2');
+                lg.appendChild(s1); lg.appendChild(s2); defs.appendChild(lg); svg.appendChild(defs);
+                var path1 = document.createElementNS(ns,'path');
+                path1.setAttribute('d','M8 0a4 4 0 0 0-3.995 3.8A3.5 3.5 0 0 0 1.5 7a3.5 3.5 0 0 0 3.102 3.473A2.5 2.5 0 0 0 7.5 14h1a2.5 2.5 0 0 0 2.898-3.527A3.5 3.5 0 0 0 14.5 7a3.5 3.5 0 0 0-3.505-3.2A4 4 0 0 0 8 0z');
+                path1.setAttribute('fill','url(#g_upload)'); svg.appendChild(path1);
+                var arrow = document.createElementNS(ns,'path');
+                arrow.setAttribute('d','M8 4v6M5 7l3-3 3 3');
+                arrow.setAttribute('stroke','white'); arrow.setAttribute('stroke-width','0.8'); arrow.setAttribute('stroke-linecap','round'); arrow.setAttribute('stroke-linejoin','round'); arrow.setAttribute('fill','none'); svg.appendChild(arrow);
+                return svg;
+            }
+
+            document.addEventListener('DOMContentLoaded', function(){
+                var ic = document.getElementById('dropIcon');
+                if (!ic) return;
+                setTimeout(function(){
+                    var w = ic.getBoundingClientRect().width;
+                    if (!w || w < 10) {
+                        var svg = createUploadSVG();
+                        ic.parentNode.replaceChild(svg, ic);
+                    }
+                }, 80);
+            });
+        })();
+    </script>
+
+<!-- Modal đổi tên giáo trình (đặt ngoài .generator-sticky để không bị clip) -->
+<div class="modal fade" id="renameDocModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>{{ 'Rename Textbook' if current_lang == 'en' else 'Đổi tên giáo trình' }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <label class="form-label">{{ 'New display name' if current_lang == 'en' else 'Tên gợi nhớ mới' }}</label>
+                <input type="text" id="renameInput" class="form-control form-control-lg" placeholder="{{ 'Enter new name...' if current_lang == 'en' else 'Nhập tên gợi nhớ...' }}">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ 'Cancel' if current_lang == 'en' else 'Huỷ' }}</button>
+                <button type="button" id="btnRenameConfirm" class="btn btn-primary">{{ 'Save name' if current_lang == 'en' else 'Lưu tên' }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

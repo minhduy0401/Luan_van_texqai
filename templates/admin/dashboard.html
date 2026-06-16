@@ -1,0 +1,145 @@
+{% extends 'admin/base.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- Stat cards -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-xl-3">
+        <div class="stat-card" style="--stat-accent:#6366f1;">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <span class="stat-label">{{ t('Người dùng') }}</span>
+                <div class="stat-icon" style="background:#ede9fe;color:#6366f1;"><i class="bi bi-people-fill"></i></div>
+            </div>
+            <div class="stat-value">{{ stats.total_users }}</div>
+            <div class="stat-sub"><span class="text-success"><i class="bi bi-arrow-up-short"></i>+{{ stats.users_today }}</span> {{ t('hôm nay') }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-xl-3">
+        <div class="stat-card" style="--stat-accent:#3b82f6;">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <span class="stat-label">{{ t('Câu hỏi tạo ra') }}</span>
+                <div class="stat-icon" style="background:#dbeafe;color:#2563eb;"><i class="bi bi-patch-question-fill"></i></div>
+            </div>
+            <div class="stat-value">{{ stats.total_questions }}</div>
+            <div class="stat-sub">{{ t('Tất cả thời gian') }}</div>
+        </div>
+    </div>
+    <div class="col-6 col-xl-3">
+        <div class="stat-card" style="--stat-accent:#10b981;">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <span class="stat-label">{{ t('Doanh thu tháng') }}</span>
+                <div class="stat-icon" style="background:#d1fae5;color:#059669;"><i class="bi bi-cash-stack"></i></div>
+            </div>
+            <div class="stat-value" style="font-size:1.3rem;">{{ '{:,.0f}'.format(stats.revenue_month) }}đ</div>
+            <div class="stat-sub">{{ t('Tổng:') }} {{ '{:,.0f}'.format(stats.total_revenue) }}đ</div>
+        </div>
+    </div>
+    <div class="col-6 col-xl-3">
+        <div class="stat-card" style="--stat-accent:#f59e0b;">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <span class="stat-label">{{ t('Giao dịch thành công') }}</span>
+                <div class="stat-icon" style="background:#fef3c7;color:#d97706;"><i class="bi bi-receipt"></i></div>
+            </div>
+            <div class="stat-value">{{ stats.paid_txn }}</div>
+            <div class="stat-sub">{{ stats.pending_txn }} {{ t('đang chờ xử lý') }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- Bloom chart -->
+    <div class="col-lg-5">
+        <div class="card-admin h-100">
+            <div class="card-header">
+                <span><i class="bi bi-bar-chart-steps me-2" style="color:#6366f1;"></i>{{ t('Phân bố mức Bloom') }}</span>
+            </div>
+            <div class="card-body-pad">
+                {% set bloom_colors = ['#6366f1','#3b82f6','#06b6d4','#10b981','#f59e0b','#ef4444'] %}
+                {% set total_q = stats.total_questions or 1 %}
+                {% for level, cnt in bloom_stats %}
+                {% set pct = (cnt / total_q * 100)|round(1) %}
+                {% set color = bloom_colors[loop.index0 % 6] %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between mb-1" style="font-size:.81rem;">
+                        <span class="fw-500">{{ t(level) or t('Không rõ') }}</span>
+                        <span class="fw-semibold" style="color:{{ color }};">{{ cnt }} <span class="text-muted fw-normal">({{ pct }}%)</span></span>
+                    </div>
+                    <div class="progress" style="height:7px;">
+                        <div class="progress-bar" style="width:{{ pct }}%;background:{{ color }};"></div>
+                    </div>
+                </div>
+                {% else %}
+                <p class="text-muted text-center py-3">{{ t('Chưa có dữ liệu') }}</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent transactions -->
+    <div class="col-lg-7">
+        <div class="card-admin">
+            <div class="card-header">
+                <span><i class="bi bi-clock-history me-2" style="color:#3b82f6;"></i>{{ t('Giao dịch gần đây') }}</span>
+                <a href="{{ url_for('admin_transactions') }}" class="btn btn-sm btn-admin-primary px-3" style="font-size:.78rem;">{{ t('Xem tất cả') }}</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead><tr>
+                        <th>{{ t('Người dùng') }}</th><th>{{ t('Số tiền') }}</th><th>{{ t('Credits') }}</th><th>{{ t('Trạng thái') }}</th><th>{{ t('Ngày') }}</th>
+                    </tr></thead>
+                    <tbody>
+                    {% for txn in recent_txns %}
+                    <tr>
+                        <td class="fw-semibold">{{ txn.user.display if txn.user else '?' }}</td>
+                        <td class="fw-semibold" style="color:#059669;">{{ '{:,.0f}'.format(txn.amount_vnd) }}đ</td>
+                        <td><span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:.72rem;">+{{ txn.credits_added }}</span></td>
+                        <td><span class="status-pill status-{{ txn.status }}">{{ t(txn.status) }}</span></td>
+                        <td class="text-muted" style="font-size:.8rem;">{{ txn.created_at.strftime('%d/%m %H:%M') if txn.created_at else '' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" class="text-center text-muted py-4">{{ t('Chưa có giao dịch') }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top users -->
+    <div class="col-12">
+        <div class="card-admin">
+            <div class="card-header">
+                <span><i class="bi bi-trophy-fill me-2" style="color:#f59e0b;"></i>{{ t('Top người dùng hoạt động nhiều nhất') }}</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead><tr>
+                        <th>#</th><th>{{ t('Người dùng') }}</th><th>Email</th><th>{{ t('Credits') }}</th><th>{{ t('Câu hỏi') }}</th><th>{{ t('Ngày đăng ký') }}</th><th></th>
+                    </tr></thead>
+                    <tbody>
+                    {% for user, q_count in top_users %}
+                    <tr>
+                        <td class="text-muted fw-semibold">{{ loop.index }}</td>
+                        <td>
+                            <div class="d-flex align-items-center gap-2">
+                                <div style="width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0;">{{ user.display[0]|upper }}</div>
+                                <span class="fw-semibold">{{ user.display }}</span>
+                            </div>
+                        </td>
+                        <td class="text-muted" style="font-size:.82rem;">{{ user.email or '—' }}</td>
+                        <td><span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:.76rem;">{{ user.credits }}</span></td>
+                        <td class="fw-semibold">{{ q_count }}</td>
+                        <td class="text-muted" style="font-size:.81rem;">{{ user.created_at.strftime('%d/%m/%Y') if user.created_at else '' }}</td>
+                        <td><a href="{{ url_for('admin_user_detail', user_id=user.id) }}" class="btn btn-sm btn-outline-secondary" style="font-size:.77rem;">{{ t('Chi tiết') }}</a></td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="7" class="text-center text-muted py-4">{{ t('Chưa có dữ liệu') }}</td></tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

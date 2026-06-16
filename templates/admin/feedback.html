@@ -1,0 +1,187 @@
+{% extends 'admin/base.html' %}
+{% block title %}{{ t('Phản hồi người dùng') }}{% endblock %}
+{% block page_title %}
+    <i class="bi bi-chat-dots-fill me-2" style="color:var(--accent);"></i>
+    {{ t('Phản hồi người dùng') }}
+    {% if unread_count > 0 %}
+    <span class="badge rounded-pill ms-2"
+          style="background:#ef4444;font-size:.7rem;padding:3px 8px;vertical-align:middle;">
+        {{ unread_count }} {{ t('chưa đọc') }}
+    </span>
+    {% endif %}
+{% endblock %}
+
+{% block content %}
+
+<!-- Filter bar -->
+<div class="filter-bar mb-3">
+    <form method="get" class="d-flex align-items-center gap-3 flex-wrap">
+        <div class="d-flex align-items-center gap-2">
+            <label class="form-label mb-0" style="white-space:nowrap;">{{ t('Trạng thái:') }}</label>
+            <select name="read" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+                <option value=""  {% if filter_r == ''  %}selected{% endif %}>{{ t('Tất cả') }}</option>
+                <option value="0" {% if filter_r == '0' %}selected{% endif %}>{{ t('Chưa đọc') }}</option>
+                <option value="1" {% if filter_r == '1' %}selected{% endif %}>{{ t('Đã đọc') }}</option>
+            </select>
+        </div>
+        <span class="text-muted ms-auto" style="font-size:.82rem;">
+            {{ t('Tổng:') }} <strong>{{ feedbacks.total }}</strong> {{ t('phản hồi') }}
+            {% if unread_count > 0 %}
+            &nbsp;·&nbsp; <span style="color:#ef4444;font-weight:600;">{{ unread_count }} {{ t('chưa đọc') }}</span>
+            {% endif %}
+        </span>
+    </form>
+</div>
+<!-- Table -->
+<div class="card-admin">
+    <div class="card-header">
+        <span><i class="bi bi-inbox-fill me-2 text-muted"></i>{{ t('Danh sách phản hồi') }}</span>
+    </div>
+    {% if feedbacks.items %}
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th style="width:40px;">#</th>
+                    <th>Email / User</th>
+                    <th>{{ t('Nội dung') }}</th>
+                    <th style="width:160px;">{{ t('Thời gian') }}</th>
+                    <th style="width:100px;">{{ t('Trạng thái') }}</th>
+                    <th style="width:120px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for fb in feedbacks.items %}
+                <tr {% if not fb.is_read %}style="background:#fdf8ff;"{% endif %}>
+                    <td class="text-muted">{{ fb.id }}</td>
+
+                    <td>
+                        <a href="mailto:{{ fb.email }}" class="text-decoration-none fw-500">
+                            {{ fb.email }}
+                        </a>
+                        {% if fb.user %}
+                        <br><small>
+                        <a href="{{ url_for('admin_user_detail', user_id=fb.user.id) }}"
+                           class="text-decoration-none" style="color:var(--accent);">
+                            {{ fb.user.display }}
+                        </a>
+                        </small>
+                        {% else %}
+                        <br><small class="text-muted">{{ t('Khách') }}</small>
+                        {% endif %}
+                    </td>
+
+                    <td style="max-width:420px;">
+                        <div style="white-space:pre-wrap;word-break:break-word;font-size:.85rem;
+                                    max-height:80px;overflow:hidden;position:relative;"
+                             id="msg-{{ fb.id }}-short">{{ fb.message | truncate(200) }}</div>
+                        {% if fb.message | length > 200 %}
+                        <div style="white-space:pre-wrap;word-break:break-word;font-size:.85rem;
+                                    display:none;" id="msg-{{ fb.id }}-full">{{ fb.message }}</div>
+                        <button type="button"
+                                onclick="toggleMsg({{ fb.id }})"
+                                id="btn-{{ fb.id }}"
+                                style="font-size:.76rem;color:var(--accent);background:none;border:none;padding:0;cursor:pointer;margin-top:2px;">
+                            {{ t('Xem thêm') }}
+                        </button>
+                        {% endif %}
+                    </td>
+
+                    <td class="text-muted" style="font-size:.82rem;white-space:nowrap;">
+                        {{ fb.created_at.strftime('%d/%m/%Y') if fb.created_at else '—' }}<br>
+                        <span style="font-size:.75rem;">{{ fb.created_at.strftime('%H:%M') if fb.created_at else '' }}</span>
+                    </td>
+
+                    <td>
+                        {% if fb.is_read %}
+                        <span class="status-pill status-active">
+                            <i class="bi bi-check2 me-1"></i>{{ t('Đã đọc') }}
+                        </span>
+                        {% else %}
+                        <span class="status-pill status-pending">
+                            <i class="bi bi-dot me-1" style="font-size:1.1rem;"></i>{{ t('Chưa đọc') }}
+                        </span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        <div class="d-flex gap-1">
+                            {% if not fb.is_read %}
+                            <form method="post" action="{{ url_for('admin_feedback_read', fb_id=fb.id) }}">
+                                <button type="submit" class="btn btn-sm btn-outline-success"
+                                        title="{{ t('Đánh dấu đã đọc') }}" style="padding:3px 8px;">
+                                    <i class="bi bi-check2-all"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                            <form method="post" action="{{ url_for('admin_feedback_delete', fb_id=fb.id) }}"
+                                  onsubmit="return confirm('{{ t('Xoá phản hồi này?') }}')">
+                                <button type="submit" class="btn btn-sm btn-outline-danger"
+                                        title="{{ t('Xoá') }}" style="padding:3px 8px;">
+                                    <i class="bi bi-trash3"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if feedbacks.pages > 1 %}
+    <div class="d-flex justify-content-center py-3">
+        <nav>
+            <ul class="pagination mb-0">
+                <li class="page-item {% if not feedbacks.has_prev %}disabled{% endif %}">
+                    <a class="page-link" href="?page={{ feedbacks.prev_num }}&read={{ filter_r }}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+                {% for p in feedbacks.iter_pages(left_edge=1,right_edge=1,left_current=2,right_current=2) %}
+                    {% if p %}
+                    <li class="page-item {% if p == feedbacks.page %}active{% endif %}">
+                        <a class="page-link" href="?page={{ p }}&read={{ filter_r }}">{{ p }}</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                    {% endif %}
+                {% endfor %}
+                <li class="page-item {% if not feedbacks.has_next %}disabled{% endif %}">
+                    <a class="page-link" href="?page={{ feedbacks.next_num }}&read={{ filter_r }}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-inbox" style="font-size:2.5rem;color:var(--muted);"></i>
+        <p class="text-muted mt-3 mb-0">{{ t('Chưa có phản hồi nào') }}{% if filter_r == '0' %} {{ t('chưa đọc') }}{% elif filter_r == '1' %} {{ t('đã đọc') }}{% endif %}.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleMsg(id) {
+    const short = document.getElementById('msg-' + id + '-short');
+    const full  = document.getElementById('msg-' + id + '-full');
+    const btn   = document.getElementById('btn-' + id);
+    if (full.style.display === 'none') {
+        short.style.display = 'none';
+        full.style.display  = 'block';
+        btn.textContent     = "{{ t('Thu gọn') }}";
+    } else {
+        short.style.display = 'block';
+        full.style.display  = 'none';
+        btn.textContent     = "{{ t('Xem thêm') }}";
+    }
+}
+</script>
+{% endblock %}

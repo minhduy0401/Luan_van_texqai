@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8 col-xl-7">
+
+    <div class="text-center mb-4">
+      <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3"
+           style="width:64px;height:64px;background:linear-gradient(135deg,#ef4444,#f97316);">
+        <i class="bi bi-trash3-fill text-white fs-4"></i>
+      </div>
+      <h1 class="fw-bold" style="font-size:1.9rem;background:linear-gradient(135deg,#ef4444,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
+        {{ 'Data Deletion Policy' if current_lang == 'en' else 'Chính sách Xoá Dữ liệu' }}
+      </h1>
+      <p class="text-muted mb-0">Data Deletion Policy — TEXTQAI</p>
+      <small class="text-muted">{{ 'Last updated' if current_lang == 'en' else 'Cập nhật lần cuối' }}: {{ last_updated }}</small>
+    </div>
+
+    <!-- Alert nhanh -->
+    <div class="alert d-flex align-items-start gap-3 mb-4"
+         style="background:#fef2f2;border:1.5px solid #fecaca;border-radius:14px;color:#991b1b;">
+      <i class="bi bi-info-circle-fill fs-5 flex-shrink-0 mt-1" style="color:#ef4444;"></i>
+      <div>
+        {% if current_lang == 'en' %}
+        <strong>Want to delete your account now?</strong><br>
+        Send an email to <a href="mailto:duy226466@student.nctu.edu.vn" style="color:#ef4444;font-weight:600;">duy226466@student.nctu.edu.vn</a>
+        with the subject <em>"Account Deletion Request"</em> and your registered email address.
+        We will process your request within <strong>30 days</strong>.
+        {% else %}
+        <strong>Muốn xoá tài khoản ngay?</strong><br>
+        Gửi email đến <a href="mailto:duy226466@student.nctu.edu.vn" style="color:#ef4444;font-weight:600;">duy226466@student.nctu.edu.vn</a>
+        với tiêu đề <em>"Yêu cầu xoá tài khoản"</em> kèm địa chỉ email đăng ký.
+        Chúng tôi sẽ xử lý trong vòng <strong>30 ngày</strong>.
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card p-4 mb-4">
+      <div class="card-body p-0" style="line-height:1.8;color:#374151;">
+
+        <h5 class="mt-0">1. {{ 'What Data Will Be Deleted' if current_lang == 'en' else 'Dữ liệu nào sẽ bị xoá' }}</h5>
+        {% if current_lang == 'en' %}
+        <p>When you request account deletion, we will <strong>permanently delete</strong> the following data:</p>
+        {% else %}
+        <p>Khi bạn yêu cầu xoá tài khoản, chúng tôi sẽ xoá <strong>vĩnh viễn</strong> các dữ liệu sau:</p>
+        {% endif %}
+        <div class="table-responsive">
+          <table class="table table-bordered" style="font-size:.92rem;">
+            <thead>
+              <tr>
+                <th>{{ 'Data Type' if current_lang == 'en' else 'Loại dữ liệu' }}</th>
+                <th>{{ 'Deletion Timeline' if current_lang == 'en' else 'Thời gian xoá' }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if current_lang == 'en' %}
+              <tr><td>Account information (email, name, password)</td><td>Within 30 days</td></tr>
+              <tr><td>Uploaded PDF documents + extracted text</td><td>Within 30 days</td></tr>
+              <tr><td>Generated Q&amp;A results</td><td>Within 30 days</td></tr>
+              <tr><td>Transaction history</td><td>Retained 90 days (accounting legal requirement), then deleted</td></tr>
+              <tr><td>Submitted feedback</td><td>Within 30 days</td></tr>
+              <tr><td>Agent pipeline logs</td><td>Within 30 days</td></tr>
+              {% else %}
+              <tr><td>Thông tin tài khoản (email, tên, mật khẩu)</td><td>Trong vòng 30 ngày</td></tr>
+              <tr><td>Tài liệu PDF đã upload + văn bản trích xuất</td><td>Trong vòng 30 ngày</td></tr>
+              <tr><td>Kết quả câu hỏi / trả lời đã sinh</td><td>Trong vòng 30 ngày</td></tr>
+              <tr><td>Lịch sử giao dịch</td><td>Giữ lại 90 ngày (yêu cầu pháp lý kế toán), sau đó xoá</td></tr>
+              <tr><td>Phản hồi (feedback) đã gửi</td><td>Trong vòng 30 ngày</td></tr>
+              <tr><td>Nhật ký Agent pipeline</td><td>Trong vòng 30 ngày</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+
+        <hr class="my-3">
+        <h5>2. {{ 'How to Request Deletion' if current_lang == 'en' else 'Cách yêu cầu xoá dữ liệu' }}</h5>
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <div style="background:#f0f4ff;border-radius:12px;padding:16px;height:100%;">
+              <div class="fw-semibold mb-2" style="color:#4338ca;">
+                <i class="bi bi-envelope-fill me-2"></i>{{ 'Via Email' if current_lang == 'en' else 'Qua Email' }}
+              </div>
+              <p class="mb-1" style="font-size:.9rem;">{{ 'Send email to:' if current_lang == 'en' else 'Gửi email tới:' }}</p>
+              <a href="mailto:duy226466@student.nctu.edu.vn" class="fw-semibold" style="color:#4338ca;">duy226466@student.nctu.edu.vn</a>
+              <p class="mt-2 mb-0 text-muted" style="font-size:.85rem;">
+                {% if current_lang == 'en' %}
+                Subject: <em>Account Deletion Request</em><br>
+                Body: your registered email address
+                {% else %}
+                Tiêu đề: <em>Yêu cầu xoá tài khoản</em><br>
+                Nội dung: địa chỉ email đã đăng ký
+                {% endif %}
+              </p>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div style="background:#f0fdf4;border-radius:12px;padding:16px;height:100%;">
+              <div class="fw-semibold mb-2" style="color:#15803d;">
+                <i class="bi bi-person-x-fill me-2"></i>{{ 'Via Support Page' if current_lang == 'en' else 'Qua Trang Hỗ trợ' }}
+              </div>
+              <p class="mb-2" style="font-size:.9rem;">{{ 'Fill in the deletion form at:' if current_lang == 'en' else 'Điền form xoá tài khoản tại:' }}</p>
+              <a href="/support" class="fw-semibold" style="color:#15803d;">/support</a>
+              <p class="mt-2 mb-0 text-muted" style="font-size:.85rem;">
+                {% if current_lang == 'en' %}Select <em>"Account Deletion Request"</em>{% else %}Chọn mục <em>"Yêu cầu xoá tài khoản"</em>{% endif %}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <hr class="my-3">
+        <h5>3. {{ 'Processing Steps' if current_lang == 'en' else 'Quy trình xử lý' }}</h5>
+        <ol>
+          {% if current_lang == 'en' %}
+          <li>We confirm the request via email within <strong>3 business days</strong>.</li>
+          <li>Data is deleted from the main database within <strong>30 days</strong>.</li>
+          <li>A confirmation email will be sent once the process is complete.</li>
+          <li>After deletion, the account cannot be recovered.</li>
+          {% else %}
+          <li>Chúng tôi xác nhận yêu cầu qua email trong vòng <strong>3 ngày làm việc</strong>.</li>
+          <li>Dữ liệu được xoá khỏi cơ sở dữ liệu chính trong vòng <strong>30 ngày</strong>.</li>
+          <li>Một email xác nhận sẽ được gửi khi quá trình hoàn tất.</li>
+          <li>Sau khi xoá, tài khoản không thể khôi phục.</li>
+          {% endif %}
+        </ol>
+
+        <hr class="my-3">
+        <h5>4. {{ 'Data That Cannot Be Immediately Deleted' if current_lang == 'en' else 'Dữ liệu không thể xoá ngay' }}</h5>
+        {% if current_lang == 'en' %}
+        <p>Transaction history is retained for up to 90 days after account deletion due to legal requirements for financial record retention. This data is anonymized and not linked to your account.</p>
+        {% else %}
+        <p>Lịch sử giao dịch được giữ lại tối đa 90 ngày sau khi xoá tài khoản theo yêu cầu pháp lý về lưu trữ hồ sơ tài chính. Dữ liệu này được ẩn danh hoá và không liên kết với tài khoản của bạn.</p>
+        {% endif %}
+
+        <hr class="my-3">
+        <h5>5. {{ 'Contact' if current_lang == 'en' else 'Liên hệ' }}</h5>
+        <p>
+          <i class="bi bi-envelope-fill me-1 text-primary"></i>
+          <a href="mailto:duy226466@student.nctu.edu.vn">duy226466@student.nctu.edu.vn</a>
+        </p>
+
+      </div>
+    </div>
+
+    <div class="text-center text-muted mb-5" style="font-size:.85rem;">
+      <a href="/privacy" class="me-3">{{ 'Privacy Policy' if current_lang == 'en' else 'Chính sách quyền riêng tư' }}</a>
+      <a href="/terms" class="me-3">{{ 'Terms of Service' if current_lang == 'en' else 'Điều khoản sử dụng' }}</a>
+      <a href="/support">{{ 'Support' if current_lang == 'en' else 'Hỗ trợ' }}</a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

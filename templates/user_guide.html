@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    {% include '_favicon.html' %}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Hướng dẫn sử dụng | User Guide — TEXTQAI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root { --accent:#f97316; --ink:#1d2433; --muted:#6c7280; --line:rgba(29,36,51,0.08); }
+        body { font-family:'Inter',sans-serif; color:var(--ink); background:#fafaf9; }
+        .doc-header { background:linear-gradient(135deg,#1d2433 0%,#2d3a50 100%); color:#fff; padding:3rem 0 2.5rem; }
+        .doc-header h1 { font-family:'Space Grotesk',sans-serif; font-size:2rem; font-weight:700; }
+        .lang-toggle { display:inline-flex; background:rgba(255,255,255,0.12); border-radius:999px; padding:4px; gap:2px; }
+        .lang-btn { border:none; background:transparent; color:rgba(255,255,255,0.65); padding:6px 18px; border-radius:999px; font-weight:600; font-size:.88rem; cursor:pointer; transition:.2s; }
+        .lang-btn.active { background:#fff; color:var(--ink); }
+        .doc-body { max-width:820px; margin:0 auto; padding:2.5rem 1.5rem 4rem; }
+        .lang-section { display:none; }
+        .lang-section.active { display:block; }
+        .section-card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:2rem; margin-bottom:1.5rem; box-shadow:0 2px 12px rgba(29,36,51,0.05); }
+        .section-card h2 { font-family:'Space Grotesk',sans-serif; font-size:1.2rem; font-weight:700; margin-bottom:1.2rem; color:var(--ink); display:flex; align-items:center; gap:10px; }
+        .section-card h2 .num { width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#f97316,#ff8a3d);color:#fff;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0; }
+        .section-card h3 { font-size:1rem; font-weight:600; margin:1.2rem 0 .5rem; color:#374151; }
+        .section-card p, .section-card li { font-size:.92rem; line-height:1.75; color:#4b5563; }
+        .section-card ul, .section-card ol { padding-left:1.4rem; }
+        .section-card li { margin-bottom:.35rem; }
+        table { width:100%; border-collapse:collapse; font-size:.88rem; margin:1rem 0; }
+        th { background:#f8f7f5; font-weight:600; text-align:left; padding:10px 14px; border-bottom:2px solid var(--line); }
+        td { padding:9px 14px; border-bottom:1px solid var(--line); color:#4b5563; }
+        .badge-bloom { display:inline-block; padding:3px 10px; border-radius:999px; font-size:.78rem; font-weight:600; }
+        .b1{background:#fef3c7;color:#92400e;} .b2{background:#dbeafe;color:#1e40af;} .b3{background:#d1fae5;color:#065f46;}
+        .b4{background:#ede9fe;color:#5b21b6;} .b5{background:#ffe4e6;color:#9f1239;} .b6{background:#f0fdf4;color:#14532d;}
+        .tip-box { background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:12px 16px; margin:1rem 0; font-size:.88rem; color:#9a3412; }
+        .tip-box i { color:#f97316; }
+        .warn-box { background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:12px 16px; margin:1rem 0; font-size:.88rem; color:#991b1b; }
+        .step { display:flex; gap:12px; margin-bottom:.75rem; }
+        .step-num { width:26px;height:26px;border-radius:50%;background:#f97316;color:#fff;font-size:.8rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px; }
+        .step-text { font-size:.92rem; color:#4b5563; line-height:1.6; }
+        .back-link { display:inline-flex;align-items:center;gap:6px;color:rgba(255,255,255,0.7);text-decoration:none;font-size:.88rem;margin-bottom:1rem; }
+        .back-link:hover{color:#fff;}
+        .faq-item { border-bottom:1px solid var(--line); padding:1rem 0; }
+        .faq-q { font-weight:600; color:var(--ink); margin-bottom:.4rem; font-size:.92rem; }
+        .faq-a { font-size:.9rem; color:#6b7280; line-height:1.65; }
+    </style>
+</head>
+<body>
+
+<div class="doc-header">
+    <div class="container">
+        <a href="/?landing=1" class="back-link"><i class="bi bi-arrow-left"></i> TEXTQAI</a>
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+            <div>
+                <h1><i class="bi bi-book-fill me-2" style="color:#f97316;"></i>
+                    <span class="vi-text">Hướng Dẫn Sử Dụng</span>
+                    <span class="en-text d-none">User Guide</span>
+                </h1>
+                <p class="mb-0" style="color:rgba(255,255,255,0.6);font-size:.9rem;">
+                    <span class="vi-text">Hướng dẫn đầy đủ cách sử dụng hệ thống TEXTQAI</span>
+                    <span class="en-text d-none">Complete guide to using the TEXTQAI system</span>
+                </p>
+            </div>
+            <div class="lang-toggle">
+                <button class="lang-btn active" onclick="setLang('vi')">🇻🇳 Tiếng Việt</button>
+                <button class="lang-btn" onclick="setLang('en')">🇺🇸 English</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="doc-body">
+
+    <!-- ══ SECTION 1: OVERVIEW ══ -->
+    <div class="section-card">
+        <h2><span class="num">1</span>
+            <span class="vi-text">Tổng quan hệ thống</span>
+            <span class="en-text d-none">System Overview</span>
+        </h2>
+        <p class="vi-text">
+            <strong>TEXTQAI</strong> là nền tảng tự động sinh câu hỏi và trả lời từ tài liệu PDF theo <strong>Thang phân loại Bloom</strong> — pipeline 3 tác nhân AI (Trích xuất → Sinh Q&A → Đánh giá).
+        </p>
+        <p class="en-text d-none">
+            <strong>TEXTQAI</strong> automatically generates questions and answers from PDF documents using <strong>Bloom's Taxonomy</strong> — a 3-agent AI pipeline (Extract → Generate Q&A → Evaluate).
+        </p>
+        <table>
+            <thead><tr>
+                <th><span class="vi-text">Cấp độ</span><span class="en-text d-none">Level</span></th>
+                <th><span class="vi-text">Tên</span><span class="en-text d-none">Name</span></th>
+                <th><span class="vi-text">Loại câu hỏi</span><span class="en-text d-none">Question Type</span></th>
+            </tr></thead>
+            <tbody>
+                <tr><td><span class="badge-bloom b1">Bloom 1</span></td><td><span class="vi-text">Nhớ</span><span class="en-text d-none">Remember</span></td><td><span class="vi-text">Định nghĩa, liệt kê</span><span class="en-text d-none">Definitions, listing</span></td></tr>
+                <tr><td><span class="badge-bloom b2">Bloom 2</span></td><td><span class="vi-text">Hiểu</span><span class="en-text d-none">Understand</span></td><td><span class="vi-text">Giải thích, mô tả</span><span class="en-text d-none">Explain, describe</span></td></tr>
+                <tr><td><span class="badge-bloom b3">Bloom 3</span></td><td><span class="vi-text">Áp dụng</span><span class="en-text d-none">Apply</span></td><td><span class="vi-text">Tính toán, sử dụng</span><span class="en-text d-none">Calculate, apply</span></td></tr>
+                <tr><td><span class="badge-bloom b4">Bloom 4</span></td><td><span class="vi-text">Phân tích</span><span class="en-text d-none">Analyze</span></td><td><span class="vi-text">So sánh, phân biệt</span><span class="en-text d-none">Compare, distinguish</span></td></tr>
+                <tr><td><span class="badge-bloom b5">Bloom 5</span></td><td><span class="vi-text">Đánh giá</span><span class="en-text d-none">Evaluate</span></td><td><span class="vi-text">Nhận xét, phê bình</span><span class="en-text d-none">Critique, assess</span></td></tr>
+                <tr><td><span class="badge-bloom b6">Bloom 6</span></td><td><span class="vi-text">Sáng tạo</span><span class="en-text d-none">Create</span></td><td><span class="vi-text">Đề xuất, thiết kế</span><span class="en-text d-none">Propose, design</span></td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- ══ SECTION 2: LOGIN ══ -->
+    <div class="section-card">
+        <h2><span class="num">2</span>
+            <span class="vi-text">Đăng ký &amp; Đăng nhập</span>
+            <span class="en-text d-none">Register &amp; Login</span>
+        </h2>
+        <h3 class="vi-text">Đăng ký tài khoản mới</h3>
+        <h3 class="en-text d-none">Create a New Account</h3>
+        <div class="step"><div class="step-num">1</div><div class="step-text vi-text">Truy cập trang chủ → nhấn <strong>Đăng ký</strong></div><div class="step-text en-text d-none">Go to homepage → click <strong>Register</strong></div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-text vi-text">Điền Tên tài khoản, Email, Mật khẩu</div><div class="step-text en-text d-none">Enter Username, Email, Password</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-text vi-text">Tích vào ô đồng ý Điều khoản &amp; Chính sách</div><div class="step-text en-text d-none">Check the Terms &amp; Privacy agreement box</div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-text vi-text">Nhấn <strong>Đăng ký</strong> — nhận ngay <strong>5 credits miễn phí</strong></div><div class="step-text en-text d-none">Click <strong>Register</strong> — receive <strong>5 free credits</strong> instantly</div></div>
+        <div class="tip-box mt-3"><i class="bi bi-google me-2"></i>
+            <span class="vi-text">Đăng nhập bằng Google: nhấn nút Google → chọn tài khoản → đồng ý điều khoản lần đầu.</span>
+            <span class="en-text d-none">Google Login: click Google button → select account → agree to terms on first use.</span>
+        </div>
+    </div>
+
+    <!-- ══ SECTION 3: UPLOAD ══ -->
+    <div class="section-card">
+        <h2><span class="num">3</span>
+            <span class="vi-text">Tải tài liệu PDF</span>
+            <span class="en-text d-none">Upload PDF Document</span>
+        </h2>
+        <div class="step"><div class="step-num">1</div><div class="step-text vi-text">Vào <strong>Trang làm việc</strong> sau khi đăng nhập</div><div class="step-text en-text d-none">Go to <strong>Workspace</strong> after logging in</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-text vi-text">Nhấn <strong>"Tải lên tài liệu"</strong> hoặc kéo thả PDF</div><div class="step-text en-text d-none">Click <strong>"Upload Document"</strong> or drag &amp; drop PDF</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-text vi-text">Đặt tên (tùy chọn) và xác nhận upload</div><div class="step-text en-text d-none">Add a name (optional) and confirm upload</div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-text vi-text">Chờ hệ thống xử lý (~10–30 giây)</div><div class="step-text en-text d-none">Wait for processing (~10–30 seconds)</div></div>
+        <div class="warn-box"><i class="bi bi-exclamation-triangle-fill me-2"></i>
+            <span class="vi-text">Chỉ hỗ trợ PDF có text thật (không phải ảnh scan). Tối đa 50MB.</span>
+            <span class="en-text d-none">Only PDFs with real text are supported (not scanned images). Max 50MB.</span>
+        </div>
+    </div>
+
+    <!-- ══ SECTION 4: GENERATE ══ -->
+    <div class="section-card">
+        <h2><span class="num">4</span>
+            <span class="vi-text">Sinh câu hỏi / trả lời</span>
+            <span class="en-text d-none">Generate Q&amp;A</span>
+        </h2>
+        <div class="step"><div class="step-num">1</div><div class="step-text vi-text">Chọn <strong>tài liệu</strong> từ danh sách bên trái</div><div class="step-text en-text d-none">Select a <strong>document</strong> from the left panel</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-text vi-text">Chọn <strong>Chương/Mục</strong> muốn sinh câu hỏi</div><div class="step-text en-text d-none">Select a <strong>Chapter/Section</strong> to process</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-text vi-text">Chọn <strong>cấp độ Bloom</strong> (1–6, chọn nhiều được)</div><div class="step-text en-text d-none">Select <strong>Bloom level(s)</strong> (1–6, multiple allowed)</div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-text vi-text">Nhập <strong>số câu hỏi</strong> mỗi cấp (mặc định: 2)</div><div class="step-text en-text d-none">Enter <strong>questions per level</strong> (default: 2)</div></div>
+        <div class="step"><div class="step-num">5</div><div class="step-text vi-text">Nhấn <strong>"Sinh câu hỏi"</strong> — chờ kết quả</div><div class="step-text en-text d-none">Click <strong>"Generate Questions"</strong> — wait for results</div></div>
+        <div class="tip-box"><i class="bi bi-coin me-2"></i>
+            <span class="vi-text"><strong>Chi phí:</strong> Mỗi câu hỏi = 1 credit. Ví dụ: 6 Bloom × 2 câu = 12 credits.</span>
+            <span class="en-text d-none"><strong>Cost:</strong> Each question = 1 credit. Example: 6 levels × 2 questions = 12 credits.</span>
+        </div>
+    </div>
+
+    <!-- ══ SECTION 5: RESULTS ══ -->
+    <div class="section-card">
+        <h2><span class="num">5</span>
+            <span class="vi-text">Xem &amp; Xuất kết quả</span>
+            <span class="en-text d-none">View &amp; Export Results</span>
+        </h2>
+        <table>
+            <thead><tr>
+                <th><span class="vi-text">Cột</span><span class="en-text d-none">Column</span></th>
+                <th><span class="vi-text">Nội dung</span><span class="en-text d-none">Content</span></th>
+            </tr></thead>
+            <tbody>
+                <tr><td><span class="vi-text">Câu hỏi</span><span class="en-text d-none">Question</span></td><td><span class="vi-text">Nội dung câu hỏi do AI sinh</span><span class="en-text d-none">AI-generated question text</span></td></tr>
+                <tr><td><span class="vi-text">Trả lời</span><span class="en-text d-none">Answer</span></td><td><span class="vi-text">Gợi ý đáp án</span><span class="en-text d-none">Suggested answer</span></td></tr>
+                <tr><td>Bloom</td><td><span class="vi-text">Cấp độ nhận thức (1–6)</span><span class="en-text d-none">Cognitive level (1–6)</span></td></tr>
+                <tr><td><span class="vi-text">Điểm</span><span class="en-text d-none">Score</span></td><td><span class="vi-text">Chất lượng (0–2 điểm)</span><span class="en-text d-none">Quality score (0–2)</span></td></tr>
+                <tr><td><span class="vi-text">Chương</span><span class="en-text d-none">Chapter</span></td><td><span class="vi-text">Nguồn trích xuất</span><span class="en-text d-none">Source chapter</span></td></tr>
+            </tbody>
+        </table>
+        <p class="vi-text">Nhấn <strong>Xuất CSV</strong> để tải về file spreadsheet.</p>
+        <p class="en-text d-none">Click <strong>Export CSV</strong> to download as a spreadsheet.</p>
+    </div>
+
+    <!-- ══ SECTION 6: CREDITS ══ -->
+    <div class="section-card">
+        <h2><span class="num">6</span>
+            <span class="vi-text">Credits &amp; Thanh toán</span>
+            <span class="en-text d-none">Credits &amp; Payment</span>
+        </h2>
+        <table>
+            <thead><tr><th><span class="vi-text">Gói</span><span class="en-text d-none">Package</span></th><th>Credits</th><th><span class="vi-text">Giá</span><span class="en-text d-none">Price</span></th></tr></thead>
+            <tbody>
+                <tr><td>Starter</td><td>50</td><td>13,000đ</td></tr>
+                <tr><td>Basic</td><td>200</td><td>45,000đ</td></tr>
+                <tr><td>Pro</td><td>500</td><td>99,000đ</td></tr>
+            </tbody>
+        </table>
+        <p class="vi-text">Thanh toán qua <strong>SePay / VNPay</strong> — credits cộng ngay sau khi thanh toán thành công.</p>
+        <p class="en-text d-none">Pay via <strong>SePay / VNPay</strong> — credits added immediately after successful payment.</p>
+    </div>
+
+    <!-- ══ SECTION 7: FAQ ══ -->
+    <div class="section-card">
+        <h2><span class="num">7</span>FAQ</h2>
+        <div class="faq-item">
+            <div class="faq-q vi-text">❓ PDF của tôi không được xử lý?</div>
+            <div class="faq-q en-text d-none">❓ My PDF isn't being processed?</div>
+            <div class="faq-a vi-text">Kiểm tra PDF có chứa text thật không (không phải ảnh scan). Thử dùng công cụ OCR trước.</div>
+            <div class="faq-a en-text d-none">Verify the PDF contains real text (not scanned images). Try an OCR tool first.</div>
+        </div>
+        <div class="faq-item">
+            <div class="faq-q vi-text">❓ Credits bị trừ nhưng không có kết quả?</div>
+            <div class="faq-q en-text d-none">❓ Credits deducted but no results appeared?</div>
+            <div class="faq-a vi-text">Hệ thống có thể gặp lỗi tạm thời. Liên hệ <a href="/support">hỗ trợ</a> để hoàn credits.</div>
+            <div class="faq-a en-text d-none">Temporary system error may have occurred. Contact <a href="/support">support</a> for a refund.</div>
+        </div>
+        <div class="faq-item">
+            <div class="faq-q vi-text">❓ Câu hỏi không đúng cấp Bloom?</div>
+            <div class="faq-q en-text d-none">❓ Questions don't match the expected Bloom level?</div>
+            <div class="faq-a vi-text">AI đạt ~70–80% độ chính xác phân loại Bloom. Một số nhầm lẫn là bình thường.</div>
+            <div class="faq-a en-text d-none">AI achieves ~70–80% Bloom classification accuracy. Some misclassification is normal.</div>
+        </div>
+        <div class="faq-item" style="border-bottom:none;">
+            <div class="faq-q vi-text">❓ Có hỗ trợ tài liệu tiếng Anh không?</div>
+            <div class="faq-q en-text d-none">❓ Are English documents supported?</div>
+            <div class="faq-a vi-text">Có, hệ thống hỗ trợ cả tiếng Việt và tiếng Anh.</div>
+            <div class="faq-a en-text d-none">Yes, both Vietnamese and English documents are supported.</div>
+        </div>
+    </div>
+
+    <div class="text-center mt-4">
+        <a href="/support" class="btn rounded-pill px-4" style="background:#f97316;color:#fff;border:none;">
+            <i class="bi bi-headset me-1"></i>
+            <span class="vi-text">Liên hệ hỗ trợ</span>
+            <span class="en-text d-none">Contact Support</span>
+        </a>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function setLang(lang) {
+    document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('[onclick="setLang(\'' + lang + '\')"]').forEach(b => b.classList.add('active'));
+
+    const show = lang + '-text';
+    const hide = lang === 'vi' ? 'en-text' : 'vi-text';
+    document.querySelectorAll('.' + show).forEach(el => el.classList.remove('d-none'));
+    document.querySelectorAll('.' + hide).forEach(el => el.classList.add('d-none'));
+
+    localStorage.setItem('textqai_lang', lang);
+}
+// Restore saved language
+const saved = localStorage.getItem('textqai_lang') || '{{ current_lang }}';
+setLang(saved);
+</script>
+
+    <!-- iOS App back button (standalone pages) -->
+    <script>
+    (function(){
+        if (!/TEXTQAI/.test(navigator.userAgent)) return;
+        if (history.length <= 1) return;
+        var safeTop = 'calc(env(safe-area-inset-top, 0px) + 10px)';
+        var btn = document.createElement('button');
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/></svg> <span>Quay l\u1ea1i</span>';
+        btn.onclick = function(){ history.back(); };
+        btn.style.cssText = 'position:fixed;z-index:9999;top:'+safeTop+';left:12px;background:rgba(255,255,255,0.92);border:1px solid rgba(0,0,0,0.1);border-radius:999px;padding:8px 14px 8px 10px;font-size:.88rem;font-weight:600;color:#1d2433;box-shadow:0 2px 12px rgba(0,0,0,0.12);touch-action:manipulation;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:Inter,sans-serif;';
+        document.body.appendChild(btn);
+    })();
+    </script>
+</body>
+</html>

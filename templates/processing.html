@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    {% include '_favicon.html' %}
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t('TEXTQAI – Đang xử lý...') }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .processing-card {
+            background: #fff;
+            border-radius: 24px;
+            padding: 2.5rem 2.5rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 560px;
+        }
+
+        /* ── Phase indicator ────────────────────────────── */
+        .phase-steps {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.6rem;
+        }
+        .phase-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+        .phase-step .step-icon {
+            width: 46px; height: 46px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.15rem;
+            transition: all 0.4s ease;
+            border: 2px solid #dee2e6;
+            background: #f8f9fa;
+            color: #adb5bd;
+        }
+        .phase-step.active .step-icon {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-color: transparent;
+            color: #fff;
+            box-shadow: 0 4px 16px rgba(102,126,234,0.45);
+        }
+        .phase-step.done .step-icon {
+            background: #d1fae5;
+            border-color: #34d399;
+            color: #059669;
+        }
+        /* Reading phase: pink accent */
+        .phase-step.active-read .step-icon {
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            border-color: transparent;
+            color: #fff;
+            box-shadow: 0 4px 16px rgba(245,87,108,0.4);
+        }
+        .phase-step .step-label {
+            font-size: 0.68rem;
+            font-weight: 500;
+            color: #adb5bd;
+            text-align: center;
+            max-width: 78px;
+        }
+        .phase-step.active .step-label,
+        .phase-step.active-read .step-label { color: #667eea; font-weight: 600; }
+        .phase-step.active-read .step-label { color: #f5576c; }
+        .phase-step.done .step-label { color: #059669; }
+
+        .phase-connector {
+            width: 56px; height: 2px;
+            background: #dee2e6;
+            margin: 0 6px;
+            margin-bottom: 22px;
+            transition: background 0.4s ease;
+            flex-shrink: 0;
+        }
+        .phase-connector.done { background: #34d399; }
+
+        /* ── Progress bar ───────────────────────────────── */
+        .progress { height: 12px; border-radius: 99px; background: #e9ecef; overflow: hidden; }
+        .progress-bar {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 99px;
+            transition: width 0.6s ease;
+        }
+        .progress-bar.reading {
+            background: linear-gradient(90deg, #f093fb, #f5576c);
+        }
+
+        /* ── Percent badge ──────────────────────────────── */
+        .pct-badge {
+            font-size: 2.4rem; font-weight: 700;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .pct-badge.reading {
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            -webkit-background-clip: text;
+            background-clip: text;
+        }
+
+        /* ── Pulse dot ──────────────────────────────────── */
+        .dot-pulse {
+            display: inline-block;
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #667eea;
+            animation: dpulse 1.2s infinite ease-in-out;
+        }
+        .dot-pulse.reading { background: #f5576c; }
+        @keyframes dpulse {
+            0%, 100% { transform: scale(0.6); opacity: 0.35; }
+            50%       { transform: scale(1.3); opacity: 1; }
+        }
+
+        /* ── Page badge (reading phase only) ───────────── */
+        .page-badge {
+            display: inline-block;
+            background: #fff0f3;
+            color: #f5576c;
+            border: 1px solid #fecdd3;
+            border-radius: 99px;
+            padding: 3px 14px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+<div class="processing-card">
+
+    <!-- Phase stepper -->
+    <div class="phase-steps">
+        <div class="phase-step active-read" id="step-read">
+            <div class="step-icon"><i class="bi bi-book"></i></div>
+            <div class="step-label">{{ t('Đọc giáo trình') }}</div>
+        </div>
+        <div class="phase-connector" id="conn1"></div>
+        <div class="phase-step" id="step-ai">
+            <div class="step-icon"><i class="bi bi-cpu"></i></div>
+            <div class="step-label">{{ t('Sinh câu hỏi AI') }}</div>
+        </div>
+        <div class="phase-connector" id="conn2"></div>
+        <div class="phase-step" id="step-done">
+            <div class="step-icon"><i class="bi bi-check2"></i></div>
+            <div class="step-label">{{ t('Hoàn thành') }}</div>
+        </div>
+    </div>
+
+    <!-- Percent number -->
+    <div class="text-center mb-2">
+        <span class="pct-badge reading" id="pct-num">0</span><span class="pct-badge reading" id="pct-sym">%</span>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="progress mb-2">
+        <div class="progress-bar reading" id="prog-bar" role="progressbar" style="width:0%"></div>
+    </div>
+
+    <!-- Page counter (reading phase only) -->
+    <div class="text-center mb-2" id="page-counter" style="min-height:28px; display:none;">
+        <span class="page-badge" id="page-badge-txt"></span>
+    </div>
+
+    <!-- Status message -->
+    <div class="text-center mb-3" style="min-height:24px;">
+        <span id="status-msg" class="text-muted small">
+            <span class="dot-pulse reading me-1"></span> {{ t('Đang chuẩn bị...') }}
+        </span>
+    </div>
+
+    <p class="text-center text-muted mt-1 mb-0" style="font-size:.77rem;">
+        <i class="bi bi-info-circle me-1"></i>
+        {{ t('Quá trình này có thể mất vài phút tuỳ độ dài tài liệu. Vui lòng không đóng trang.') }}
+    </p>
+</div>
+
+<script>
+const JOB_ID   = "{{ job_id }}";
+const POLL_URL = "/api/progress/" + JOB_ID;
+const LANG     = "{{ current_lang }}";
+
+const bar         = document.getElementById('prog-bar');
+const pctNum      = document.getElementById('pct-num');
+const pctSym      = document.getElementById('pct-sym');
+const msgEl       = document.getElementById('status-msg');
+const pageCounter = document.getElementById('page-counter');
+const pageBadge   = document.getElementById('page-badge-txt');
+const stepRead    = document.getElementById('step-read');
+const stepAI      = document.getElementById('step-ai');
+const stepDone    = document.getElementById('step-done');
+const conn1       = document.getElementById('conn1');
+const conn2       = document.getElementById('conn2');
+let lastPct = 0;
+let currentPhase = 'reading'; // 'reading' | 'pipeline' | 'done'
+
+function setPhase(phase) {
+    if (phase === currentPhase) return;
+    currentPhase = phase;
+
+    if (phase === 'pipeline') {
+        stepRead.classList.remove('active-read');
+        stepRead.classList.add('done');
+        stepRead.querySelector('.step-icon').innerHTML = '<i class="bi bi-check2-circle"></i>';
+        conn1.classList.add('done');
+        stepAI.classList.add('active');
+
+        // Switch colors to purple
+        bar.classList.remove('reading');
+        pctNum.classList.remove('reading');
+        pctSym.classList.remove('reading');
+        pageCounter.style.display = 'none';
+
+    } else if (phase === 'done') {
+        stepAI.classList.remove('active');
+        stepAI.classList.add('done');
+        stepAI.querySelector('.step-icon').innerHTML = '<i class="bi bi-check2-circle"></i>';
+        conn2.classList.add('done');
+        stepDone.classList.add('done');
+    }
+}
+
+function translateDynamicMessage(msg, lang) {
+    if (lang !== 'en' || !msg) return msg;
+
+    const exacts = {
+        'Đang khởi động pipeline...': 'Initializing AI pipeline...',
+        'Đang khởi động...':          'Initializing...',
+        'Đang đọc giáo trình...':     'Reading textbook...',
+        'Đã đọc xong giáo trình. Đang lưu tài liệu...': 'Textbook read. Saving document...',
+        'Đang lưu kết quả vào cơ sở dữ liệu...': 'Saving results to database...',
+        'Không tìm thấy tiến trình. Quay lại...': 'Process not found. Redirecting...',
+        'Đang phân tích tài liệu...': 'Analyzing document...',
+    };
+    if (exacts[msg]) return exacts[msg];
+
+    // "Đang đọc giáo trình... trang X/Y (OCR)"
+    let mRead = msg.match(/Đang đọc giáo trình\.\.\. trang (\d+)\/(\d+)(?:\s+\((.+?)\))?/);
+    if (mRead) {
+        let lbl = mRead[3] ? ` (${mRead[3]})` : '';
+        return `Reading textbook... page ${mRead[1]}/${mRead[2]}${lbl}`;
+    }
+
+    // "Đang sinh câu X/Y (Bloom N (Desc))..."
+    let mGen = msg.match(/Đang sinh câu\s+(\d+)\/(\d+)\s+\((Bloom \d+)(?:\s*\((.*?)\))?\)\.\.\./);
+    if (mGen) {
+        const bloomMap = { 'Nhận biết':'Remembering','Thông hiểu':'Understanding','Vận dụng':'Applying','Phân tích':'Analyzing','Đánh giá':'Evaluating','Sáng tạo':'Creating' };
+        let d = bloomMap[mGen[4]] || mGen[4] || '';
+        return d ? `Generating question ${mGen[1]}/${mGen[2]} (${mGen[3]} (${d}))...`
+                 : `Generating question ${mGen[1]}/${mGen[2]} (${mGen[3]})...`;
+    }
+
+    let mDone = msg.match(/Hoàn thành!\s+Đã tạo\s+(\d+)\/(\d+)\s+câu hỏi\./);
+    if (mDone) return `Completed! Generated ${mDone[1]}/${mDone[2]} questions.`;
+
+    let mDone2 = msg.match(/Đã tạo thành công\s+(\d+)\/(\d+)\s+câu hỏi!/);
+    if (mDone2) return `Successfully generated ${mDone2[1]}/${mDone2[2]} questions!`;
+
+    if (msg.startsWith('Lỗi:')) return msg.replace('Lỗi:', 'Error:');
+    return msg;
+}
+
+function updatePageCounter(msg) {
+    let m = msg.match(/trang (\d+)\/(\d+)/);
+    if (m && currentPhase === 'reading') {
+        pageBadge.textContent = `📄 Trang ${m[1]} / ${m[2]}`;
+        pageCounter.style.display = 'block';
+    }
+}
+
+async function poll() {
+    try {
+        const res  = await fetch(POLL_URL);
+        const data = await res.json();
+
+        if (data.error === 'not_found') {
+            msgEl.textContent = translateDynamicMessage('Không tìm thấy tiến trình. Quay lại...', LANG);
+            setTimeout(() => window.location.href = '/', 2000);
+            return;
+        }
+
+        const pct   = data.percent || 0;
+        const msg   = data.message || '';
+        const phase = data.phase   || (pct <= 15 ? 'reading' : 'pipeline');
+
+        // Phase transition
+        if (phase === 'pipeline' && currentPhase === 'reading') setPhase('pipeline');
+
+        // Smooth percent (never go backwards)
+        lastPct = Math.max(lastPct, pct);
+        bar.style.width = lastPct + '%';
+        bar.setAttribute('aria-valuenow', lastPct);
+        pctNum.textContent = lastPct;
+
+        const dotCls = currentPhase === 'reading' ? 'dot-pulse reading' : 'dot-pulse';
+        msgEl.innerHTML = `<span class="${dotCls} me-1"></span> ${translateDynamicMessage(msg, LANG)}`;
+
+        if (currentPhase === 'reading') updatePageCounter(msg);
+
+        if (data.done) {
+            setPhase('done');
+            bar.style.width = '100%';
+            pctNum.textContent = '100';
+            pageCounter.style.display = 'none';
+
+            if (data.error) {
+                msgEl.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>${translateDynamicMessage(data.error, LANG)}</span>`;
+                setTimeout(() => window.location.href = '/', 4000);
+            } else {
+                msgEl.innerHTML = `<span class="text-success fw-semibold"><i class="bi bi-check-circle me-1"></i>${translateDynamicMessage(msg, LANG)}</span>`;
+                const cat  = encodeURIComponent(data.flash_cat  || 'success');
+                const fmsg = encodeURIComponent(translateDynamicMessage(data.flash_msg || msg, LANG));
+                setTimeout(() => { window.location.href = '/?flash_msg=' + fmsg + '&flash_cat=' + cat; }, 1200);
+            }
+            return;
+        }
+
+        setTimeout(poll, 1000);
+    } catch (err) {
+        // Network hiccup – retry
+        setTimeout(poll, 2000);
+    }
+}
+
+poll();
+</script>
+</body>
+</html>
