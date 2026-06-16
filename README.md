@@ -113,7 +113,29 @@ python app.py
 
 Truy cập: **http://localhost:5000**
 
-> Hướng dẫn đầy đủ (MySQL, OAuth, SMTP, deploy production): [docs/install_guide.md](docs/install_guide.md)
+#### 5. Tạo tài khoản admin
+
+Hệ thống **không** có sẵn admin mặc định. Sau khi app chạy được, tạo admin bằng script:
+
+```bash
+python create_admin.py
+```
+
+Script sẽ hỏi username, email (tùy chọn), mật khẩu và tạo user với `is_admin=True`.
+
+**Cách khác** — đăng ký qua `/register` rồi nâng quyền:
+
+```bash
+python create_admin.py --username ten_ban_vua_dang_ky --promote
+```
+
+Hoặc trực tiếp trong MySQL (sau khi đã đăng ký):
+
+```sql
+UPDATE users SET is_admin = 1 WHERE username = 'ten_tai_khoan';
+```
+
+> Chi tiết: [docs/install_guide.md](docs/install_guide.md)
 
 ---
 
@@ -126,6 +148,7 @@ Luan_van_texqai/
 ├── extensions.py       # DB, Login, OAuth, AI client
 ├── models.py           # SQLAlchemy models
 ├── init_db.py          # Tạo bảng MySQL lần đầu
+├── create_admin.py     # Tạo / nâng quyền tài khoản admin
 ├── migrate_db.py       # Migration một lần (schema cũ → mới)
 ├── database/
 │   └── init.sql        # Script CREATE DATABASE

@@ -13,8 +13,9 @@
 4. [Cài đặt cơ sở dữ liệu MySQL](#4-cài-đặt-cơ-sở-dữ-liệu-mysql)
 5. [Cấu hình biến môi trường](#5-cấu-hình-biến-môi-trường)
 6. [Khởi động ứng dụng](#6-khởi-động-ứng-dụng)
-7. [Deploy production (tùy chọn)](#7-deploy-production-tùy-chọn)
-8. [Xử lý lỗi thường gặp](#8-xử-lý-lỗi-thường-gặp)
+7. [Tạo tài khoản admin](#7-tạo-tài-khoản-admin)
+8. [Deploy production (tùy chọn)](#8-deploy-production-tùy-chọn)
+9. [Xử lý lỗi thường gặp](#9-xử-lý-lỗi-thường-gặp)
 
 ---
 
@@ -162,18 +163,48 @@ python app.py
 ```
 Truy cập: `http://localhost:5000`
 
-#### Expose ra internet bằng ngrok (test với thiết bị di động)
-```bash
-# Terminal 1
-python app.py
+---
 
-# Terminal 2
-ngrok http --domain=your-domain.ngrok-free.dev 5000
+### 7. Tạo tài khoản admin
+
+Hệ thống **không** có admin mặc định. Người cài đặt cần tạo admin sau bước trên.
+
+#### Cách 1 — Script (khuyến nghị)
+
+```bash
+python create_admin.py
 ```
+
+Nhập username, email (có thể bỏ qua), mật khẩu → tài khoản admin được tạo với quyền truy cập `/admin`.
+
+Hoặc truyền tham số:
+
+```bash
+python create_admin.py --username admin --email admin@example.com
+```
+
+#### Cách 2 — Đăng ký web rồi nâng quyền
+
+1. Mở `http://localhost:5000/register` → đăng ký tài khoản thường
+2. Chạy:
+
+```bash
+python create_admin.py --username ten_tai_khoan --promote
+```
+
+#### Cách 3 — SQL trực tiếp (MySQL)
+
+Sau khi đã có user (đăng ký qua web hoặc script):
+
+```sql
+UPDATE users SET is_admin = 1 WHERE username = 'ten_tai_khoan';
+```
+
+Đăng nhập lại tại `/login` — menu **Admin** sẽ hiện trên thanh điều hướng.
 
 ---
 
-### 7. Deploy production (tùy chọn)
+### 8. Deploy production (tùy chọn)
 
 #### Dùng Waitress (Windows server)
 ```bash
@@ -204,7 +235,7 @@ server {
 
 ---
 
-### 8. Xử lý lỗi thường gặp
+### 9. Xử lý lỗi thường gặp
 
 | Lỗi | Nguyên nhân | Giải pháp |
 |-----|-------------|-----------|
@@ -226,8 +257,9 @@ server {
 4. [Set Up MySQL Database](#4-set-up-mysql-database)
 5. [Configure Environment Variables](#5-configure-environment-variables)
 6. [Start the Application](#6-start-the-application)
-7. [Production Deployment (Optional)](#7-production-deployment-optional)
-8. [Troubleshooting](#8-troubleshooting)
+7. [Create Admin Account](#7-create-admin-account)
+8. [Production Deployment (Optional)](#8-production-deployment-optional)
+9. [Troubleshooting](#9-troubleshooting)
 
 ---
 
@@ -375,6 +407,41 @@ python app.py
 ```
 Access at: `http://localhost:5000`
 
+---
+
+### 7. Create Admin Account
+
+There is **no default admin account**. The installer must create one after the app runs.
+
+#### Option 1 — Script (recommended)
+
+```bash
+python create_admin.py
+```
+
+Enter username, email (optional), and password → admin account with access to `/admin`.
+
+```bash
+python create_admin.py --username admin --email admin@example.com
+```
+
+#### Option 2 — Register on web, then promote
+
+1. Open `http://localhost:5000/register` and create a normal account
+2. Run:
+
+```bash
+python create_admin.py --username your_username --promote
+```
+
+#### Option 3 — Direct SQL (MySQL)
+
+```sql
+UPDATE users SET is_admin = 1 WHERE username = 'your_username';
+```
+
+Log in again at `/login` — the **Admin** menu appears in the navigation bar.
+
 #### Expose to internet with ngrok (for mobile testing)
 ```bash
 # Terminal 1
@@ -386,7 +453,7 @@ ngrok http --domain=your-domain.ngrok-free.dev 5000
 
 ---
 
-### 7. Production Deployment (Optional)
+### 8. Production Deployment (Optional)
 
 #### Using Waitress (Windows server)
 ```bash
@@ -417,7 +484,7 @@ server {
 
 ---
 
-### 8. Troubleshooting
+### 9. Troubleshooting
 
 | Error | Cause | Solution |
 |-------|-------|----------|
