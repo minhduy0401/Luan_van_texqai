@@ -41,9 +41,6 @@ EXPERIMENT_DIR = Path(__file__).parent.resolve()
 PROJECT_ROOT   = EXPERIMENT_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from dotenv import load_dotenv
-load_dotenv(PROJECT_ROOT / '.env')
-
 # ── NLTK ────────────────────────────────────────────────────────────────────────
 import nltk
 for _res in ('tokenizers/punkt', 'tokenizers/punkt_tab'):
@@ -60,7 +57,7 @@ from extensions import db
 
 _sqlite_path = EXPERIMENT_DIR / 'exp1_temp.db'
 app = Flask(__name__, template_folder=str(PROJECT_ROOT / 'templates'))
-app.config['SECRET_KEY']               = os.getenv('SECRET_KEY', 'exp1-key')
+app.config['SECRET_KEY']               = 'exp1-key'
 # WAL mode + timeout 60s để tránh "database is locked" khi pipeline ghi log nhanh
 app.config['SQLALCHEMY_DATABASE_URI']  = f'sqlite:///{_sqlite_path}?timeout=60'
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {

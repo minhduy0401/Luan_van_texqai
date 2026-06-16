@@ -73,19 +73,28 @@ Hoặc chạy file có sẵn:
 mysql -u root -p < database/init.sql
 ```
 
-#### 2. Tạo file `.env` ở thư mục gốc
+#### 2. Bootstrap kết nối MySQL (`instance/bootstrap.json`)
 
-```env
-DATABASE_URI=mysql+mysqlconnector://textqai_user:your_password@localhost/textqai
-SECRET_KEY=your-secret-key
+Chỉ **một file bootstrap** (không dùng `.env`) — để app biết cách kết nối DB lần đầu:
 
-# Chọn một AI provider
-OPENROUTER_API_KEY=sk-or-v1-xxxxxxxx
-QUESTION_MODEL=google/gemini-2.5-flash-lite
-ANSWER_MODEL=google/gemini-2.5-flash-lite
+```bash
+python setup_bootstrap.py
 ```
 
-> Biến môi trường dùng tên **`DATABASE_URI`** (không phải `DATABASE_URL`), driver **`mysql+mysqlconnector`**.
+Sửa `instance/bootstrap.json`:
+
+```json
+{
+  "database_uri": "mysql+mysqlconnector://textqai_user:your_password@localhost/textqai",
+  "secret_key": "your-secret-key-until-admin-updates"
+}
+```
+
+> Mọi cấu hình khác (API key, OAuth, VNPAY, OCR, model AI…) lưu trong **Admin → Cài đặt hệ thống** (`system_settings`).
+
+**Chuyển từ `.env` cũ:** `python migrate_env_to_db.py` (một lần), rồi cấu hình qua Admin.
+
+> URI dùng **`mysql+mysqlconnector`**, không phải `DATABASE_URL`.
 
 #### 3. Tạo bảng (schema)
 
@@ -148,6 +157,8 @@ Luan_van_texqai/
 ├── extensions.py       # DB, Login, OAuth, AI client
 ├── models.py           # SQLAlchemy models
 ├── init_db.py          # Tạo bảng MySQL lần đầu
+├── setup_bootstrap.py  # Tạo instance/bootstrap.json
+├── migrate_env_to_db.py # Import .env cũ → system_settings
 ├── create_admin.py     # Tạo / nâng quyền tài khoản admin
 ├── migrate_db.py       # Migration một lần (schema cũ → mới)
 ├── database/

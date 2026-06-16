@@ -672,6 +672,99 @@
     </div>
 </div>
 
+<!-- Tích hợp: OAuth, VNPAY, SePay, Secret Key -->
+<div class="row g-3 mt-3">
+    <div class="col-12">
+        <div class="card-admin">
+            <div class="card-header">
+                <span><i class="bi bi-plug me-2" style="color:#6366f1;"></i>{{ t('Tích hợp & bí mật hệ thống') }}</span>
+                <span class="text-muted" style="font-size:.78rem;">{{ t('Lưu trong database — không dùng file .env') }}</span>
+            </div>
+            <div class="card-body-pad">
+                <form method="post">
+                    <input type="hidden" name="action" value="integrations">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <h6 class="fw-bold text-dark border-bottom pb-2" style="font-size:.88rem;">
+                                <i class="bi bi-key me-2"></i>Flask SECRET_KEY
+                            </h6>
+                            <input type="password" name="secret_key" class="form-control form-control-sm font-monospace"
+                                placeholder="{{ t('Để trống nếu không đổi') }}{% if settings.has_secret_key %} — {{ t('đã cấu hình') }}{% endif %}">
+                            <div class="form-text">{{ t('Dùng cho session/login. Đổi key sẽ đăng xuất toàn bộ user.') }}</div>
+                        </div>
+
+                        <div class="col-12 mt-2">
+                            <h6 class="fw-bold text-dark border-bottom pb-2" style="font-size:.88rem;">
+                                <i class="bi bi-google me-2"></i>Google OAuth (Đăng nhập Google)
+                            </h6>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Client ID</label>
+                            <input type="text" name="google_client_id" class="form-control form-control-sm font-monospace"
+                                value="{{ settings.google_client_id or '' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Client Secret</label>
+                            <input type="password" name="google_client_secret" class="form-control form-control-sm font-monospace"
+                                value="{{ settings.google_client_secret or '' }}" placeholder="{{ t('Để trống nếu không đổi') }}">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Redirect URI (tùy chọn — ngrok/production)</label>
+                            <input type="url" name="google_redirect_uri" class="form-control form-control-sm font-monospace"
+                                value="{{ settings.google_redirect_uri or '' }}"
+                                placeholder="https://your-domain.com/auth/google/callback">
+                        </div>
+
+                        <div class="col-12 mt-2">
+                            <h6 class="fw-bold text-dark border-bottom pb-2" style="font-size:.88rem;">
+                                <i class="bi bi-credit-card me-2"></i>VNPAY
+                            </h6>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">TMN Code</label>
+                            <input type="text" name="vnpay_tmn_code" class="form-control form-control-sm font-monospace"
+                                value="{{ settings.vnpay_tmn_code or '' }}">
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">Hash Secret</label>
+                            <input type="password" name="vnpay_hash_secret" class="form-control form-control-sm font-monospace"
+                                value="{{ settings.vnpay_hash_secret or '' }}" placeholder="{{ t('Để trống nếu không đổi') }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">VNPAY URL</label>
+                            <input type="url" name="vnpay_url" class="form-control form-control-sm font-monospace"
+                                value="{{ settings.vnpay_url or 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Return URL</label>
+                            <input type="url" name="vnpay_return_url" class="form-control form-control-sm font-monospace"
+                                value="{{ settings.vnpay_return_url or '' }}"
+                                placeholder="https://your-domain.com/payment/vnpay/return">
+                        </div>
+
+                        <div class="col-12 mt-2">
+                            <h6 class="fw-bold text-dark border-bottom pb-2" style="font-size:.88rem;">
+                                <i class="bi bi-bank me-2"></i>SePay Webhook
+                            </h6>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">SePay API Key</label>
+                            <input type="password" name="sepay_api_key" class="form-control form-control-sm font-monospace"
+                                value="{{ settings.sepay_api_key or '' }}" placeholder="{{ t('Để trống nếu không đổi') }}">
+                        </div>
+
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-sm btn-admin-primary">
+                                <i class="bi bi-save me-1"></i>{{ t('Lưu tích hợp') }}
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Bảo mật & Captcha -->
 <div class="row g-3 mt-3">
     <div class="col-12">

@@ -371,7 +371,7 @@
                             style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:10px;font-size:.82rem;font-weight:600;border:1.5px solid #a78bfa;background:linear-gradient(135deg,#ede9fe,#f5f3ff);color:#6d28d9;cursor:pointer;transition:all .18s;"
                             onmouseover="this.style.background='linear-gradient(135deg,#7c3aed,#6d28d9)';this.style.color='#fff';this.style.borderColor='#6d28d9';this.style.boxShadow='0 4px 14px rgba(109,40,217,.35)';"
                             onmouseout="this.style.background='linear-gradient(135deg,#ede9fe,#f5f3ff)';this.style.color='#6d28d9';this.style.borderColor='#a78bfa';this.style.boxShadow='none';">
-                            <i class="bi bi-shuffle"></i> {{ 'Auto-fill up to 10 points' if current_lang == 'en' else 'Tự động điền đủ 10 điểm' }}
+                            <i class="bi bi-shuffle"></i> {{ 'Auto-fill 10 pts' if current_lang == 'en' else 'Tự động điền 10 điểm' }}
                         </button>
                     </div>
 
@@ -516,23 +516,57 @@
 
     // ── Tự động điền Bloom đủ 10 điểm ───────────────────────────────────
     window.autoFillBloom = function () {
-        // Phân hoạch ngẫu nhiên 10 điểm thành 6 phần, mỗi phần ≥ 1
-        let scores = [1, 1, 1, 1, 1, 1]; // tổng = 6
-        for (let extra = 0; extra < 4; extra++) {
-            scores[Math.floor(Math.random() * 6)]++;
+        // 6–8 câu; Bloom thấp (B1–B2) điểm cao hơn, Bloom cao (B5–B6) thấp hơn, tối thiểu 1đ/câu
+        const MIN_PTS = 1.0;
+        const MAX_PTS = 2.0;
+        const STEP = 0.25;
+        const roundStep = v => Math.round(v / STEP) * STEP;
+        // B1 → B6: điểm/câu khởi tạo giảm dần (B6 = min 1đ)
+        const BASE_PTS = [2.0, 1.75, 1.5, 1.25, 1.25, 1.0];
+
+        const totalQuestions = 6 + Math.floor(Math.random() * 3); // 6, 7 hoặc 8
+
+        let counts = [1, 1, 1, 1, 1, 1];
+        for (let e = 0; e < totalQuestions - 6; e++) {
+            counts[Math.floor(Math.random() * 6)]++;
         }
-        // Mỗi bloom: tách score[i] thành count * points (cả 2 đều là số nguyên ≥ 1)
-        for (let i = 0; i < 6; i++) {
-            let s = scores[i];
-            // Tìm tất cả ước số của s → đó là các giá trị count hợp lệ
-            let divisors = [];
-            for (let c = 1; c <= s; c++) {
-                if (s % c === 0) divisors.push(c);
+
+        let pts = BASE_PTS.map(p => roundStep(p));
+
+        function totalPts() {
+            return counts.reduce((s, c, i) => s + c * pts[i], 0);
+        }
+
+        // Cân chỉnh về đúng 10đ: thiếu → cộng ưu tiên B1→B6; thừa → trừ ưu tiên B6→B1
+        for (let iter = 0; iter < 80; iter++) {
+            const total = totalPts();
+            if (Math.abs(total - 10) < 0.001) break;
+            if (total < 10) {
+                let added = false;
+                for (let i = 0; i < 6; i++) {
+                    if (pts[i] + STEP <= MAX_PTS) {
+                        pts[i] = roundStep(pts[i] + STEP);
+                        added = true;
+                        break;
+                    }
+                }
+                if (!added) break;
+            } else {
+                let removed = false;
+                for (let i = 5; i >= 0; i--) {
+                    if (pts[i] - STEP >= MIN_PTS) {
+                        pts[i] = roundStep(pts[i] - STEP);
+                        removed = true;
+                        break;
+                    }
+                }
+                if (!removed) break;
             }
-            let count = divisors[Math.floor(Math.random() * divisors.length)];
-            let pts   = s / count;
-            document.querySelector(`[name="bloom${i+1}_count"]`).value  = count;
-            document.querySelector(`[name="bloom${i+1}_points"]`).value = pts;
+        }
+
+        for (let i = 0; i < 6; i++) {
+            document.querySelector(`[name="bloom${i+1}_count"]`).value  = counts[i];
+            document.querySelector(`[name="bloom${i+1}_points"]`).value = pts[i];
         }
         updateBloomTotals();
     };

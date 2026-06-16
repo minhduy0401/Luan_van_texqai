@@ -15,13 +15,12 @@ Run ONCE:
 """
 import os
 import sys
-from dotenv import load_dotenv
 
-load_dotenv()
+from utils.bootstrap_config import get_database_uri
 
 import mysql.connector
 
-DB_URI = os.getenv('DATABASE_URI', 'mysql+mysqlconnector://root:@localhost/luanvan_ai')
+DB_URI = get_database_uri()
 
 # Parse basic URI: mysql+mysqlconnector://user:pass@host/dbname
 # Format: mysql+mysqlconnector://user:password@host:port/dbname

@@ -27,9 +27,6 @@ import os
 import uuid
 import threading
 from datetime import datetime, timedelta
-from dotenv import load_dotenv
-
-load_dotenv()
 
 # ── One-time download token store (Flutter WebView) ────────────────────────────
 _dl_tokens: dict = {}  # token -> (pdf_bytes, filename)
@@ -44,7 +41,15 @@ def _store_dl_token(pdf_bytes: bytes, filename: str) -> str:
     return token
 
 # ── Project modules ───────────────────────────────────────────────────────────
-from config import QUESTION_MODEL, ANSWER_MODEL, ANSWER_FALLBACK_MODEL
+from config import QUESTION_MODEL, sync_from_db
+import config as cfg_module
+from utils.bootstrap_config import get_database_uri, get_initial_secret_key, bootstrap_path
+from utils.app_settings import (
+    get_secret_key,
+    get_google_oauth_config,
+    get_sepay_api_key,
+    seed_default_settings,
+)
 from extensions import db, login_manager, ai_client, oauth
 from models import (
     User, Document, QAResult,
@@ -73,9 +78,9 @@ from services.pipeline import run_agent_pipeline
 
 # ── Flask app setup ───────────────────────────────────────────────────────────
 app = Flask(__name__)
-app.config['SECRET_KEY']               = os.getenv('SECRET_KEY', 'dev-fallback-key')
-app.config['ENABLE_OCR']               = os.getenv('ENABLE_OCR', '0').lower() in ('1', 'true', 'yes', 'on')
-app.config['SQLALCHEMY_DATABASE_URI']  = os.getenv('DATABASE_URI', 'mysql+mysqlconnector://root:@localhost/luanvan_ai')
+app.config['SECRET_KEY']               = get_initial_secret_key()
+app.config['ENABLE_OCR']               = False
+app.config['SQLALCHEMY_DATABASE_URI']  = get_database_uri()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SESSION_PERMANENT']        = True
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
@@ -174,18 +179,49 @@ def _localize_section_filter(text):
 
 app.jinja_env.filters['localize_section'] = _localize_section_filter
 
-# ── Google OAuth 2.0 (OpenID Connect) ─────────────────────────────────────────
-oauth.register(
-    name='google',
-    client_id=os.getenv('GOOGLE_CLIENT_ID'),
-    client_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
-    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
-    client_kwargs={'scope': 'openid email profile'},
-)
 
+def _ensure_google_oauth() -> bool:
+    """Đăng ký Google OAuth từ system_settings (có thể gọi lại sau khi admin lưu)."""
+    cfg = get_google_oauth_config()
+    if not cfg['client_id'] or not cfg['client_secret']:
+        return False
+    oauth.register(
+        name='google',
+        client_id=cfg['client_id'],
+        client_secret=cfg['client_secret'],
+        server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+        client_kwargs={'scope': 'openid email profile'},
+        overwrite=True,
+    )
+    return True
+
+
+def _apply_runtime_settings():
+    """Nạp cấu hình từ DB sau khi đã kết nối MySQL."""
+    from models import SystemSetting
+    try:
+        seed_default_settings(db.session, SystemSetting)
+        sk = get_secret_key(app.config['SECRET_KEY'])
+        if sk:
+            app.config['SECRET_KEY'] = sk
+        ocr = SystemSetting.get('enable_ocr', '0')
+        app.config['ENABLE_OCR'] = ocr.lower() in ('1', 'true', 'yes', 'on')
+        sync_from_db()
+        _ensure_google_oauth()
+    except Exception as exc:
+        print(f'[WARN] Could not load settings from DB: {exc}', flush=True)
+
+
+try:
+    with app.app_context():
+        _apply_runtime_settings()
+except Exception:
+    pass
+
+print(f"[OK] Database: ...@{app.config['SQLALCHEMY_DATABASE_URI'].split('@')[-1]}")
+print(f"[OK] Bootstrap: {bootstrap_path()}")
+print(f"[OK] AI model: {cfg_module.QUESTION_MODEL}")
 print(f"[OK] OCR enabled: {app.config['ENABLE_OCR']}")
-print("[OK] OpenRouter API configured:")
-print(f"   Model: {QUESTION_MODEL}")
 
 # ── In-memory progress store ──────────────────────────────────────────────────
 # job_id → { percent, message, done, error, redirect_url, _created_at }
@@ -1800,9 +1836,9 @@ def login_google():
     Captcha is NOT required here – Google OAuth is a trusted third-party
     provider that already handles its own bot/abuse protection.
     """
-    # Ưu tiên GOOGLE_REDIRECT_URI trong .env (dùng khi ngrok URL thay đổi)
+    # Ưu tiên google_redirect_uri trong DB (dùng khi ngrok URL thay đổi)
     redirect_uri = (
-        os.getenv('GOOGLE_REDIRECT_URI')
+        get_google_oauth_config()['redirect_uri']
         or url_for('auth_google_callback', _external=True)
     )
     print(f"[Google OAuth] redirect_uri={redirect_uri}")
@@ -2060,11 +2096,11 @@ def payment_pending():
         return redirect(url_for('pricing'))
 
     # Đọc thông tin ngân hàng từ SystemSetting (fallback sang .env)
-    bank_name    = SystemSetting.get('bank_name',    os.getenv('BANK_HOLDER', 'Vietcombank'))
-    bank_account = SystemSetting.get('bank_account', os.getenv('BANK_ACCOUNT', ''))
-    bank_holder  = SystemSetting.get('bank_holder',  os.getenv('BANK_HOLDER', ''))
-    bank_branch  = SystemSetting.get('bank_branch',  os.getenv('BANK_BRANCH', ''))
-    bank_bin     = SystemSetting.get('bank_bin',     os.getenv('BANK_BIN', ''))
+    bank_name    = SystemSetting.get('bank_name',    'Vietcombank')
+    bank_account = SystemSetting.get('bank_account', '')
+    bank_holder  = SystemSetting.get('bank_holder',  '')
+    bank_branch  = SystemSetting.get('bank_branch',  '')
+    bank_bin     = SystemSetting.get('bank_bin',     '')
 
     transfer_content = f"DH{txn.order_code}"
 
@@ -2104,7 +2140,6 @@ def payment_cancel():
 
 
 # ── SEPAY WEBHOOK ─────────────────────────────────────────────────────────────
-SEPAY_API_KEY = os.getenv('SEPAY_API_KEY', '')
 
 @app.route('/payment/sepay/webhook', methods=['POST'])
 def payment_sepay_webhook():
@@ -2114,9 +2149,10 @@ def payment_sepay_webhook():
     Header: Authorization: Apikey <SEPAY_API_KEY>
     """
     # 1. Xác thực token
+    sepay_key = get_sepay_api_key()
     auth_header = request.headers.get('Authorization', '')
-    expected    = f'Apikey {SEPAY_API_KEY}'
-    if SEPAY_API_KEY and auth_header != expected:
+    expected    = f'Apikey {sepay_key}'
+    if sepay_key and auth_header != expected:
         print(f'[SEPAY] Unauthorized auth header: {auth_header!r}', flush=True)
         return jsonify(success=False, message='Unauthorized'), 401
 
@@ -2203,14 +2239,15 @@ def payment_sepay_test():
     if not current_user.is_admin:
         return jsonify(error='Forbidden'), 403
     webhook_url = url_for('payment_sepay_webhook', _external=True)
+    sepay_key = get_sepay_api_key()
     return jsonify(
         webhook_url=webhook_url,
-        sepay_key_configured=bool(SEPAY_API_KEY),
+        sepay_key_configured=bool(sepay_key),
         setup_instructions=[
             'Đăng nhập my.sepay.vn',
             'Vào Tài khoản ngân hàng → chọn tài khoản → tab Webhook',
             f'Webhook URL: {webhook_url}',
-            f'Authorization Header: Apikey {SEPAY_API_KEY}',
+            f'Authorization Header: Apikey {sepay_key or "(chưa cấu hình trong Admin)"}',
             'Nội dung CK phải chứa: DH<order_code>  (ví dụ: DH123456789)',
         ]
     )
@@ -2222,9 +2259,8 @@ def payment_sepay_test():
 @login_required
 def payment_vnpay_create():
     """Tạo đơn hàng và chuyển hướng sang cổng VNPAY."""
-    from services.payment import (vnpay_create_payment_url,
-                                   VNPAY_TMN_CODE, VNPAY_RETURN_URL)
-    if not VNPAY_TMN_CODE:
+    from services.payment import vnpay_create_payment_url, vnpay_is_configured, vnpay_return_url_default
+    if not vnpay_is_configured():
         flash('VNPAY chưa được cấu hình.', 'danger')
         return redirect(url_for('pricing'))
 
@@ -2267,7 +2303,7 @@ def payment_vnpay_create():
 
     ip_addr    = request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
     order_info = f"Nap {pkg['credits']} credits - DH{order_code}"
-    return_url = VNPAY_RETURN_URL or url_for('payment_vnpay_return', _external=True)
+    return_url = vnpay_return_url_default() or url_for('payment_vnpay_return', _external=True)
     pay_url    = vnpay_create_payment_url(order_code, pkg['price_vnd'],
                                           order_info, ip_addr, return_url)
     return redirect(pay_url)
@@ -2778,8 +2814,6 @@ def admin_stats():
 @login_required
 @admin_required
 def admin_settings():
-    import config as cfg_module
-
     if request.method == 'POST':
         action = request.form.get('action')
 
@@ -2787,6 +2821,7 @@ def admin_settings():
             SystemSetting.set('allow_register',    request.form.get('allow_register', '0'))
             SystemSetting.set('default_credits',   request.form.get('default_credits', '5'))
             SystemSetting.set('enable_ocr',        request.form.get('enable_ocr', '0'))
+            app.config['ENABLE_OCR'] = request.form.get('enable_ocr', '0') in ('1', 'on')
             flash('Đã lưu cài đặt chung.', 'success')
 
         elif action == 'ai_model':
@@ -2826,40 +2861,36 @@ def admin_settings():
                 new_model = request.form.get('ai_model', '').strip()
 
             if new_model:
-                # Ghi vào .env
-                env_path = os.path.join(os.path.dirname(__file__), '.env')
-                lines = []
-                found = {'QUESTION_MODEL': False, 'ANSWER_MODEL': False, 'ANSWER_FALLBACK_MODEL': False}
-                try:
-                    with open(env_path, 'r', encoding='utf-8') as f:
-                        lines = f.readlines()
-                    new_lines = []
-                    for line in lines:
-                        written = False
-                        for key in found:
-                            if line.startswith(key + '='):
-                                new_lines.append(f'{key}={new_model}\n')
-                                found[key] = True
-                                written = True
-                                break
-                        if not written:
-                            new_lines.append(line)
-                    # Append any not found
-                    for key, seen in found.items():
-                        if not seen:
-                            new_lines.append(f'{key}={new_model}\n')
-                    with open(env_path, 'w', encoding='utf-8') as f:
-                        f.writelines(new_lines)
-                except Exception as e:
-                    flash(f'Lỗi ghi .env: {e}', 'danger')
-                    return redirect(url_for('admin_settings'))
-
                 SystemSetting.set('ai_model', new_model)
-                # Update runtime config
-                cfg_module.QUESTION_MODEL        = new_model
-                cfg_module.ANSWER_MODEL          = new_model
-                cfg_module.ANSWER_FALLBACK_MODEL = new_model
+                cfg_module.sync_from_db()
                 flash(f'Đã đổi model AI hoạt động thành: {new_model}', 'success')
+
+        elif action == 'integrations':
+            secret_key = request.form.get('secret_key', '').strip()
+            if secret_key:
+                SystemSetting.set('secret_key', secret_key)
+                app.config['SECRET_KEY'] = secret_key
+            google_id = request.form.get('google_client_id', '').strip()
+            google_secret = request.form.get('google_client_secret', '').strip()
+            if google_id:
+                SystemSetting.set('google_client_id', google_id)
+            if google_secret:
+                SystemSetting.set('google_client_secret', google_secret)
+            SystemSetting.set('google_redirect_uri', request.form.get('google_redirect_uri', '').strip())
+            vnpay_tmn = request.form.get('vnpay_tmn_code', '').strip()
+            vnpay_hash = request.form.get('vnpay_hash_secret', '').strip()
+            if vnpay_tmn:
+                SystemSetting.set('vnpay_tmn_code', vnpay_tmn)
+            if vnpay_hash:
+                SystemSetting.set('vnpay_hash_secret', vnpay_hash)
+            SystemSetting.set('vnpay_url', request.form.get('vnpay_url', '').strip()
+                                or 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html')
+            SystemSetting.set('vnpay_return_url', request.form.get('vnpay_return_url', '').strip())
+            sepay_key = request.form.get('sepay_api_key', '').strip()
+            if sepay_key:
+                SystemSetting.set('sepay_api_key', sepay_key)
+            _ensure_google_oauth()
+            flash('Đã lưu cấu hình tích hợp (OAuth, VNPAY, SePay).', 'success')
 
         elif action == 'payment':
             SystemSetting.set('bank_name',     request.form.get('bank_name',     '').strip())
@@ -3022,6 +3053,15 @@ def admin_settings():
         'openrouter_model':      SystemSetting.get('openrouter_model', 'google/gemini-2.5-flash-lite'),
         'openai_model':          SystemSetting.get('openai_model', 'gpt-4o-mini'),
         'gemini_model':          SystemSetting.get('gemini_model', 'gemini-2.5-flash'),
+        'google_client_id':      SystemSetting.get('google_client_id', ''),
+        'google_client_secret':  SystemSetting.get('google_client_secret', ''),
+        'google_redirect_uri':   SystemSetting.get('google_redirect_uri', ''),
+        'vnpay_tmn_code':        SystemSetting.get('vnpay_tmn_code', ''),
+        'vnpay_hash_secret':     SystemSetting.get('vnpay_hash_secret', ''),
+        'vnpay_url':             SystemSetting.get('vnpay_url', 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html'),
+        'vnpay_return_url':      SystemSetting.get('vnpay_return_url', ''),
+        'sepay_api_key':         SystemSetting.get('sepay_api_key', ''),
+        'has_secret_key':        bool(SystemSetting.get('secret_key', '').strip()),
     }
     return render_template('admin/settings.html', packages=packages, sub_packages=sub_packages, settings=settings)
 
@@ -3138,6 +3178,7 @@ def _auto_cancel_pending_transactions():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()  # Chỉ tạo bảng nếu chưa có (không xóa dữ liệu)
+        _apply_runtime_settings()
         # Auto-migrate: add terms_agreed_at column if missing (MySQL safe)
         try:
             from sqlalchemy import text as _text

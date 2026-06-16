@@ -1971,8 +1971,8 @@ def new_agent1_bloom_feasibility(section_content, section_title, target_bloom,
         min_len   = {1: 40,  2: 40,  3: 40,  4: 40,  5: 40,  6: 40}
         min_words = {1: 10,  2: 10,  3: 10,  4: 10,  5: 10,  6: 10}
     else:
-        min_len   = {1: 150, 2: 200, 3: 300, 4: 400, 5: 400, 6: 400}  # ký tự tối thiểu
-        min_words = {1: 30,  2: 50,  3: 80,  4: 100, 5: 100, 6: 100}  # từ tối thiểu
+        min_len   = {1: 150, 2: 200, 3: 220, 4: 280, 5: 400, 6: 400}  # ký tự tối thiểu
+        min_words = {1: 30,  2: 50,  3: 55,  4: 65,  5: 100, 6: 100}  # từ tối thiểu
 
     reasons  = []    # lý do pass/fail — lưu vào DB
     quality  = 0.70  # điểm chất lượng mặc định
@@ -2013,8 +2013,8 @@ def new_agent1_bloom_feasibility(section_content, section_title, target_bloom,
     # Nếu nội dung section chỉ hỗ trợ tối đa Bloom 2 mà yêu cầu Bloom 4 → fail ngay
     if feasible and bloom_ceiling is not None:
         effective_ceiling = _effective_bloom_ceiling(bloom_ceiling, bloom_num, content_len)
-        if content_len <= 300 and bloom_num <= 3:
-            # Đoạn ngắn B1–B3: phải khớp đúng cấp (strict)
+        if content_len <= 300 and bloom_num <= 2:
+            # Đoạn ngắn B1–B2: phải khớp đúng cấp (strict)
             if bloom_ceiling != bloom_num:
                 feasible = False
                 reasons.append(f'short_exact_mismatch(exact={bloom_ceiling}!=target={bloom_num})')
@@ -2023,6 +2023,15 @@ def new_agent1_bloom_feasibility(section_content, section_title, target_bloom,
             else:
                 quality = min(1.0, quality + 0.05)
                 reasons.append(f'short_exact_match(exact={bloom_ceiling}=target={bloom_num})')
+        elif content_len <= 300 and bloom_num in (3, 4):
+            # Đoạn ngắn B3–B4: cho phép lệch theo effective ceiling (tránh reject oan)
+            if bloom_num > effective_ceiling:
+                feasible = False
+                reasons.append(f'short_ceiling({bloom_ceiling},eff={effective_ceiling})<target({bloom_num})')
+                quality = min(quality, 0.30)
+                print(f"    Agent 1: ❌ đoạn ngắn ceiling eff={effective_ceiling} < B{bloom_num} → bỏ qua")
+            else:
+                reasons.append(f'short_b34_ok(ceiling={bloom_ceiling},eff={effective_ceiling})')
         elif bloom_num > effective_ceiling:
             feasible = False
             reasons.append(f'semantic_ceiling({bloom_ceiling})<target({bloom_num})')
@@ -2250,6 +2259,11 @@ def new_agent2_generate_qa(section_content, section_title, target_bloom, require
                 "  • 'List the [components / features] of [X].'\n"
                 "  • 'Name the [types / steps] in [X].'\n"
                 "WRONG: 'Identify the key aspects to consider when...' — that is B4!\n"
+                "\n🔴 ANSWER RULES FOR BLOOM 1 — NEVER DO THIS:\n"
+                "  WRONG: '- Concept: concept' | '- Classification: classification'\n"
+                "  RIGHT: '- Concept: buying and selling goods via the Internet'\n"
+                "  RIGHT: '- Classification: B2B, B2C, and C2C models'\n"
+                "Each point title (1-3 words) + colon + SPECIFIC fact/term from SOURCE SECTION.\n"
             )
         elif bloom_num == 2:
             bloom_low_constraint = (
@@ -2290,10 +2304,17 @@ def new_agent2_generate_qa(section_content, section_title, target_bloom, require
                 "  • 'Kể tên các [loại / bước] trong [X].'\n"
                 "Cấu trúc SAI: 'Cho biết các khía cạnh cần xem xét khi [làm gì đó]' — đây là B4!\n"
                 "\n🔴 LỖI THƯỜNG GẶP Ở BLOOM 1 — TUYỆT ĐỐI TRÁNH:\n"
-                "1. Tiêu đề lặp nội dung: '- Khái niệm: khái niệm' → SAI! Phải là '- Khái niệm: [định nghĩa cụ thể từ tài liệu]'\n"
-                "2. Nội dung mơ hồ: '- Việt Nam không phải là ngoại lệ' → SAI! Phải trích dữ kiện cụ thể.\n"
-                "3. Meta-comment khi thiếu ý: '- (Không có kênh thứ tư...)' → TUYỆT ĐỐI KHÔNG! Nếu tài liệu chỉ có 3 điểm, hãy mở rộng 1 ý thành 2 ý con cụ thể hơn, hoặc trích thêm chi tiết số liệu/dẫn chứng từ đoạn.\n"
-                "Mỗi ý đáp án PHẢI có: tiêu đề ngắn (1-3 từ) + dấu hai chấm + thông tin thực tế cụ thể từ tài liệu.\n"
+                "1. Tiêu đề lặp nội dung: '- Khái niệm: khái niệm' / '- Phân loại: phân loại' → SAI!\n"
+                "   Phải là '- Khái niệm: [định nghĩa/cụm từ cụ thể từ tài liệu]'\n"
+                "2. Nội dung chỉ lặp tiêu đề + filler: '- Xu hướng phát triển: các xu hướng phát triển trong thời gian tới' → SAI!\n"
+                "   Phải nêu xu hướng CỤ THỂ từ tài liệu (tên, số liệu, công nghệ, mô hình...).\n"
+                "3. Nội dung mơ hồ: '- Việt Nam không phải là ngoại lệ' → SAI! Phải trích dữ kiện cụ thể.\n"
+                "4. Meta-comment khi thiếu ý: '- (Không có kênh thứ tư...)' → TUYỆT ĐỐI KHÔNG!\n"
+                "   Nếu tài liệu chỉ có 3 điểm, mở rộng 1 ý thành 2 ý con chi tiết hơn từ cùng đoạn.\n"
+                "Mỗi ý đáp án PHẢI có: tiêu đề ngắn (1-3 từ) + dấu hai chấm + thông tin thực tế cụ thể từ tài liệu (≥8 từ mới).\n"
+                "Ví dụ ĐÚNG khi hỏi 'Liệt kê các vấn đề nghiên cứu':\n"
+                "  '- Khái niệm TMĐT: giao dịch mua bán hàng hóa và dịch vụ qua mạng Internet'\n"
+                "  '- Phân loại TMĐT: B2B, B2C, C2C và các mô hình trung gian'\n"
             )
         elif bloom_num == 2:
             bloom_low_constraint = (
@@ -2448,6 +2469,11 @@ def new_agent2_generate_qa(section_content, section_title, target_bloom, require
         answer = _enforce_point_count(answer, required_points)  # cắt/giữ đúng số ý
         answer = clean_answer_formatting(answer)                 # làm sạch format
 
+        if bloom_num <= 2 and _a3_tautology_score(answer) < 0.65:
+            raise ValueError(
+                "Đáp án Bloom 1-2 mơ hồ/lặp tiêu đề (VD: 'Khái niệm: khái niệm') — cần sinh lại"
+            )
+
         reasons.append('generation_success')
         decision = 'pass'
         quality  = 0.75  # điểm mặc định khi sinh thành công (A3 sẽ đánh giá thực sự)
@@ -2476,24 +2502,69 @@ def new_agent2_generate_qa(section_content, section_title, target_bloom, require
 def _a3_bloom3_question_score(question: str) -> float:
     """Đánh giá câu hỏi Bloom 3 có thật sự 'vận dụng trong tình huống' hay chỉ mô tả (B2)."""
     q = question.lower()
-    b2_drift = ['mô tả', 'trình bày', 'giải thích', 'nêu ', 'liệt kê', 'cho biết', 'làm rõ', 'tóm tắt']
+    b2_drift = ['mô tả', 'trình bày', 'giải thích', 'nêu ', 'liệt kê', 'cho biết', 'làm rõ', 'tóm tắt',
+                'describe', 'explain', 'list', 'define', 'state', 'summarize', 'outline']
     if any(v in q for v in b2_drift):
         return 0.25
     scenario = ['giả sử', 'tình huống', 'trong trường hợp', 'nếu ', 'khi một', 'khi doanh nghiệp',
                 'khi người', 'khi công ty', 'khi cửa hàng', 'trong bối cảnh', 'để thực hiện',
-                'cần triển khai', 'cần áp dụng', 'muốn bán', 'muốn triển khai']
+                'cần triển khai', 'cần áp dụng', 'muốn bán', 'muốn triển khai',
+                'suppose', 'scenario', 'in the case', 'if a ', 'if an ', 'when a ', 'when an ',
+                'when a company', 'when a business', 'when a store', 'in order to', 'to implement']
     has_scenario = any(m in q for m in scenario)
-    b3_verbs = ['áp dụng', 'vận dụng', 'sử dụng', 'thực hiện', 'triển khai', 'tính toán']
+    b3_verbs = ['áp dụng', 'vận dụng', 'sử dụng', 'thực hiện', 'triển khai', 'tính toán',
+                'apply', 'use', 'implement', 'calculate', 'demonstrate how', 'solve']
     has_b3 = any(v in q for v in b3_verbs)
     if has_b3 and has_scenario:
         return 1.0
     if has_b3:
-        return 0.45
-    return 0.35
+        return 0.58
+    if has_scenario:
+        return 0.50
+    return 0.38
+
+
+_A3_VAGUE_FILLER = frozenset({
+    'các', 'những', 'một', 'vài', 'trong', 'tới', 'sắp', 'tới', 'thời', 'gian',
+    'liên', 'quan', 'về', 'như', 'sau', 'này', 'đó', 'the', 'and', 'for', 'with',
+    'upcoming', 'future', 'related', 'general', 'common', 'issues', 'aspects',
+})
+
+
+def _a3_content_adds_info(title: str, content: str) -> bool:
+    """Nội dung ý có thêm thông tin thực chất so với tiêu đề (không chỉ lặp/nhét filler)."""
+    title_l = re.sub(r'\s+', ' ', title.lower()).strip()
+    content_l = re.sub(r'\s+', ' ', content.lower()).strip()
+    if not title_l or not content_l:
+        return False
+    if title_l == content_l:
+        return False
+
+    remainder = content_l
+    if title_l in remainder:
+        remainder = remainder.replace(title_l, ' ', 1)
+    remainder = re.sub(
+        r'^(các|những|về|liên quan đến|bao gồm|gồm|như|such as|including|related to)\s+',
+        '', remainder,
+    ).strip(' .,:;-')
+    remainder = re.sub(
+        r'(trong thời gian tới|sắp tới|trong tương lai|in the future|going forward)\.?$',
+        '', remainder,
+    ).strip(' .,:;-')
+
+    rem_words = [
+        w for w in re.findall(r'\w{2,}', remainder)
+        if w not in _STOP_VI and w not in _A3_VAGUE_FILLER and len(w) >= 2
+    ]
+    if len(remainder) >= 10 and len(rem_words) >= 2:
+        return True
+    if len(content_l) >= 35 and len(rem_words) >= 3:
+        return True
+    return False
 
 
 def _a3_tautology_score(answer: str) -> float:
-    """Phát hiện đáp án lặp tiêu đề (VD: 'Khái niệm: khái niệm'). Trả về 0–1, cao = tốt."""
+    """Phát hiện đáp án lặp tiêu đề / mơ hồ (VD: 'Khái niệm: khái niệm'). Trả về 0–1, cao = tốt."""
     lines = [ln.strip() for ln in answer.splitlines() if ln.strip().startswith('-')]
     if not lines:
         return 1.0
@@ -2501,10 +2572,12 @@ def _a3_tautology_score(answer: str) -> float:
     for line in lines:
         m = re.match(r'-\s*([^:]+):\s*(.+)', line, re.IGNORECASE)
         if not m:
+            bad += 1
             continue
         title = re.sub(r'\s+', ' ', m.group(1).strip().lower())
         content = re.sub(r'\s+', ' ', m.group(2).strip().lower())
         if not title or not content:
+            bad += 1
             continue
         if title == content:
             bad += 1
@@ -2514,7 +2587,10 @@ def _a3_tautology_score(answer: str) -> float:
             continue
         if len(content) <= len(title) + 5 and title in content:
             bad += 1
-    return max(0.2, 1.0 - (bad / len(lines)) * 0.85)
+            continue
+        if not _a3_content_adds_info(m.group(1).strip(), m.group(2).strip()):
+            bad += 1
+    return max(0.1, 1.0 - (bad / len(lines)) * 0.92)
 
 
 # Cụm từ chung, không đủ để kết luận trùng ý
@@ -2646,28 +2722,38 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
     # q_faithfulness: tỉ lệ từ của câu hỏi có trong section (0–1)
     q_faithfulness = _a3_word_overlap(question, section_content)
 
-    # Bloom 4: phân tích thường paraphrase → kết hợp ngram + concept
-    # Bloom 5-6: dùng concept overlap (khái niệm/thuật ngữ) thay vì n-gram verbatim
+    # Bloom 4-6: dùng concept overlap (khái niệm/thuật ngữ) thay vì n-gram verbatim
     if bloom_num >= 5:
         a_groundedness = _a3_concept_overlap(answer, section_content)
         ground_method  = 'concept'
     elif bloom_num == 4:
         ngram_score = _a3_ngram_groundedness(answer, section_content)
         concept_score = _a3_concept_overlap(answer, section_content)
-        a_groundedness = round(max(ngram_score, concept_score * 0.92), 4)
+        a_groundedness = round(max(ngram_score, concept_score * 0.95), 4)
         ground_method  = 'hybrid'
+    elif bloom_num == 3:
+        ngram_score = _a3_ngram_groundedness(answer, section_content)
+        concept_score = _a3_concept_overlap(answer, section_content)
+        a_groundedness = round(max(ngram_score, concept_score * 0.90), 4)
+        ground_method  = 'hybrid_b3'
     else:
         a_groundedness = _a3_ngram_groundedness(answer, section_content)
         ground_method  = 'ngram'
 
     # Kiểm tra câu hỏi có bắt đầu bằng động từ đúng Bloom không
     _bloom_verbs = {
-        1: ['liệt kê', 'nêu', 'kể tên', 'định nghĩa', 'cho biết', 'trình bày'],
-        2: ['giải thích', 'mô tả', 'lý giải', 'làm rõ', 'diễn giải', 'tóm tắt'],
-        3: ['áp dụng', 'vận dụng', 'sử dụng', 'thực hiện', 'tính toán', 'triển khai'],
-        4: ['phân tích', 'phân loại', 'so sánh', 'đối chiếu', 'phân biệt', 'tìm nguyên nhân'],
-        5: ['đánh giá', 'nhận xét', 'biện luận', 'phản biện', 'lập luận', 'bình luận'],
-        6: ['đề xuất', 'thiết kế', 'sáng tạo', 'xây dựng', 'phát triển', 'cải tiến'],
+        1: ['liệt kê', 'nêu', 'kể tên', 'định nghĩa', 'cho biết', 'trình bày',
+            'list', 'define', 'name', 'identify', 'state', 'recall'],
+        2: ['giải thích', 'mô tả', 'lý giải', 'làm rõ', 'diễn giải', 'tóm tắt',
+            'explain', 'describe', 'summarize', 'interpret', 'clarify'],
+        3: ['áp dụng', 'vận dụng', 'sử dụng', 'thực hiện', 'tính toán', 'triển khai',
+            'apply', 'use', 'implement', 'calculate', 'demonstrate', 'solve'],
+        4: ['phân tích', 'phân loại', 'so sánh', 'đối chiếu', 'phân biệt', 'tìm nguyên nhân',
+            'analyze', 'analyse', 'compare', 'contrast', 'differentiate', 'examine'],
+        5: ['đánh giá', 'nhận xét', 'biện luận', 'phản biện', 'lập luận', 'bình luận',
+            'evaluate', 'assess', 'critique', 'argue', 'justify'],
+        6: ['đề xuất', 'thiết kế', 'sáng tạo', 'xây dựng', 'phát triển', 'cải tiến',
+            'propose', 'design', 'create', 'develop', 'recommend', 'innovate'],
     }
     q_lower = question.lower()
     has_bloom_verb   = any(v in q_lower for v in _bloom_verbs.get(bloom_num, []))
@@ -2685,24 +2771,28 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
     if has_bloom_verb: reasons.append('bloom_verb_correct')
     else:              reasons.append('bloom_verb_missing')
 
-    # Bloom 3: kiểm tra câu hỏi có tình huống thật + đáp án không lặp tiêu đề
+    # Kiểm tra đáp án lặp tiêu đề / mơ hồ (Bloom 1-2 siết nhất)
     bloom3_q_score = 1.0
-    tautology_score = 1.0
+    tautology_score = _a3_tautology_score(answer)
     diversity_score, max_point_overlap = _a3_answer_diversity_score(answer)
     if diversity_score < 0.55:
         reasons.append('answer_points_overlap')
+    if tautology_score < 0.70:
+        reasons.append('answer_tautological')
+
     if bloom_num == 3:
         bloom3_q_score = _a3_bloom3_question_score(question)
-        tautology_score = _a3_tautology_score(answer)
         key_term_score = _a3_concept_overlap(answer, section_content)
         if bloom3_q_score < 0.40:
             reasons.append('bloom3_not_scenario')
-        if tautology_score < 0.55:
-            reasons.append('answer_tautological')
         if key_term_score < 0.40:
             reasons.append('bloom3_low_key_terms')
         if q_faithfulness < 0.35:
             reasons.append('bloom3_question_off_source')
+    elif bloom_num <= 2:
+        key_term_score = _a3_concept_overlap(answer, section_content)
+        if key_term_score < 0.30:
+            reasons.append('b12_low_key_terms')
     else:
         key_term_score = 1.0
 
@@ -2729,9 +2819,9 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
     elif bloom_num >= 5:
         hard_floor = 0.15   # B5-6: paraphrase/đánh giá hợp lệ
     elif bloom_num == 4:
-        hard_floor = 0.28   # B4: phân tích, cho phép diễn đạt lại
+        hard_floor = 0.22   # B4: phân tích, cho phép diễn đạt lại
     elif bloom_num == 3:
-        hard_floor = 0.52   # Bloom 3: đáp án phải bám chặt mục nguồn
+        hard_floor = 0.34   # B3: vận dụng — hybrid ngram+concept, không siết như B1-2
     else:
         hard_floor = 0.35   # Bloom 1-2: đáp án factual phải bám sát tài liệu
     if a_groundedness < hard_floor:
@@ -2752,13 +2842,50 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
             db.session.add(log)
         return decision, quality
 
-    # Bloom 3 hard fail: lạc B2, lặp tiêu đề, hoặc không bám mục nguồn
+    # Bloom 1-2 hard fail: đáp án lặp tiêu đề / không có thông tin cụ thể
+    if bloom_num == 1 and tautology_score < 0.78:
+        quality = round(tautology_score, 4)
+        decision = 'fail'
+        print(f"    Agent 3: HARD FAIL Bloom 1 — đáp án mơ hồ/lặp tiêu đề (tautology={tautology_score:.2f})")
+        if user_id is not None:
+            log = Agent3EvaluationLog(
+                request_id=request_id, user_id=user_id, document_id=document_id,
+                plan_item_id=plan_item_id, attempt=attempt,
+                decision=decision, terminal_status=decision,
+                quality_score=quality, reasons_json=json.dumps(reasons),
+                target_bloom=bloom_key, generated_bloom=bloom_key,
+                validated_bloom=bloom_key, bloom_match_type='strict_match',
+                source_faithfulness_score=round(q_faithfulness, 4),
+                scoreability_score=round(bloom_verb_score, 4),
+            )
+            db.session.add(log)
+        return decision, quality
+
+    if bloom_num == 2 and tautology_score < 0.62:
+        quality = round(tautology_score, 4)
+        decision = 'fail'
+        print(f"    Agent 3: HARD FAIL Bloom 2 — đáp án mơ hồ/lặp tiêu đề (tautology={tautology_score:.2f})")
+        if user_id is not None:
+            log = Agent3EvaluationLog(
+                request_id=request_id, user_id=user_id, document_id=document_id,
+                plan_item_id=plan_item_id, attempt=attempt,
+                decision=decision, terminal_status=decision,
+                quality_score=quality, reasons_json=json.dumps(reasons),
+                target_bloom=bloom_key, generated_bloom=bloom_key,
+                validated_bloom=bloom_key, bloom_match_type='strict_match',
+                source_faithfulness_score=round(q_faithfulness, 4),
+                scoreability_score=round(bloom_verb_score, 4),
+            )
+            db.session.add(log)
+        return decision, quality
+
+    # Bloom 3 hard fail: lạc B2, lặp tiêu đề, hoặc không bám mục nguồn (ngưỡng đã nới)
     if bloom_num == 3 and (
-        bloom3_q_score < 0.30
-        or tautology_score < 0.40
-        or a_groundedness < 0.50
-        or key_term_score < 0.35
-        or q_faithfulness < 0.30
+        bloom3_q_score < 0.22
+        or tautology_score < 0.32
+        or a_groundedness < 0.32
+        or key_term_score < 0.25
+        or q_faithfulness < 0.22
     ):
         quality = round(min(bloom3_q_score, tautology_score, a_groundedness, key_term_score, q_faithfulness), 4)
         decision = 'fail'
@@ -2779,8 +2906,15 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
         return decision, quality
 
     # Hard fail: hai ý (hoặc hơn) gần nghĩa — B4-6 nới hơn vì phân tích/đánh giá có thể cùng chủ đề
-    overlap_fail = max_point_overlap >= (0.58 if bloom_num >= 4 else 0.50)
-    diversity_fail = diversity_score < (0.22 if bloom_num >= 4 else 0.30)
+    if bloom_num == 3:
+        overlap_fail = max_point_overlap >= 0.55
+        diversity_fail = diversity_score < 0.24
+    elif bloom_num >= 4:
+        overlap_fail = max_point_overlap >= 0.64
+        diversity_fail = diversity_score < 0.16
+    else:
+        overlap_fail = max_point_overlap >= 0.50
+        diversity_fail = diversity_score < 0.30
     if overlap_fail or diversity_fail:
         quality = round(min(diversity_score, 1.0 - max_point_overlap), 4)
         decision = 'fail'
@@ -2822,6 +2956,13 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
                    + tautology_score * 0.08
                    + diversity_score * 0.10
                    + bloom_verb_score * 0.05)
+    elif bloom_num <= 2:
+        quality = (a_groundedness   * 0.38
+                   + tautology_score  * 0.28
+                   + key_term_score   * 0.14
+                   + q_faithfulness   * 0.10
+                   + diversity_score  * 0.05
+                   + bloom_verb_score * 0.05)
     else:
         quality = (q_faithfulness  * 0.22
                    + a_groundedness * 0.50
@@ -2829,7 +2970,7 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
                    + diversity_score * 0.10)
     quality = max(0.0, min(round(quality, 4), 1.0))
 
-    pass_threshold = 0.45 if bloom_num >= 5 else 0.50
+    pass_threshold = 0.44 if bloom_num in (3, 4) else (0.48 if bloom_num <= 2 else (0.45 if bloom_num >= 5 else 0.50))
     decision = 'pass' if quality >= pass_threshold else 'fail'
 
     if user_id is not None:
@@ -2846,7 +2987,8 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
         db.session.add(log)
 
     print(f"    Agent 3: {decision} (q={quality:.3f}, q_faith={q_faithfulness:.3f}, a_ground={a_groundedness:.3f}, bloom_verb={has_bloom_verb}, diversity={diversity_score:.2f}"
-          + (f", b3_scenario={bloom3_q_score:.2f}, tautology={tautology_score:.2f}, key_terms={key_term_score:.2f}" if bloom_num == 3 else "") + ")")
+          + (f", b3_scenario={bloom3_q_score:.2f}, tautology={tautology_score:.2f}, key_terms={key_term_score:.2f}" if bloom_num == 3 else "")
+          + (f", tautology={tautology_score:.2f}" if bloom_num <= 2 else "") + ")")
     return decision, quality
 
 
@@ -3049,7 +3191,8 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
     results               = []           # danh sách Q&A đã sinh thành công
     start_pipeline        = time.time()  # thời điểm bắt đầu để tính tổng thời gian
     total_targets         = len(targets) # tổng số câu cần sinh
-    used_section_indices  = set()        # index section đã dùng thành công → KHÔNG dùng lại
+    # Khóa theo (section, mức Bloom): cùng mục có thể dùng cho B1 và B5, tránh trùng cùng mức
+    used_section_bloom_pairs = set()
 
     # ── Vòng lặp chính: mỗi câu cần sinh ─────────────────────────────────────
     for target_idx, target in enumerate(targets):
@@ -3073,7 +3216,10 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
 
         item_success = False  # cờ đánh dấu câu này đã sinh thành công chưa
         sections_tried = 0  # số sections đã thực sự thử A2→A3 (đã qua A1)
-        max_sections_per_q = 4  # tối đa 4 sections/câu để tránh quá chậm
+        max_sections_per_q = min(
+            8,
+            max(4, len(sorted_sections) // max(total_targets, 1) + 2),
+        )
 
         # Duyệt section theo thứ tự: chỉ những section chưa dùng thành công
         # → section đã sinh được câu hỏi sẽ bị loại hoàn toàn, không quay lại
@@ -3085,24 +3231,25 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
 
         # Tách: sections đã biết ceiling → sort: exact match trước, gần đúng sau
         # Sections chưa biết ceiling → đưa vào sau (sẽ classify khi cần)
+        def _section_available(i):
+            return (i, bloom_num_target) not in used_section_bloom_pairs
+
         known_exact   = [i for i in range(len(sorted_sections))
-                         if i not in used_section_indices
+                         if _section_available(i)
                          and 'bloom_ceiling' in sorted_sections[i]
                          and sorted_sections[i]['bloom_ceiling'] == bloom_num_target]
         known_adjacent = [i for i in range(len(sorted_sections))
-                          if i not in used_section_indices
+                          if _section_available(i)
                           and 'bloom_ceiling' in sorted_sections[i]
                           and sorted_sections[i]['bloom_ceiling'] != bloom_num_target]
         unknown       = [i for i in range(len(sorted_sections))
-                         if i not in used_section_indices
+                         if _section_available(i)
                          and 'bloom_ceiling' not in sorted_sections[i]]
         section_order = known_exact + unknown + known_adjacent
 
-        # Fallback: khi section pool cạn kiệt (PDF ít chương, không có sub-section)
-        # → cho phép dùng lại section đã dùng, ưu tiên ceiling gần target nhất
-        # Thường xảy ra với Bloom 5-6 khi tất cả section đã bị B1-B4 dùng hết
+        # Fallback: mọi mục đã có câu ở cùng mức Bloom → tái dùng mục, ưu tiên ceiling gần target
         if not section_order:
-            print(f"  ♻️ Section pool cạn — fallback: cho phép dùng lại section (Bloom {bloom_num_target})")
+            print(f"  ♻️ Section pool cạn cho Bloom {bloom_num_target} — fallback tái dùng mục")
             section_order = sorted(
                 range(len(sorted_sections)),
                 key=lambda i: abs(
@@ -3170,15 +3317,16 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
                     print(f"  ❌ Agent 2 không sinh được Q&A")
                     continue
 
-                # Agent 3 đánh giá groundedness cũng dựa trên chapter_content
+                # Agent 3: B3–B4 bám MỤC nguồn; B5–B6 dùng ngữ cảnh chương
+                a3_eval_content = section_content if bloom_num_target in (3, 4) else chapter_content
                 a3_decision, a3_quality = new_agent3_evaluate_qa(
-                    question, answer, chapter_content, section_title, bloom_level,
+                    question, answer, a3_eval_content, section_title, bloom_level,
                     request_id, user_id, document_id, plan_item_id, attempt=gen_attempt,
                 )
 
                 if a3_decision == 'pass':
                     item_success = True
-                    used_section_indices.add(sec_idx)  # section này đã dùng → loại khỏi pool
+                    used_section_bloom_pairs.add((sec_idx, bloom_num_target))
 
                     total_pts, sub_pts, breakdown = calculate_points_from_bloom(bloom_level, custom_points)
 

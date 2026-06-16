@@ -29,10 +29,6 @@ EXPERIMENT_DIR = Path(__file__).parent.resolve()
 PROJECT_ROOT   = EXPERIMENT_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-# ── Load .env ───────────────────────────────────────────────────────────────────
-from dotenv import load_dotenv
-load_dotenv(PROJECT_ROOT / '.env')
-
 # ── NLTK download (chỉ lần đầu) ────────────────────────────────────────────────
 import nltk
 try:
@@ -50,7 +46,7 @@ from extensions import db
 
 _sqlite_path = EXPERIMENT_DIR / 'experiment_temp.db'
 app = Flask(__name__, template_folder=str(PROJECT_ROOT / 'templates'))
-app.config['SECRET_KEY']               = os.getenv('SECRET_KEY', 'experiment-key')
+app.config['SECRET_KEY']               = 'experiment-key'
 app.config['SQLALCHEMY_DATABASE_URI']  = f'sqlite:///{_sqlite_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)

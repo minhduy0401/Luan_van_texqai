@@ -39,9 +39,6 @@ EXPERIMENT_DIR = Path(__file__).parent.resolve()
 PROJECT_ROOT   = EXPERIMENT_DIR.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from dotenv import load_dotenv
-load_dotenv(PROJECT_ROOT / '.env')
-
 from openai import OpenAI
 
 # ── Flask app – SQLite (chỉ dùng cho pipeline, không lưu dữ liệu thật) ───────
@@ -50,7 +47,7 @@ from extensions import db
 
 _sqlite_path = EXPERIMENT_DIR / 'exp2_temp.db'
 app = Flask(__name__, template_folder=str(PROJECT_ROOT / 'templates'))
-app.config['SECRET_KEY']               = os.getenv('SECRET_KEY', 'exp2-key')
+app.config['SECRET_KEY']               = 'exp2-key'
 app.config['SQLALCHEMY_DATABASE_URI']  = f'sqlite:///{_sqlite_path}?timeout=60'
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'connect_args': {'timeout': 60, 'check_same_thread': False},
@@ -133,9 +130,18 @@ _OPENROUTER_CLIENT = None
 def _get_client() -> OpenAI:
     global _OPENROUTER_CLIENT
     if _OPENROUTER_CLIENT is None:
-        api_key = os.getenv('OPENROUTER_API_KEY', '')
+        api_key = ''
+        try:
+            from app import app as main_app
+            from models import SystemSetting
+            with main_app.app_context():
+                api_key = SystemSetting.get('openrouter_api_key', '').strip()
+        except Exception:
+            pass
         if not api_key:
-            raise EnvironmentError('OPENROUTER_API_KEY không được thiết lập trong .env')
+            raise EnvironmentError(
+                'Chưa cấu hình openrouter_api_key trong Admin → Cài đặt (system_settings).'
+            )
         _OPENROUTER_CLIENT = OpenAI(
             api_key=api_key,
             base_url='https://openrouter.ai/api/v1',

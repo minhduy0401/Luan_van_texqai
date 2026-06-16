@@ -3,26 +3,26 @@
 
 Chạy sau khi đã:
   1. Tạo database (database/init.sql hoặc thủ công)
-  2. Cấu hình DATABASE_URI trong file .env
+  2. Sao chép bootstrap.json.example → instance/bootstrap.json và sửa database_uri
 
 Usage:
     python init_db.py
 """
-import os
 import sys
 
-from dotenv import load_dotenv
+from utils.bootstrap_config import get_database_uri, bootstrap_path
 
-load_dotenv()
-
-uri = os.getenv('DATABASE_URI', '')
+uri = get_database_uri()
 if not uri:
-    print('❌ Chưa có DATABASE_URI trong file .env')
-    print('   Ví dụ: DATABASE_URI=mysql+mysqlconnector://textqai_user:password@localhost/textqai')
+    print('❌ Chưa có database_uri trong instance/bootstrap.json')
+    print(f'   Tạo file: {bootstrap_path()}')
+    print('   Hoặc sao chép bootstrap.json.example → instance/bootstrap.json')
     sys.exit(1)
 
 from app import app, db
 import models  # noqa: F401 — đăng ký models với SQLAlchemy
+from models import SystemSetting
+from utils.app_settings import seed_default_settings
 
 TABLES = [
     'users',
@@ -43,11 +43,14 @@ if __name__ == '__main__':
     print(f'🔗 DATABASE_URI: {uri.split("@")[-1] if "@" in uri else uri}')
     with app.app_context():
         db.create_all()
+        seeded = seed_default_settings(db.session, SystemSetting)
         from sqlalchemy import inspect
         existing = set(inspect(db.engine).get_table_names())
     print('\n✅ db.create_all() hoàn tất. Các bảng:')
     for name in TABLES:
         mark = '✓' if name in existing else '?'
         print(f'   {mark} {name}')
-    print('\n💡 Gói credit/subscription sẽ được seed tự động khi mở trang Pricing lần đầu.')
+    if seeded:
+        print(f'\n🌱 Đã seed {seeded} cài đặt mặc định vào system_settings.')
+    print('\n💡 Cấu hình API key, OAuth, VNPAY tại Admin → Cài đặt hệ thống.')
     print('   Khởi động app: python app.py')

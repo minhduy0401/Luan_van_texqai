@@ -1,22 +1,19 @@
 #!/usr/bin/env python3
 """Tạo tài khoản admin hoặc nâng quyền admin cho user có sẵn.
 
-Chạy sau khi đã cấu hình .env và tạo bảng (python init_db.py).
+Chạy sau khi đã cấu hình instance/bootstrap.json và tạo bảng (python init_db.py).
 
 Usage:
     python create_admin.py
     python create_admin.py --username admin --email admin@example.com
-    python create_admin.py --username admin --promote   # nâng quyền user đã đăng ký
+    python create_admin.py --username admin --promote
 """
 import argparse
 import getpass
 import sys
 from datetime import datetime
 
-from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash
-
-load_dotenv()
 
 from app import app, db
 from models import User, UserAuthProvider
