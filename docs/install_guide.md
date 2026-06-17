@@ -1,6 +1,7 @@
 # Hướng Dẫn Cài Đặt TEXTQAI | Installation Guide
 
-> **Phiên bản / Version:** 1.0 &nbsp;|&nbsp; **Cập nhật / Updated:** 06/2026
+> **Phiên bản / Version:** 1.1 &nbsp;|&nbsp; **Cập nhật / Updated:** 06/2026  
+> **CSDL / Database:** PostgreSQL 14+ (không dùng MySQL / XAMPP)
 
 ---
 
@@ -10,8 +11,8 @@
 1. [Yêu cầu hệ thống](#1-yêu-cầu-hệ-thống)
 2. [Clone mã nguồn từ GitHub](#2-clone-mã-nguồn-từ-github)
 3. [Cài đặt môi trường Python](#3-cài-đặt-môi-trường-python)
-4. [Cài đặt cơ sở dữ liệu MySQL](#4-cài-đặt-cơ-sở-dữ-liệu-mysql)
-5. [Cấu hình biến môi trường](#5-cấu-hình-biến-môi-trường)
+4. [Cài đặt PostgreSQL](#4-cài-đặt-postgresql)
+5. [Cấu hình bootstrap](#5-cấu-hình-bootstrap-instancebootstrapjson)
 6. [Khởi động ứng dụng](#6-khởi-động-ứng-dụng)
 7. [Tạo tài khoản admin](#7-tạo-tài-khoản-admin)
 8. [Deploy production (tùy chọn)](#8-deploy-production-tùy-chọn)
@@ -26,7 +27,8 @@
 |-----------|-------------------|
 | Python | 3.10+ |
 | Git | 2.30+ |
-| MySQL | 8.0+ |
+| PostgreSQL | 14+ (cài riêng — **không cần XAMPP/MySQL**) |
+| Driver Python | `psycopg2-binary` (có trong `requirements.txt`) |
 | RAM | 2 GB trở lên |
 | Hệ điều hành | Windows 10 / Ubuntu 20.04+ / macOS 12+ |
 
@@ -87,72 +89,124 @@ pip install -r requirements.txt
 
 ---
 
-### 4. Cài đặt cơ sở dữ liệu MySQL
+### 4. Cài đặt PostgreSQL
 
-#### Bước 1 – Tạo database
-Đăng nhập MySQL và chạy:
-```sql
-CREATE DATABASE textqai CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'textqai_user'@'localhost' IDENTIFIED BY 'your_password';
-GRANT ALL PRIVILEGES ON textqai.* TO 'textqai_user'@'localhost';
-FLUSH PRIVILEGES;
+TEXTQAI dùng **PostgreSQL** qua SQLAlchemy URI dạng `postgresql+psycopg2://...`. Không cần cài XAMPP hay MySQL.
+
+#### Bước 1 – Cài PostgreSQL
+
+- **Windows:** [postgresql.org/download/windows](https://www.postgresql.org/download/windows/) hoặc:
+  ```powershell
+  winget install PostgreSQL.PostgreSQL.17
+  ```
+- **Ubuntu:** `sudo apt install postgresql postgresql-contrib`
+- **macOS:** `brew install postgresql@16 && brew services start postgresql@16`
+
+Ghi nhớ mật khẩu user **`postgres`** khi cài.
+
+**Docker** (tùy chọn):
+
+```bash
+docker run -d --name textqai-pg -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:16
 ```
 
-#### Bước 2 – Ghi nhớ thông tin kết nối
-```
-Host:     localhost
-Port:     3306
-Database: textqai
-User:     textqai_user
-Password: your_password
+#### Bước 2 – Tạo database và user
+
+Từ thư mục gốc dự án:
+
+```bash
+psql -U postgres -f database/init_postgres.sql
+psql -U postgres -d luanvan_ai -c "GRANT ALL ON SCHEMA public TO textqai_user;"
+psql -U postgres -d luanvan_ai -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO textqai_user;"
 ```
 
-> 💡 Bảng sẽ được tự động tạo khi chạy `python init_db.py` hoặc khởi động app lần đầu (`db.create_all()`).
+> **Windows:** nếu lệnh `psql` không tìm thấy, dùng đường dẫn đầy đủ, ví dụ:
+> `"D:\PostgresSQL\bin\psql.exe" -U postgres -f database\init_postgres.sql`
 
-#### Bước 3 – Tạo bảng (schema)
+> **Dev nhanh:** có thể bỏ qua `textqai_user` và dùng luôn user `postgres` trong `bootstrap.json`.
+
+#### Bước 3 – Thông tin kết nối
+
+```
+Host:     127.0.0.1
+Port:     5432
+Database: luanvan_ai
+User:     postgres (dev) hoặc textqai_user
+Password: (mật khẩu đã đặt khi cài)
+```
+
+#### Bước 4 – Tạo bảng (schema)
+
 ```bash
 python init_db.py
 ```
 
-Hoặc tạo database bằng file SQL:
+Script gọi `db.create_all()` và seed cài đặt mặc định vào `system_settings`. Các bảng chính:
+
+| Bảng | Mô tả |
+|------|--------|
+| `users`, `user_auth_providers` | Tài khoản, đăng nhập local / Google |
+| `documents`, `qa_results` | PDF và câu hỏi đã sinh |
+| `agent1/2/3_evaluation_logs` | Log pipeline AI |
+| `credit_packages`, `subscription_packages`, `transactions` | Thanh toán |
+| `feedbacks`, `system_settings` | Phản hồi, cấu hình admin |
+
+> Lần chạy `python app.py` cũng tự gọi `db.create_all()` nếu chưa có bảng.
+
+#### Chuyển từ MySQL / XAMPP (legacy)
+
+Dữ liệu MySQL **không tự chuyển** sang PostgreSQL. Cài PostgreSQL mới → chạy `init_db.py` → import cấu hình từ `.env` cũ (nếu có):
+
 ```bash
-mysql -u root -p < database/init.sql
+python migrate_env_to_db.py
 ```
+
+Script SQL MySQL cũ (tham khảo): `database/init_mysql.sql`.
 
 ---
 
-### 5. Cấu hình biến môi trường
+### 5. Cấu hình bootstrap (`instance/bootstrap.json`)
 
-Tạo file `.env` ở thư mục gốc dự án:
+App chỉ cần **một file bootstrap** để biết cách kết nối DB lần đầu. **Không dùng `.env`** cho database URI.
 
-```env
-# ── Cơ sở dữ liệu ────────────────────────────────
-DATABASE_URI=mysql+mysqlconnector://textqai_user:your_password@localhost/textqai
+#### Bước 1 – Tạo file bootstrap
 
-# ── Bảo mật Flask ────────────────────────────────
-SECRET_KEY=your-very-secret-key-change-this
-
-# ── AI Provider (chọn một) ───────────────────────
-# Option A: OpenRouter (hỗ trợ nhiều model)
-OPENROUTER_API_KEY=sk-or-v1-xxxxxxxxxxxxxxxx
-OPENROUTER_MODEL=google/gemini-2.5-flash-lite
-
-# Option B: Gemini trực tiếp
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXX
-GEMINI_MODEL=gemini-2.5-flash-lite
-
-# ── Google OAuth (cho đăng nhập Google) ──────────
-GOOGLE_CLIENT_ID=xxxxxxxx.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=GOCSPX-xxxxxxxxxxxxxx
-
-# ── Email SMTP (cho quên mật khẩu) ───────────────
-SMTP_SERVER=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USERNAME=your@gmail.com
-SMTP_PASSWORD=your-app-password
+```bash
+python setup_bootstrap.py
 ```
 
-> 🔐 **Quan trọng:** Không commit file `.env` lên Git. File `.gitignore` đã có sẵn rule này.
+#### Bước 2 – Sửa `instance/bootstrap.json`
+
+```json
+{
+  "database_uri": "postgresql+psycopg2://postgres:your_password@127.0.0.1:5432/luanvan_ai",
+  "secret_key": "your-secret-key-change-this"
+}
+```
+
+| Trường | Ý nghĩa |
+|--------|---------|
+| `database_uri` | Chuỗi kết nối PostgreSQL — dùng **`postgresql+psycopg2`**, không phải `mysql+mysqlconnector` |
+| `secret_key` | Khóa session Flask (có thể ghi đè sau trong Admin) |
+
+> Mật khẩu có ký tự đặc biệt (`@`, `#`, `%`…) phải [URL-encode](https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls) trong URI.
+
+#### Bước 3 – Cấu hình còn lại qua Admin
+
+Sau khi app chạy được, vào **Admin → Cài đặt hệ thống** (`system_settings`):
+
+- API key: OpenRouter / OpenAI / Gemini  
+- Google OAuth (Client ID, Secret, Redirect URI)  
+- VNPAY, SePay, thông tin ngân hàng  
+- Bật/tắt OCR, model AI, credits mặc định  
+
+**Import từ `.env` cũ (một lần):**
+
+```bash
+python migrate_env_to_db.py
+```
+
+> 🔐 Không commit `instance/bootstrap.json` lên Git (đã có trong `.gitignore`).
 
 ---
 
@@ -193,15 +247,27 @@ python create_admin.py --username admin --email admin@example.com
 python create_admin.py --username ten_tai_khoan --promote
 ```
 
-#### Cách 3 — SQL trực tiếp (MySQL)
+#### Cách 3 — SQL trực tiếp (PostgreSQL)
 
 Sau khi đã có user (đăng ký qua web hoặc script):
 
 ```sql
-UPDATE users SET is_admin = 1 WHERE username = 'ten_tai_khoan';
+UPDATE users SET is_admin = TRUE WHERE username = 'ten_tai_khoan';
 ```
 
 Đăng nhập lại tại `/login` — menu **Admin** sẽ hiện trên thanh điều hướng.
+
+#### Expose ra internet với ngrok (test mobile / OAuth)
+
+```bash
+# Terminal 1
+python app.py
+
+# Terminal 2
+ngrok http --domain=your-domain.ngrok-free.dev 5000
+```
+
+Cập nhật **Google Redirect URI** trong Admin cho khớp URL ngrok.
 
 ---
 
@@ -240,11 +306,16 @@ server {
 
 | Lỗi | Nguyên nhân | Giải pháp |
 |-----|-------------|-----------|
-| `ModuleNotFoundError` | Chưa kích hoạt venv | Chạy `venv\Scripts\activate` |
-| `Access denied for user` | Sai thông tin MySQL | Kiểm tra lại `DATABASE_URI` trong `.env` |
-| `API key invalid` | Key AI chưa đúng | Kiểm tra OpenRouter/Gemini key |
+| `ModuleNotFoundError: psycopg2` | Chưa cài driver PostgreSQL | `pip install -r requirements.txt` hoặc `python -m pip install psycopg2-binary` |
+| `ModuleNotFoundError` (khác) | Chưa kích hoạt venv | `venv\Scripts\activate` (Windows) |
+| `could not connect to server` | PostgreSQL chưa chạy | Khởi động service PostgreSQL (Services → `postgresql-x64-*`) |
+| `password authentication failed` | Sai mật khẩu / user | Sửa `database_uri` trong `instance/bootstrap.json` |
+| `database "luanvan_ai" does not exist` | Chưa tạo DB | Chạy `database/init_postgres.sql` |
+| `relation "users" does not exist` | Chưa tạo bảng | Chạy `python init_db.py` |
+| `No such client: google` | OAuth chưa có trong DB | Chạy `migrate_env_to_db.py` hoặc cấu hình Admin → Tích hợp |
+| `API key invalid` | Key AI chưa đúng | Admin → Cài đặt → nhập OpenRouter/Gemini key |
 | Port 5000 đang dùng | Có app khác chiếm cổng | Dừng app cũ hoặc đổi port |
-| PDF không đọc được | File PDF là ảnh scan | Dùng OCR trước khi upload |
+| PDF không đọc được | File PDF là ảnh scan | Bật OCR trong Admin hoặc OCR trước khi upload |
 
 ---
 
@@ -311,8 +382,8 @@ Thêm vào `utils/translations.py`:
 1. [System Requirements](#1-system-requirements)
 2. [Clone Source from GitHub](#2-clone-source-from-github)
 3. [Set Up Python Environment](#3-set-up-python-environment)
-4. [Set Up MySQL Database](#4-set-up-mysql-database)
-5. [Configure Environment Variables](#5-configure-environment-variables)
+4. [Set Up PostgreSQL Database](#4-set-up-postgresql-database)
+5. [Bootstrap config](#5-bootstrap-config-instancebootstrapjson)
 6. [Start the Application](#6-start-the-application)
 7. [Create Admin Account](#7-create-admin-account)
 8. [Production Deployment (Optional)](#8-production-deployment-optional)
@@ -327,7 +398,8 @@ Thêm vào `utils/translations.py`:
 |-----------|----------------|
 | Python | 3.10+ |
 | Git | 2.30+ |
-| MySQL | 8.0+ |
+| PostgreSQL | 14+ (standalone — **no XAMPP/MySQL required**) |
+| Python driver | `psycopg2-binary` (included in `requirements.txt`) |
 | RAM | 2 GB or more |
 | OS | Windows 10 / Ubuntu 20.04+ / macOS 12+ |
 
@@ -388,72 +460,124 @@ pip install -r requirements.txt
 
 ---
 
-### 4. Set Up MySQL Database
+### 4. Set Up PostgreSQL Database
 
-#### Step 1 – Create the database
-Log into MySQL and run:
-```sql
-CREATE DATABASE textqai CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'textqai_user'@'localhost' IDENTIFIED BY 'your_password';
-GRANT ALL PRIVILEGES ON textqai.* TO 'textqai_user'@'localhost';
-FLUSH PRIVILEGES;
+TEXTQAI uses **PostgreSQL** via SQLAlchemy URI `postgresql+psycopg2://...`. XAMPP/MySQL is **not** required.
+
+#### Step 1 – Install PostgreSQL
+
+- **Windows:** [postgresql.org/download/windows](https://www.postgresql.org/download/windows/) or:
+  ```powershell
+  winget install PostgreSQL.PostgreSQL.17
+  ```
+- **Ubuntu:** `sudo apt install postgresql postgresql-contrib`
+- **macOS:** `brew install postgresql@16 && brew services start postgresql@16`
+
+Remember the **`postgres`** user password during installation.
+
+**Docker** (optional):
+
+```bash
+docker run -d --name textqai-pg -e POSTGRES_PASSWORD=postgres -p 5432:5432 postgres:16
 ```
 
-#### Step 2 – Note your connection details
-```
-Host:     localhost
-Port:     3306
-Database: textqai
-User:     textqai_user
-Password: your_password
+#### Step 2 – Create database and user
+
+From the project root:
+
+```bash
+psql -U postgres -f database/init_postgres.sql
+psql -U postgres -d luanvan_ai -c "GRANT ALL ON SCHEMA public TO textqai_user;"
+psql -U postgres -d luanvan_ai -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO textqai_user;"
 ```
 
-> 💡 Tables are created by running `python init_db.py` or on first app startup (`db.create_all()`).
+> **Windows:** if `psql` is not in PATH, use the full path, e.g.  
+> `"D:\PostgresSQL\bin\psql.exe" -U postgres -f database\init_postgres.sql`
 
-#### Step 3 – Create tables (schema)
+> **Quick dev:** you may skip `textqai_user` and use the `postgres` user in `bootstrap.json`.
+
+#### Step 3 – Connection details
+
+```
+Host:     127.0.0.1
+Port:     5432
+Database: luanvan_ai
+User:     postgres (dev) or textqai_user
+Password: (password set during install)
+```
+
+#### Step 4 – Create tables (schema)
+
 ```bash
 python init_db.py
 ```
 
-Or create the database from SQL file:
+This runs `db.create_all()` and seeds defaults into `system_settings`. Main tables:
+
+| Table | Description |
+|-------|-------------|
+| `users`, `user_auth_providers` | Accounts, local / Google login |
+| `documents`, `qa_results` | PDFs and generated Q&A |
+| `agent1/2/3_evaluation_logs` | AI pipeline logs |
+| `credit_packages`, `subscription_packages`, `transactions` | Payments |
+| `feedbacks`, `system_settings` | Feedback, admin config |
+
+> First run of `python app.py` also calls `db.create_all()` if tables are missing.
+
+#### Migrating from MySQL / XAMPP (legacy)
+
+MySQL data is **not** migrated automatically. Set up fresh PostgreSQL → run `init_db.py` → import old `.env` if needed:
+
 ```bash
-mysql -u root -p < database/init.sql
+python migrate_env_to_db.py
 ```
+
+Legacy MySQL SQL script: `database/init_mysql.sql`.
 
 ---
 
-### 5. Configure Environment Variables
+### 5. Bootstrap config (`instance/bootstrap.json`)
 
-Create a `.env` file in the project root:
+The app needs **only one bootstrap file** for the initial DB connection. **Do not use `.env`** for the database URI.
 
-```env
-# ── Database ──────────────────────────────────────
-DATABASE_URI=mysql+mysqlconnector://textqai_user:your_password@localhost/textqai
+#### Step 1 – Create bootstrap file
 
-# ── Flask Security ────────────────────────────────
-SECRET_KEY=your-very-secret-key-change-this
-
-# ── AI Provider (choose one) ─────────────────────
-# Option A: OpenRouter (multi-model support)
-OPENROUTER_API_KEY=sk-or-v1-xxxxxxxxxxxxxxxx
-OPENROUTER_MODEL=google/gemini-2.5-flash-lite
-
-# Option B: Direct Gemini API
-GEMINI_API_KEY=AIzaSyXXXXXXXXXXXXXXXX
-GEMINI_MODEL=gemini-2.5-flash-lite
-
-# ── Google OAuth (for Google login) ──────────────
-GOOGLE_CLIENT_ID=xxxxxxxx.apps.googleusercontent.com
-GOOGLE_CLIENT_SECRET=GOCSPX-xxxxxxxxxxxxxx
-
-# ── SMTP Email (for password recovery) ───────────
-SMTP_SERVER=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USERNAME=your@gmail.com
-SMTP_PASSWORD=your-app-password
+```bash
+python setup_bootstrap.py
 ```
 
-> 🔐 **Important:** Never commit the `.env` file to Git. The `.gitignore` already excludes it.
+#### Step 2 – Edit `instance/bootstrap.json`
+
+```json
+{
+  "database_uri": "postgresql+psycopg2://postgres:your_password@127.0.0.1:5432/luanvan_ai",
+  "secret_key": "your-secret-key-change-this"
+}
+```
+
+| Field | Meaning |
+|-------|---------|
+| `database_uri` | PostgreSQL connection string — use **`postgresql+psycopg2`**, not `mysql+mysqlconnector` |
+| `secret_key` | Flask session key (can be overridden later in Admin) |
+
+> URL-encode special characters in the password (`@`, `#`, `%`, …) in the URI.
+
+#### Step 3 – Configure everything else in Admin
+
+After the app starts, open **Admin → System Settings** (`system_settings`):
+
+- API keys: OpenRouter / OpenAI / Gemini  
+- Google OAuth (Client ID, Secret, Redirect URI)  
+- VNPAY, SePay, bank details  
+- OCR toggle, AI model, default credits  
+
+**Import from legacy `.env` (once):**
+
+```bash
+python migrate_env_to_db.py
+```
+
+> 🔐 Do not commit `instance/bootstrap.json` to Git (listed in `.gitignore`).
 
 ---
 
@@ -492,15 +616,15 @@ python create_admin.py --username admin --email admin@example.com
 python create_admin.py --username your_username --promote
 ```
 
-#### Option 3 — Direct SQL (MySQL)
+#### Option 3 — Direct SQL (PostgreSQL)
 
 ```sql
-UPDATE users SET is_admin = 1 WHERE username = 'your_username';
+UPDATE users SET is_admin = TRUE WHERE username = 'your_username';
 ```
 
 Log in again at `/login` — the **Admin** menu appears in the navigation bar.
 
-#### Expose to internet with ngrok (for mobile testing)
+#### Expose to internet with ngrok (for mobile testing / OAuth)
 ```bash
 # Terminal 1
 python app.py
@@ -508,6 +632,8 @@ python app.py
 # Terminal 2
 ngrok http --domain=your-domain.ngrok-free.dev 5000
 ```
+
+Update **Google Redirect URI** in Admin to match your ngrok URL.
 
 ---
 
@@ -546,11 +672,16 @@ server {
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| `ModuleNotFoundError` | Virtual env not activated | Run `venv\Scripts\activate` |
-| `Access denied for user` | Wrong MySQL credentials | Check `DATABASE_URI` in `.env` |
-| `API key invalid` | Incorrect AI key | Verify OpenRouter/Gemini key |
-| Port 5000 in use | Another app occupying port | Stop other app or change port |
-| PDF not readable | PDF is a scanned image | Run OCR on PDF before uploading |
+| `ModuleNotFoundError: psycopg2` | PostgreSQL driver missing | `pip install -r requirements.txt` or `python -m pip install psycopg2-binary` |
+| `ModuleNotFoundError` (other) | Virtual env not activated | Run `venv\Scripts\activate` (Windows) |
+| `could not connect to server` | PostgreSQL not running | Start PostgreSQL service (`postgresql-x64-*`) |
+| `password authentication failed` | Wrong user/password | Fix `database_uri` in `instance/bootstrap.json` |
+| `database "luanvan_ai" does not exist` | DB not created | Run `database/init_postgres.sql` |
+| `relation "users" does not exist` | Schema not created | Run `python init_db.py` |
+| `No such client: google` | OAuth not in DB | Run `migrate_env_to_db.py` or configure Admin → Integrations |
+| `API key invalid` | Wrong AI key | Admin → Settings → OpenRouter/Gemini key |
+| Port 5000 in use | Another app on port 5000 | Stop other app or change port |
+| PDF not readable | Scanned/image PDF | Enable OCR in Admin or pre-process PDF |
 
 ---
 

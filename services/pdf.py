@@ -777,12 +777,225 @@ def _lookup_page_number(char_offset, page_boundaries):
     return result_page
 
 
+def _preprocess_inline_section_breaks(text: str) -> str:
+    """Chèn xuống dòng trước số mục bị dính sau dấu câu (PDF hay gộp '... 1.2 Tiêu đề')."""
+    if not text:
+        return text
+    cap = r'[A-ZÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬĐÈÉẺẼẸÊẾỀỂỄỆÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴ]'
+    # Sau dấu câu: 1.2.3 Tiêu đề
+    text = re.sub(
+        rf'([.!?])\s+(\d+\.\d+\.\d+(?:\.\d+)?)\s+({cap})',
+        r'\1\n\2 \3',
+        text,
+    )
+    # Sau dấu câu: 1.2 Tiêu đề
+    text = re.sub(
+        rf'([.!?])\s+(\d+\.\d+)\s+({cap})',
+        r'\1\n\2 \3',
+        text,
+    )
+    # Đầu dòng / sau xuống dòng
+    text = re.sub(
+        rf'(\n)(\d+\.\d+(?:\.\d+)?)\s+({cap})',
+        r'\1\2 \3',
+        text,
+    )
+    return text
+
+
+def _split_overlong_lines(text: str, max_len: int = 400) -> str:
+    """PDF đôi khi gộp cả chương vào một dòng 20k+ ký tự — tách lại trước khi parse."""
+    if not text:
+        return text
+    out: list[str] = []
+    for line in text.split('\n'):
+        if len(line) <= max_len:
+            out.append(line)
+            continue
+        broken = _preprocess_inline_section_breaks(line)
+        if len(broken) > max_len:
+            # Chèn xuống dòng trước Chương/Bài/Mục trong dòng dài
+            broken = re.sub(
+                r'(\s)((?:Chương|CHƯƠNG|Phần|PHẦN|Chapter|Bài|BÀI|Mục)\s+\d+)',
+                r'\n\2',
+                broken,
+                flags=re.IGNORECASE,
+            )
+        out.extend(broken.split('\n'))
+    return '\n'.join(out)
+
+
+def _is_chapter_level_title(title: str) -> bool:
+    """Tiêu đề chỉ ở cấp chương/phần (không phải mục 1.2)."""
+    if not title:
+        return False
+    t = title.strip()
+    if re.match(r'^\d+\.\d+', t):
+        return False
+    return bool(re.match(
+        r'^(Chương|CHƯƠNG|Phần|PHẦN|Chapter|CHAPTER|Part|PART|Bài|BÀI)\s+',
+        t,
+        re.IGNORECASE,
+    ))
+
+
+_INTERNAL_HEADING_LINE = re.compile(
+    r'^(\d+\.\d+(?:\.\d+)*)\s+(\S.{2,120})$|'
+    r'^(Mục|MUC)\s+(\d+(?:\.\d+)*)\s+(\S.{2,120})$',
+    re.IGNORECASE,
+)
+
+
+def _subdivide_section_by_internal_headings(section: dict, min_chunk: int = 400) -> list[dict]:
+    """Tách mục lớn theo tiêu đề con 1.1, 1.2… (đầu dòng hoặc sau dấu câu trong PDF dính một dòng)."""
+    content = (section.get('content') or '').strip()
+    if not content:
+        return [section]
+
+    splits: list[tuple[int, str]] = []
+    seen_at: set[int] = set()
+
+    # Tiêu đề con ở đầu dòng
+    for line_m in re.finditer(r'^.*$', content, re.MULTILINE):
+        line = line_m.group(0).strip()
+        if len(line) < 4 or len(line) > 200:
+            continue
+        m = _INTERNAL_HEADING_LINE.match(line)
+        if m:
+            pos = line_m.start()
+            if pos in seen_at:
+                continue
+            seen_at.add(pos)
+            if m.group(1):
+                title = f"{m.group(1)} {m.group(2).strip()}"
+            else:
+                title = f"Mục {m.group(3)} {m.group(4).strip()}"
+            splits.append((pos, title))
+
+    # Tiêu đề con nhúng giữa dòng (PDF hay gộp: "... kết thúc. 1.2 Tiêu đề mới ...")
+    inline_pat = re.compile(
+        r'(?:^|[.!?]\s+|\n)(\d+\.\d+(?:\.\d+)*)\s+'
+        r'([A-ZÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬĐÈÉẺẼẸÊẾỀỂỄỆÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴ][^\n.!?]{2,100})',
+    )
+    for m in inline_pat.finditer(content):
+        pos = m.start(1) if m.start(1) >= 0 else m.start()
+        if pos in seen_at:
+            continue
+        # Bỏ qua số thập phân trong câu (VD "phiên bản 2.0 released")
+        before = content[max(0, pos - 8):pos]
+        if re.search(r'\d,\d$|\d\.\d+$', before.replace(' ', '')):
+            continue
+        seen_at.add(pos)
+        splits.append((pos, f"{m.group(1)} {m.group(2).strip()}"))
+
+    splits.sort(key=lambda x: x[0])
+    if len(splits) < 2:
+        return [section]
+
+    out: list[dict] = []
+    chapter = section.get('chapter')
+    for i, (start, sub_title) in enumerate(splits):
+        end = splits[i + 1][0] if i + 1 < len(splits) else len(content)
+        sub_content = content[start:end].strip()
+        if len(sub_content) < min_chunk:
+            continue
+        out.append({
+            **section,
+            'chapter': chapter,
+            'title': sub_title,
+            'content': sub_content,
+            'word_count': len(sub_content.split()),
+            'char_count': len(sub_content),
+        })
+
+    return out if len(out) >= 2 else [section]
+
+
+def _chunk_section_by_size(section: dict, chunk_chars: int = 5500) -> list[dict]:
+    """Chia mục theo đoạn văn / kích thước cố định khi không có tiêu đề con."""
+    content = (section.get('content') or '').strip()
+    title = section.get('title') or 'Nội dung'
+    if len(content) <= chunk_chars:
+        return [section]
+
+    paras = [p.strip() for p in re.split(r'\n\s*\n', content) if p.strip()]
+    chunks: list[str] = []
+    buf: list[str] = []
+    buf_len = 0
+    for p in paras:
+        if buf_len + len(p) > chunk_chars and buf:
+            chunks.append('\n\n'.join(buf))
+            buf, buf_len = [p], len(p)
+        else:
+            buf.append(p)
+            buf_len += len(p) + 2
+    if buf:
+        chunks.append('\n\n'.join(buf))
+
+    if len(chunks) <= 1:
+        chunks = [
+            content[i:i + chunk_chars].strip()
+            for i in range(0, len(content), chunk_chars)
+            if content[i:i + chunk_chars].strip()
+        ]
+
+    n = len(chunks)
+    return [
+        {
+            **section,
+            'title': f"{title} — đoạn {i + 1}/{n}",
+            'content': ch,
+            'word_count': len(ch.split()),
+            'char_count': len(ch),
+        }
+        for i, ch in enumerate(chunks)
+    ]
+
+
+def refine_large_sections(
+    sections: list[dict],
+    max_chars: int = 12000,
+    chunk_chars: int = 5500,
+    force_subdivide_above: int = 6000,
+) -> list[dict]:
+    """Sau parse: tách mục quá dài theo tiêu đề con, rồi chunk nếu vẫn quá lớn."""
+    if not sections:
+        return sections
+
+    refined: list[dict] = []
+    for sec in sections:
+        content = (sec.get('content') or '').strip()
+        title = sec.get('title') or ''
+        needs_split = (
+            len(content) > max_chars
+            or (_is_chapter_level_title(title) and len(content) > force_subdivide_above)
+        )
+        if not needs_split:
+            refined.append(sec)
+            continue
+
+        subs = _subdivide_section_by_internal_headings(sec)
+        if len(subs) > 1:
+            print(f"  ✂️ Tách mục lớn '{title[:50]}' → {len(subs)} mục con (1.1, 1.2…)")
+            for sub in subs:
+                if len(sub.get('content', '')) > max_chars:
+                    refined.extend(_chunk_section_by_size(sub, chunk_chars))
+                else:
+                    refined.append(sub)
+        else:
+            refined.extend(_chunk_section_by_size(sec, chunk_chars))
+
+    return refined
+
+
 def split_document_into_sections(text, page_boundaries=None):
     """Chia tài liệu thành các sections/mục cụ thể với nội dung đầy đủ
     page_boundaries: optional list of (char_offset, page_num) from PDF extraction"""
     # CRITICAL: Normalize PDF text first (non-breaking spaces, etc.)
     text = _normalize_pdf_text(text)
-    
+    text = _preprocess_inline_section_breaks(text)
+    text = _split_overlong_lines(text)
+
     print(f"\n🔍 Bắt đầu parse document ({len(text):,} chars, {len(text.split()):,} words)")
     
     # DEBUG: Show first occurrence of potential headers
@@ -801,6 +1014,7 @@ def split_document_into_sections(text, page_boundaries=None):
     header_patterns = [
         r'^\d+\.\d+\.\d+(?:\.\d+)?\s+',  # 5.1.2, 1.4.1, 2.3.4.5 (3-4 cấp)
         r'^\d+\.\d+\s+',  # 2.2, 8.3 (2 cấp) - ƯU TIÊN CAO NHẤT
+        r'^\d+\.\s+[A-ZÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬĐÈÉẺẼẸÊẾỀỂỄỆÌÍỈĨỊÒÓỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÙÚỦŨỤƯỨỪỬỮỰỲÝỶỸỴ]',  # 1. Giới thiệu
         r'^(Chương|CHƯƠNG|CHUONG|Chuong)\s+[IVX\d]+[:\.\s]',  # CHƯƠNG I, Chương 1
         r'^(Mục|MỤC|MUC)\s+[\d\.]+[:\.\s]',  # MỤC 1.1, Mục 2.3
         r'^(Phần|PHẦN|PHAN)\s+[IVX\d]+[:\.\s]',  # PHẦN I, Phần II
@@ -1113,75 +1327,38 @@ def split_document_into_sections(text, page_boundaries=None):
                         'char_count': len(chunk),
                     })
     
+    # Tách mục quá dài (cả chương 80k+) thành mục con hoặc đoạn nhỏ
+    before_refine = len(sections)
+    sections = refine_large_sections(sections)
+    if len(sections) != before_refine:
+        print(f"  ✂️ Refine mục lớn: {before_refine} → {len(sections)} mục")
+
     # DEBUG: In ra thống kê sections theo chapter
     print(f"\n📖 ĐÃ TRÍCH XUẤT {len(sections)} SECTIONS:")
     chapter_stats = {}
-    for idx, sec in enumerate(sections, 1):
-        ch = sec.get('chapter') or 'Unknown'  # Đảm bảo không None
-        if ch not in chapter_stats:
-            chapter_stats[ch] = []
-        chapter_stats[ch].append(sec['title'][:60])
-    
-    # In thống kê
+    for sec in sections:
+        ch = sec.get('chapter') or 'Unknown'
+        chapter_stats.setdefault(ch, []).append(sec['title'][:60])
+
     print(f"\n📊 Phân bố sections theo chapter:")
-    sorted_chapters = sorted(chapter_stats.keys(), key=lambda x: int(re.search(r'\d+', x).group()) if re.search(r'\d+', x) else 0)
+    sorted_chapters = sorted(
+        chapter_stats.keys(),
+        key=lambda x: int(re.search(r'\d+', x).group()) if re.search(r'\d+', x) else 0,
+    )
     for ch in sorted_chapters:
         print(f"   {ch}: {len(chapter_stats[ch])} sections")
-        # In chi tiết 2 sections đầu để debug
         for i, title in enumerate(chapter_stats[ch][:2]):
             print(f"      {i+1}. {title}...")
-    
-    # ⚠️ CẢNH BÁO nếu chỉ có 2 chương hoặc ít hơn
+
     unique_chapters = len([ch for ch in chapter_stats.keys() if ch != 'Unknown'])
     print(f"\n📊 TỔNG KẾT PARSE:")
     print(f"   ✅ Phát hiện: {unique_chapters} chương")
     print(f"   ✅ Tổng sections: {len(sections)}")
-    
-    if unique_chapters <= 2:
-        print(f"\n⚠️⚠️  CHỈ PHÁT HIỆN {unique_chapters} CHƯƠNG!")
-        print(f"   → PDF có thể bị cắt ngắn hoặc format không đồng nhất")
-        print(f"   → Kiểm tra:")
-        print(f"      1. PDF gốc có đầy đủ tất cả chương không?")
-        print(f"      2. Số chương trong PDF thực tế là bao nhiêu?")
-        print(f"      3. Format tiêu đề chương: 'Chương X' hay 'X.1 Tiêu đề'?")
-    else:
-        print(f"   🎉 Tốt! PDF có {unique_chapters} chương - sẽ sinh câu hỏi đều tất cả")
-    
-    # ⚠️ CẢNH BÁO nếu chỉ có 2 chương
-    unique_chapters = len([ch for ch in chapter_stats.keys() if ch != 'Unknown'])
-    if unique_chapters <= 2:
-        print(f"\n⚠️️  CHỈ PHÁT HIỆN {unique_chapters} CHƯƠNG!")
-        print(f"   → PDF có thể bị cắt ngắn hoặc format không đồng nhất")
-        print(f"   → Kiểm tra PDF gốc xem có đầy đủ tất cả chương không")
-        # In chi tiết từng section
-        print(f"   [{idx}] Ch={ch} | Title='{sec['title'][:70]}' | Content='{sec['content'][:80]}...'")
-    
-    print(f"\n📊 Thống kê theo Chương:")
-    for ch in sorted(chapter_stats.keys()):
-        print(f"   {ch}: {len(chapter_stats[ch])} mục")
-    
-    return sections
-    
-    # In stats - sắp xếp an toàn
-    try:
-        sorted_chapters = sorted(chapter_stats.keys())
-    except TypeError:
-        # Fallback nếu có None hoặc lỗi compare
-        sorted_chapters = [k for k in chapter_stats.keys() if k] + [k for k in chapter_stats.keys() if not k]
-    
-    for ch in sorted_chapters:
-        print(f"  ├─ {ch}: {len(chapter_stats[ch])} sections")
-        for title in chapter_stats[ch][:2]:
-            print(f"  │    • {title}...")
-        if len(chapter_stats[ch]) > 2:
-            print(f"  │    ... và {len(chapter_stats[ch])-2} sections nữa")
-    
-    for ch, titles in chapter_stats.items():
-        print(f"  ├─ {ch}: {len(titles)} sections")
-        for t in titles[:3]:  # Chỉ in 3 sections đầu
-            print(f"  │    • {t}...")
-        if len(titles) > 3:
-            print(f"  │    ... và {len(titles)-3} sections khác")
-    print()
-    
+
+    if unique_chapters <= 2 and len(sections) < 10:
+        print(f"\n⚠️  Ít chương/mục ({unique_chapters} chương, {len(sections)} mục)")
+        print(f"   → Nếu PDF dài, hệ thống sẽ tự chia đoạn theo trang/nội dung")
+    elif len(sections) >= 10:
+        print(f"   🎉 Tốt! {len(sections)} mục — đủ đa dạng để sinh câu hỏi")
+
     return sections

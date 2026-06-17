@@ -29,7 +29,6 @@ if hasattr(sys.stderr, 'reconfigure'):
 
 import os
 import re
-import csv
 import time
 import statistics
 from datetime import datetime
@@ -98,7 +97,7 @@ PDFS = sorted(EXPERIMENT_DIR.glob('*.pdf'))
 BLOOM_CONFIGS = [
     {'bloom_level': 'Bloom 1 (Nhớ)',       'count': 2, 'points': 1.0},
     {'bloom_level': 'Bloom 2 (Hiểu)',      'count': 2, 'points': 1.5},
-    {'bloom_level': 'Bloom 3 (Vận dụng)',  'count': 2, 'points': 2.0},
+    {'bloom_level': 'Bloom 3 (Vận dụng)',  'count': 2, 'points': 1.5},
     {'bloom_level': 'Bloom 4 (Phân tích)', 'count': 2, 'points': 2.5},
     {'bloom_level': 'Bloom 5 (Đánh giá)',  'count': 2, 'points': 3.0},
     {'bloom_level': 'Bloom 6 (Sáng tạo)',  'count': 2, 'points': 3.5},
@@ -236,8 +235,11 @@ def run_all():
 
     all_rows  = []
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-
-    # Bộ đếm tiến độ tổng
+    from experiment.csv_export import EXP1_FIELDNAMES, write_csv_pair
+    csv_path = RESULTS_DIR / f'exp1_raw_{timestamp}.csv'
+    write_csv_pair(csv_path, [], EXP1_FIELDNAMES)
+    print(f"  💾 CSV (ghi tăng dần): {csv_path}")
+    print(f"                     + {csv_path.with_name(csv_path.stem + '_excel.csv')}\n")
     total_generated = 0
     total_attempted = 0
 
@@ -245,7 +247,10 @@ def run_all():
         import models as _models  # noqa – đảm bảo các model ORM được đăng ký
         db.create_all()
         _enable_wal_mode(app)
-        print(f"  [DB] SQLite (WAL mode): {_sqlite_path}\n")
+        from experiment.experiment_runtime import seed_settings_from_main_app
+        n_cfg = seed_settings_from_main_app(app)
+        print(f"  [DB] SQLite (WAL mode): {_sqlite_path}")
+        print(f"  [CFG] Đã đồng bộ {n_cfg} mục từ PostgreSQL\n")
 
         for model_idx, model_name in enumerate(MODELS, 1):
             # Override model tại runtime – pipeline đọc _cfg.QUESTION_MODEL
@@ -396,6 +401,9 @@ def run_all():
                         f"src={chapter_key[:12]} best={best_chapter[:12]} {correct_mark}"
                     )
 
+                write_csv_pair(csv_path, all_rows, EXP1_FIELDNAMES)
+                print(f"  💾 Đã lưu {len(all_rows)} dòng → {csv_path.name}")
+
                 if pdf_idx < len(PDFS):
                     print(f"\n  ⏳ Chờ {DELAY_BETWEEN_PDFS}s...")
                     time.sleep(DELAY_BETWEEN_PDFS)
@@ -419,17 +427,9 @@ def run_all():
         print("❌ Không có kết quả nào để lưu!")
         return
 
-    # ── Xuất CSV ─────────────────────────────────────────────────────────────
-    csv_path = RESULTS_DIR / f'exp1_raw_{timestamp}.csv'
-    with open(csv_path, 'w', newline='', encoding='utf-8-sig') as f:
-        writer = csv.DictWriter(
-            f,
-            fieldnames=list(all_rows[0].keys()),
-            quoting=csv.QUOTE_ALL,   # buộc Excel đọc mọi ô là text, tránh #NAME?
-        )
-        writer.writeheader()
-        writer.writerows(all_rows)
+    csv_path, excel_path = write_csv_pair(csv_path, all_rows, EXP1_FIELDNAMES)
     print(f"\n✅ CSV: {csv_path}")
+    print(f"✅ CSV (Excel): {excel_path}")
 
     report_path = _generate_report(all_rows, timestamp, total_generated, total_attempted)
     print(f"✅ Báo cáo: {report_path}")

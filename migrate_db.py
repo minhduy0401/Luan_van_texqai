@@ -1,26 +1,30 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-migrate_db.py – One-time database migration script.
+migrate_db.py – Migration schema một lần (legacy MySQL / XAMPP).
 
-What it does:
-1. Adds new columns to `users` table (email, display_name, is_active, created_at)
-   and makes `username` nullable.
-2. Removes old `password` column from `users`.
-3. Creates `user_auth_providers` table.
-4. Migrates existing users' passwords into `user_auth_providers` (provider='local').
+PostgreSQL mới: chỉ cần python init_db.py (db.create_all()).
 
-Run ONCE:
-    .\venv\Scripts\python.exe migrate_db.py
+MySQL legacy — chạy một lần:
+    python migrate_db.py
 """
 import os
 import sys
 
 from utils.bootstrap_config import get_database_uri
 
-import mysql.connector
-
 DB_URI = get_database_uri()
+
+if not DB_URI.startswith('mysql'):
+    print('ℹ️  migrate_db.py chỉ dùng cho MySQL legacy.')
+    print('   PostgreSQL: cấu hình bootstrap.json rồi chạy python init_db.py')
+    sys.exit(0)
+
+try:
+    import mysql.connector
+except ImportError:
+    print('❌ Cần mysql-connector-python: pip install mysql-connector-python')
+    sys.exit(1)
 
 # Parse basic URI: mysql+mysqlconnector://user:pass@host/dbname
 # Format: mysql+mysqlconnector://user:password@host:port/dbname

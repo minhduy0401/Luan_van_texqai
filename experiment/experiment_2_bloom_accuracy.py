@@ -29,7 +29,6 @@ if hasattr(sys.stderr, 'reconfigure'):
 
 import os
 import re
-import csv
 import time
 from datetime import datetime
 from pathlib import Path
@@ -91,7 +90,7 @@ if not PDFS:
 BLOOM_CONFIGS = [
     {'bloom_level': 'Bloom 1 (Nhớ)',       'count': 5, 'points': 1.0},
     {'bloom_level': 'Bloom 2 (Hiểu)',      'count': 5, 'points': 1.5},
-    {'bloom_level': 'Bloom 3 (Vận dụng)',  'count': 5, 'points': 2.0},
+    {'bloom_level': 'Bloom 3 (Vận dụng)',  'count': 5, 'points': 1.5},
     {'bloom_level': 'Bloom 4 (Phân tích)', 'count': 5, 'points': 2.5},
     {'bloom_level': 'Bloom 5 (Đánh giá)',  'count': 5, 'points': 3.0},
     {'bloom_level': 'Bloom 6 (Sáng tạo)',  'count': 5, 'points': 3.5},
@@ -485,13 +484,21 @@ def run_all():
 
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     all_rows  = []
+    from experiment.csv_export import exp2_fieldnames, write_csv_pair
+    exp2_fields = exp2_fieldnames(EVALUATOR_MODELS)
+    csv_path = RESULTS_DIR / f'exp2_raw_{timestamp}.csv'
+    write_csv_pair(csv_path, [], exp2_fields)
+    print(f"  💾 CSV (ghi tăng dần): {csv_path}")
+    print(f"                     + {csv_path.with_name(csv_path.stem + '_excel.csv')}\n")
 
     with app.app_context():
         import models as _models  # noqa
         db.create_all()
         _enable_wal_mode(app)
-
-        # Override config để dùng generator model
+        from experiment.experiment_runtime import seed_settings_from_main_app
+        n_cfg = seed_settings_from_main_app(app)
+        print(f"  [DB] SQLite (WAL mode): {_sqlite_path}")
+        print(f"  [CFG] Đã đồng bộ {n_cfg} mục từ PostgreSQL\n")
         _cfg.QUESTION_MODEL        = GENERATOR_MODEL
         _cfg.ANSWER_MODEL          = GENERATOR_MODEL
         _cfg.ANSWER_FALLBACK_MODEL = GENERATOR_MODEL
@@ -553,6 +560,8 @@ def run_all():
 
             # ── Đánh giá Bloom từng câu ───────────────────────────────────
             _eval_qa_list(pipeline_results, pdf_stem, all_rows)
+            write_csv_pair(csv_path, all_rows, exp2_fields)
+            print(f"  💾 Đã lưu {len(all_rows)} dòng → {csv_path.name}")
 
             if pdf_idx < len(PDFS):
                 print(f"  ⏳ Chờ 10s trước PDF tiếp theo...")
@@ -572,29 +581,9 @@ def run_all():
     print(f"{'='*72}\n")
 
     # ── Xuất CSV ──────────────────────────────────────────────────────────────
-    csv_path = RESULTS_DIR / f'exp2_raw_{timestamp}.csv'
-    eval_shorts = [m.split('/')[-1] for m in EVALUATOR_MODELS]
-    fieldnames = [
-        'idx', 'pdf', 'bloom_level', 'bloom_short', 'sys_bloom_int', 'chapter',
-    ]
-    for j, m_short in enumerate(eval_shorts):
-        fieldnames += [
-            f'bloom_pred_{j}', f'bloom_pred_name_{j}',
-            f'agree_{j}', f'eval_time_{j}',
-        ]
-    fieldnames += [
-        'n_agree', 'is_2llm', 'is_3llm',
-        'process_time_s', 'question', 'answer',
-    ]
-
-    with open(csv_path, 'w', newline='', encoding='utf-8-sig',
-              errors='replace') as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames,
-                                extrasaction='ignore', quoting=csv.QUOTE_ALL)
-        writer.writeheader()
-        writer.writerows(all_rows)
-
+    csv_path, excel_path = write_csv_pair(csv_path, all_rows, exp2_fields)
     print(f"  💾 CSV: {csv_path}")
+    print(f"  💾 CSV (Excel): {excel_path}")
 
     # ── Xuất Markdown report ──────────────────────────────────────────────────
     report_md  = _generate_report(all_rows, timestamp)

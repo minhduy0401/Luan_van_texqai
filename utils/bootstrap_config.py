@@ -6,7 +6,7 @@ import os
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _BOOTSTRAP_PATH = os.path.join(_PROJECT_ROOT, 'instance', 'bootstrap.json')
 
-DEFAULT_DATABASE_URI = 'mysql+mysqlconnector://root:@127.0.0.1/luanvan_ai'
+DEFAULT_DATABASE_URI = 'postgresql+psycopg2://postgres:postgres@127.0.0.1:5432/luanvan_ai'
 DEFAULT_SECRET_KEY = 'change-me-via-admin-settings'
 
 _cache: dict | None = None

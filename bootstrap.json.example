@@ -1,4 +1,4 @@
 {
-  "database_uri": "mysql+mysqlconnector://root:@127.0.0.1/luanvan_ai",
+  "database_uri": "postgresql+psycopg2://postgres:postgres@127.0.0.1:5432/luanvan_ai",
   "secret_key": "change-this-before-production"
 }

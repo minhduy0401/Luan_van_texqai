@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Tạo toàn bộ bảng MySQL từ models.py (lần cài đặt đầu tiên).
+"""Tạo toàn bộ bảng PostgreSQL từ models.py (lần cài đặt đầu tiên).
 
 Chạy sau khi đã:
-  1. Tạo database (database/init.sql hoặc thủ công)
+  1. Tạo database (database/init_postgres.sql hoặc thủ công)
   2. Sao chép bootstrap.json.example → instance/bootstrap.json và sửa database_uri
 
 Usage:

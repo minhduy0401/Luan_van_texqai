@@ -38,7 +38,7 @@ from services.pdf import (
     split_document_into_sections, detect_strict_section_headers,
     extract_section_number, clean_section_title,
     clean_extracted_text, _normalize_pdf_text, _lookup_page_number,
-    _truncate_title_safely,
+    _truncate_title_safely, refine_large_sections,
 )
 from utils.helpers import (
     clean_answer_formatting,
@@ -1759,6 +1759,416 @@ def _a3_concept_overlap(answer, source_content):
     return round(matched / len(ans_meaningful), 4)
 
 
+# Mẫu đáp án generic hay bị model bịa (không bám giáo trình) — thấy ≥2 marker → reject
+_BLOOM_TEMPLATE_ANSWER_MARKERS = (
+    'phân tích định tính',
+    'phân tích định lượng',
+    'khả năng mở rộng',
+    'tiếp cận đa chiều',
+    'chỉ số kpi',
+    'trải nghiệm người dùng cuối',
+    'khối lượng công việc tăng dần',
+    'lớp hạ tầng cơ sở',
+    'lớp ứng dụng logic cấp cao',
+    'qualitative analysis',
+    'quantitative analysis',
+    'multi-dimensional approach',
+    'end-user experience',
+    'workload increases',
+)
+
+_B1_QUESTION_B4_PHRASES = (
+    'khía cạnh cần xem xét',
+    'các khía cạnh cần',
+    'phương pháp phân tích',
+    'phân tích được đề cập',
+    'phân tích được trình bày',
+    'phân tích các',
+    'phân tích những',
+    'phân tích vai trò',
+    'phân tích khi',
+    'phân tích trong',
+    'phân tích mối',
+    'đánh giá vai trò',
+    'đánh giá tầm',
+    'đánh giá các',
+    'so sánh',
+    'mối quan hệ giữa',
+    'ưu nhược',
+    'cần xem xét khi',
+    'thách thức khi',
+    'thách thức và phương',
+    'những thách thức khi',
+    'các thách thức khi',
+    'các thách thức và',
+)
+
+_B1_QUESTION_FORBIDDEN = _B1_QUESTION_B4_PHRASES  # legacy alias
+
+_B2_QUESTION_B4_PHRASES = (
+    'khía cạnh cần xem xét',
+    'các khía cạnh cần',
+    'phương pháp phân tích',
+    'phân tích được đề cập',
+    'phân tích được trình bày',
+    'phân tích các khía cạnh',
+    'phân tích những thách thức',
+    'phân tích vai trò và',
+    'phân tích mối quan hệ',
+    'phân tích khi',
+    'đánh giá vai trò',
+    'đánh giá tầm',
+    'so sánh ưu',
+    'ưu nhược',
+    'mối quan hệ giữa',
+    'tại sao việc',
+    'đòi hỏi sự hiểu biết',
+    'cần xem xét khi',
+    'thách thức khi triển',
+)
+
+_B3_QUESTION_B4_PHRASES = (
+    'phân tích các',
+    'phân tích những',
+    'phân tích vai trò',
+    'phân tích mối',
+    'phân tích khi',
+    'phân tích được',
+    'phương pháp phân tích',
+    'các khía cạnh cần',
+    'khía cạnh cần xem xét',
+    'đánh giá vai trò',
+    'đánh giá tầm',
+    'đánh giá hiệu quả',
+    'đánh giá ban đầu',
+    'các bước đánh giá',
+    'so sánh',
+    'ưu nhược',
+    'xác định các yếu tố',
+    'các yếu tố cần xem xét',
+    'để đánh giá',
+    'để xác định các',
+    'phương pháp phân tích được',
+    'phân tích liên quan',
+)
+
+_B3_FORBIDDEN_ANSWER_TITLES = (
+    'phân tích định tính',
+    'phân tích định lượng',
+    'đánh giá định tính',
+    'đo lường định lượng',
+    'khả năng mở rộng',
+    'tiếp cận đa chiều',
+    'chỉ số kpi',
+    'trải nghiệm người dùng',
+    'lớp hạ tầng',
+    'lớp ứng dụng logic',
+    'đánh giá hiệu năng',
+    'đối mặt thách thức',
+    'tối ưu hóa thuật toán',
+    'lựa chọn phương pháp tiếp cận',
+)
+
+_B3_FORBIDDEN_ANSWER_PHRASES = (
+    'phân tích định tính',
+    'phân tích định lượng',
+    'đánh giá định tính',
+    'đo lường định lượng',
+    'chỉ số kpi',
+    'khả năng mở rộng',
+    'tiếp cận đa chiều',
+    'trải nghiệm người dùng cuối',
+    'khối lượng công việc tăng dần',
+    'cấu trúc dữ liệu phức tạp',
+    'các thuật toán tối ưu',
+    'thuật toán tối ưu',
+    'hệ tư tưởng trong thiết kế hệ thống',
+    'thách thức liên quan đến hiệu năng',
+    'thách thức liên quan đến tính bảo mật',
+    'lớp hạ tầng cơ sở',
+    'lớp ứng dụng logic cấp cao',
+    'bộ câu hỏi tự luận',
+    'thang đo bloom',
+    'tính phân loại cao',
+    'đòi hỏi sự hiểu biết về các cấu trúc',
+    'phương pháp tiếp cận đa chiều',
+)
+
+_B3_QUESTION_META_PHRASES = (
+    'thang đo bloom',
+    'thang bloom',
+    'bộ câu hỏi tự luận',
+    'câu hỏi tự luận',
+    'phân loại cao theo',
+    'xây dựng bộ câu hỏi',
+)
+
+_B3_ACTION_MARKERS = (
+    'bước', 'thực hiện', 'triển khai', 'áp dụng', 'chuẩn bị', 'xử lý',
+    'cấu hình', 'huấn luyện', 'tính toán', 'thiết lập', 'step', 'apply',
+)
+
+_B2_QUESTION_FORBIDDEN = _B2_QUESTION_B4_PHRASES  # legacy alias
+
+
+def _parse_answer_points_simple(answer: str) -> list[tuple[str, str]]:
+    points: list[tuple[str, str]] = []
+    for line in answer.splitlines():
+        line = line.strip()
+        if not line.startswith('-'):
+            continue
+        m = re.match(r'-\s*([^:]+):\s*(.+)', line, re.IGNORECASE)
+        if m:
+            points.append((m.group(1).strip(), m.group(2).strip()))
+        else:
+            points.append(('', line.lstrip('- ').strip()))
+    return points
+
+
+def _extract_key_terms_for_prompt(section_content: str, n: int = 10) -> list[str]:
+    freq = Counter(
+        t for t in re.findall(r'\w{4,}', (section_content or '').lower())
+        if t not in _STOP_VI
+    )
+    return [w for w, _ in freq.most_common(n)]
+
+
+def _answer_source_anchor_ratio(answer: str, section_content: str) -> float:
+    """Tỷ lệ ý đáp án có ≥1 thuật ngữ đặc trưng từ mục nguồn."""
+    points = _parse_answer_points_simple(answer)
+    if not points or not section_content:
+        return 0.0
+    src_terms = {t for t in re.findall(r'\w{4,}', section_content.lower()) if t not in _STOP_VI}
+    strong = {t for t in src_terms if len(t) >= 5}
+    if not src_terms:
+        return 0.5
+    anchored = 0
+    for title, content in points:
+        blob = f"{title} {content}".lower()
+        if strong and any(t in blob for t in strong):
+            anchored += 1
+        elif sum(1 for t in src_terms if t in blob) >= 2:
+            anchored += 1
+    return anchored / len(points)
+
+
+def _section_boilerplate_score(content: str) -> float:
+    """0=sạch, 1=nhiều dòng mẫu B4 (đếm bullet template trong mục)."""
+    if not content:
+        return 1.0
+    template_lines = 0
+    for line in content.lower().splitlines():
+        ls = line.strip()
+        if not ls:
+            continue
+        if any(p in ls for p in (
+            'phân tích định tính', 'phân tích định lượng',
+            'chỉ số kpi', 'khả năng mở rộng', 'tiếp cận đa chiều',
+        )):
+            template_lines += 1
+    return min(1.0, template_lines / 2.5)
+
+
+def _b3_answer_has_forbidden_titles(answer: str) -> bool:
+    for title, _ in _parse_answer_points_simple(answer):
+        t = title.lower().strip()
+        if any(bad in t for bad in _B3_FORBIDDEN_ANSWER_TITLES):
+            return True
+    return False
+
+
+def _b3_answer_filler_point_count(answer: str) -> int:
+    """Số ý có filler trong TIÊU ĐỀ (body có thể bám boilerplate trong PDF nguồn)."""
+    count = 0
+    for title, _ in _parse_answer_points_simple(answer):
+        t = title.lower()
+        if any(p in t for p in _B3_FORBIDDEN_ANSWER_PHRASES):
+            count += 1
+    return count
+
+
+def _b3_answer_compliance(answer: str) -> tuple[bool, str]:
+    """Kiểm tra đáp án B3 — chặn meta và mẫu B4 thuần; cho phép 'Bước N ...' bám nguồn."""
+    points = _parse_answer_points_simple(answer)
+    if not points:
+        return False, 'không có ý đáp án'
+
+    a = answer.lower()
+    for p in ('bộ câu hỏi tự luận', 'thang đo bloom', 'tính phân loại cao', 'xây dựng bộ câu hỏi'):
+        if p in a:
+            return False, f'meta: "{p}"'
+
+    _b4_bare_titles = (
+        'phân tích định tính',
+        'phân tích định lượng',
+        'đánh giá định tính',
+        'đo lường định lượng',
+        'khả năng mở rộng',
+        'tiếp cận đa chiều',
+        'chỉ số kpi',
+    )
+    b4_step_titles = 0
+    for title, _ in points:
+        t = title.lower().strip()
+        step_m = re.match(r'^bước\s*\d+\s*(.*)$', t, re.IGNORECASE)
+        if step_m:
+            bare = step_m.group(1).strip()
+            if bare in _b4_bare_titles or bare.startswith('phân tích định'):
+                b4_step_titles += 1
+            continue
+        # Không có tiền tố Bước — chặn mẫu filler rõ
+        for bad in _B3_FORBIDDEN_ANSWER_TITLES:
+            if bad == t or t.startswith(bad + ':') or t.startswith(bad + ' '):
+                return False, f'tiêu đề mẫu: "{title[:50]}"'
+        if t.startswith('phân tích định') or t.startswith('đánh giá định') or t.startswith('đo lường định'):
+            return False, f'tiêu đề bullet B4: "{title[:50]}"'
+
+    if b4_step_titles >= max(2, len(points) // 2):
+        return False, f'{b4_step_titles} tiêu đề Bước dùng mẫu B4 thuần'
+
+    return True, 'ok'
+
+
+def _b3_answer_action_score(answer: str) -> float:
+    """Tỷ lệ ý đáp án B3 có dấu hiệu hành động/bước (không phải phân tích chung)."""
+    points = _parse_answer_points_simple(answer)
+    if not points:
+        return 0.0
+    good = 0
+    for title, content in points:
+        blob = f"{title} {content}".lower()
+        if any(m in blob for m in _B3_ACTION_MARKERS):
+            good += 1
+    return good / len(points)
+
+
+def _is_classic_fake_template(
+    answer: str,
+    bloom_num: int = 0,
+    section_content: str = '',
+) -> bool:
+    a = answer.lower()
+    if bloom_num >= 4:
+        hits = sum(1 for t in _BLOOM_TEMPLATE_ANSWER_MARKERS if t in a)
+        if hits >= 6:
+            return True
+        anchor = _answer_source_anchor_ratio(answer, section_content) if section_content else 0.0
+        if hits >= 4 and anchor < 0.22:
+            return True
+        return False
+    if 'phân tích định tính' in a and 'phân tích định lượng' in a:
+        return True
+    if 'qualitative analysis' in a and 'quantitative analysis' in a:
+        return True
+    if bloom_num == 3:
+        if _b3_answer_has_forbidden_titles(answer):
+            return True
+        b3_ok, _ = _b3_answer_compliance(answer)
+        if not b3_ok:
+            return True
+        return False
+    generic = (
+        'khả năng mở rộng', 'tiếp cận đa chiều', 'chỉ số kpi',
+        'trải nghiệm người dùng cuối', 'lớp hạ tầng cơ sở',
+        'lớp ứng dụng logic cấp cao',
+    )
+    return sum(1 for t in generic if t in a) >= 3
+
+
+def _a3_has_forbidden_template_answer(
+    answer: str,
+    section_content: str = '',
+    bloom_num: int = 0,
+) -> bool:
+    """Phát hiện mẫu B4 giả; B4+ nới lỏng khi đáp án bám thuật ngữ mục nguồn."""
+    if bloom_num == 3:
+        b3_ok, _ = _b3_answer_compliance(answer)
+        return not b3_ok
+    if bloom_num >= 5:
+        a = answer.lower()
+        for p in ('bộ câu hỏi tự luận', 'thang đo bloom', 'tính phân loại cao', 'xây dựng bộ câu hỏi'):
+            if p in a:
+                return True
+        return False
+    if bloom_num >= 4:
+        if _is_classic_fake_template(answer, bloom_num, section_content):
+            return True
+        hits = sum(1 for m in _BLOOM_TEMPLATE_ANSWER_MARKERS if m in answer.lower())
+        if hits >= 5:
+            return True
+        if hits >= 3 and section_content:
+            return _answer_source_anchor_ratio(answer, section_content) < 0.24
+        return False
+    if _is_classic_fake_template(answer, bloom_num, section_content):
+        return True
+    hits = sum(1 for m in _BLOOM_TEMPLATE_ANSWER_MARKERS if m in answer.lower())
+    if hits >= 4:
+        return True
+    if hits >= 2 and bloom_num <= 4:
+        if section_content:
+            return _answer_source_anchor_ratio(answer, section_content) < 0.34
+        return True
+    return False
+
+
+def _extract_source_snippets(section_content: str, max_snippets: int = 4, max_len: int = 140) -> list[str]:
+    """Trích câu/cụm có thuật ngữ từ mục nguồn — gợi ý LLM trích dẫn đúng."""
+    text = (section_content or '').strip()[:4500]
+    if not text:
+        return []
+    parts = re.split(r'(?<=[.!?…])\s+|\n+', text)
+    scored: list[tuple[int, str]] = []
+    for p in parts:
+        p = re.sub(r'\s+', ' ', p.strip())
+        if len(p) < 28 or len(p) > max_len:
+            continue
+        words = re.findall(r'\w{3,}', p.lower())
+        meaningful = [w for w in words if w not in _STOP_VI]
+        if len(meaningful) >= 4:
+            scored.append((len(meaningful) + len(set(meaningful)), p))
+    scored.sort(key=lambda x: -x[0])
+    out: list[str] = []
+    for _, p in scored:
+        if any(p[:35] == s[:35] for s in out):
+            continue
+        out.append(p)
+        if len(out) >= max_snippets:
+            break
+    return out
+
+
+def _a3_bloom_question_compliance(question: str, bloom_num: int) -> tuple[bool, float, str]:
+    """Kiểm tra câu hỏi có đúng cấp Bloom (chống B1/B2 lạc lên B4). B3 xử lý sau _a3_bloom3_question_score."""
+    q = question.lower().strip()
+    if bloom_num == 1:
+        for pat in _B1_QUESTION_B4_PHRASES:
+            if pat in q:
+                return False, 0.12, f'B1 lạc cấp — "{pat}"'
+        if re.match(r'^(phân tích|đánh giá|so sánh)\b', q):
+            return False, 0.15, 'B1 không được bắt đầu bằng phân tích/đánh giá/so sánh'
+        if ' tại sao' in f' {q}' or q.startswith('tại sao'):
+            return False, 0.15, 'B1 không hỏi tại sao'
+        if not any(v in q for v in (
+            'liệt kê', 'nêu ', 'kể tên', 'định nghĩa', 'cho biết',
+            'list', 'define', 'name', 'identify', 'state', 'recall',
+        )):
+            return False, 0.22, 'B1 thiếu động từ nhớ'
+        return True, 0.95, 'ok'
+    if bloom_num == 2:
+        for pat in _B2_QUESTION_B4_PHRASES:
+            if pat in q:
+                return False, 0.18, f'B2 lạc cấp — "{pat}"'
+        if re.match(r'^(phân tích|đánh giá|so sánh)\b', q):
+            return False, 0.15, 'B2 không bắt đầu bằng phân tích/đánh giá/so sánh'
+        if not any(v in q for v in (
+            'giải thích', 'mô tả', 'trình bày', 'lý giải', 'làm rõ', 'diễn giải',
+            'explain', 'describe', 'summarize', 'interpret', 'clarify', 'outline',
+        )):
+            return False, 0.22, 'B2 thiếu động từ hiểu'
+        return True, 0.95, 'ok'
+    return True, 1.0, 'ok'
+
+
 def _is_english_content(text: str) -> bool:
     """Phát hiện nhanh xem đoạn text có phải tiếng Anh không (không cần thư viện).
     Dựa vào tỉ lệ ký tự Vietnamese Unicode (U+1E00–U+1EFF): nếu gần như không có
@@ -1942,7 +2352,7 @@ def _get_section_bloom_ceiling(section_content: str, section_title: str) -> int:
 
 def new_agent1_bloom_feasibility(section_content, section_title, target_bloom,
                                   request_id, user_id, document_id, plan_item_id,
-                                  attempt=1, bloom_ceiling=None):
+                                  attempt=1, bloom_ceiling=None, chapter_content=None):
     """Agent 1: Kiểm tra section có đủ nội dung để sinh câu Bloom yêu cầu không.
     - Nếu quá ngắn hoặc bloom_ceiling < target → trả về feasible=False → bỏ qua section.
     Tham số:
@@ -1963,6 +2373,13 @@ def new_agent1_bloom_feasibility(section_content, section_title, target_bloom,
 
     content_len = len(section_content.strip())  # độ dài ký tự của section
     word_count  = len(section_content.split())  # số từ của section
+    chapter_len = len((chapter_content or '').strip())
+    # B5–B6 sinh trên ngữ cảnh chương — mục ngắn vẫn OK nếu chương đủ dài
+    effective_len = content_len
+    effective_words = word_count
+    if bloom_num >= 5 and chapter_len >= 2500:
+        effective_len = max(content_len, min(chapter_len // 12, 800))
+        effective_words = max(word_count, len((chapter_content or '').split()) // 15)
 
     # Ngưỡng ký tự/từ tối thiểu theo Bloom
     # Section ngắn (≤300 chars, VD đoạn test): hạ ngưỡng xuống để không reject oan
@@ -1971,23 +2388,25 @@ def new_agent1_bloom_feasibility(section_content, section_title, target_bloom,
         min_len   = {1: 40,  2: 40,  3: 40,  4: 40,  5: 40,  6: 40}
         min_words = {1: 10,  2: 10,  3: 10,  4: 10,  5: 10,  6: 10}
     else:
-        min_len   = {1: 150, 2: 200, 3: 220, 4: 280, 5: 400, 6: 400}  # ký tự tối thiểu
-        min_words = {1: 30,  2: 50,  3: 55,  4: 65,  5: 100, 6: 100}  # từ tối thiểu
+        min_len   = {1: 150, 2: 200, 3: 220, 4: 280, 5: 350, 6: 350}  # ký tự tối thiểu
+        min_words = {1: 30,  2: 50,  3: 55,  4: 65,  5: 80,  6: 80}   # từ tối thiểu
 
     reasons  = []    # lý do pass/fail — lưu vào DB
     quality  = 0.70  # điểm chất lượng mặc định
     feasible = True  # mặc định là đủ điều kiện
 
     # ── Kiểm tra 1: Độ dài tối thiểu ─────────────────────────────────────────
-    if content_len < min_len.get(bloom_num, 200):
+    check_len = effective_len if bloom_num >= 5 else content_len
+    check_words = effective_words if bloom_num >= 5 else word_count
+    if check_len < min_len.get(bloom_num, 200):
         # Section quá ngắn → không đủ nội dung để sinh câu hỏi
         feasible = False
-        reasons.append(f'content_too_short({content_len}<{min_len.get(bloom_num,200)})')
+        reasons.append(f'content_too_short({check_len}<{min_len.get(bloom_num,200)})')
         quality = 0.2
-    elif word_count < min_words.get(bloom_num, 50):
+    elif check_words < min_words.get(bloom_num, 50):
         # Quá ít từ → không đủ nội dung
         feasible = False
-        reasons.append(f'word_count_too_low({word_count})')
+        reasons.append(f'word_count_too_low({check_words})')
         quality = 0.3
     else:
         content_lower = section_content.lower()
@@ -2064,6 +2483,53 @@ def new_agent1_bloom_feasibility(section_content, section_title, target_bloom,
     return feasible, round(quality, 4), reasons
 
 
+def _split_oversized_sections(
+    sections: list[dict],
+    max_chars: int = 12000,
+    chunk_chars: int = 5500,
+) -> list[dict]:
+    """Chia mục quá dài — dùng refine_large_sections (tiêu đề con + chunk)."""
+    return refine_large_sections(sections, max_chars=max_chars, chunk_chars=chunk_chars)
+
+
+def _section_title_is_valid(title: str) -> bool:
+    """Mục hợp lệ cho pipeline: có số mục, chương, bài, STEM, hoặc fallback trang/đoạn."""
+    if not title:
+        return False
+    patterns = (
+        r'^\d+\.\d+',                                              # 1.2, 2.3.1
+        r'^\d+\.\s+[A-ZÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬĐ]',                     # 1. Giới thiệu
+        r'^(Chương|CHƯƠNG|Phần|PHẦN|Chapter|CHAPTER|Part|PART)\s+',
+        r'^(Bài|BÀI|Bai|BAI|Lesson|LESSON)\s+\d+',
+        r'^(Đoạn|Trang) \d+',
+        r'^(Ví dụ|VÍ DỤ|Example|EXAMPLE|Định nghĩa|Definition|Theorem|Exercise|Bài tập)\s+',
+        r'^(Mục|MUC)\s+\d+',
+    )
+    return any(re.match(p, title, re.IGNORECASE) for p in patterns)
+
+
+def _agent2_source_excerpt(section_content: str, bloom_num: int) -> str:
+    """Trích đoạn mục nguồn đưa vào prompt — B3 ưu tiên đa điểm khi mục quá dài."""
+    text = (section_content or '').strip()
+    if not text:
+        return ''
+    if bloom_num == 3 and len(text) > 4000:
+        head = text[:2200].strip()
+        tail = text[-1800:].strip()
+        snippets = _extract_source_snippets(text, max_snippets=8, max_len=160)
+        parts = [head]
+        if len(text) > len(head):
+            parts.append(f"\n[...]\n{tail}")
+        if snippets:
+            parts.append(
+                "\nCÁC CÂU TRÍCH TỪ MỤC (bắt buộc dùng thuật ngữ trong đáp án):\n"
+                + "\n".join(f"  • {s}" for s in snippets)
+            )
+        return "\n".join(parts)[:5200]
+    limit = 4500 if bloom_num == 3 else 3000
+    return text[:limit]
+
+
 def new_agent2_generate_qa(section_content, section_title, target_bloom, required_points,
                             request_id, user_id, document_id, plan_item_id, attempt=1,
                             chapter_context=None):
@@ -2083,6 +2549,11 @@ def new_agent2_generate_qa(section_content, section_title, target_bloom, require
         bloom_num = int(bloom_key.replace('Bloom ', ''))  # 3
     except Exception:
         bloom_num = 2
+
+    if bloom_num == 3 and required_points > 6:
+        required_points = 6
+
+    source_excerpt = _agent2_source_excerpt(section_content, bloom_num)
 
     # Động từ đặc trưng của từng cấp Bloom — đưa vào prompt để AI dùng đúng
     # Phát hiện ngôn ngữ tài liệu để chỉ thị AI trả lời đúng ngôn ngữ
@@ -2138,7 +2609,24 @@ def new_agent2_generate_qa(section_content, section_title, target_bloom, require
     ans_hint = bloom_ans_guide.get(bloom_num, "Trả lời dựa trên tài liệu." if not _doc_is_english else "Answer based on the document.")
 
     # Retry note: mỗi lần thử yêu cầu đổi góc nhìn câu hỏi khác hẳn
-    if bloom_num == 3:
+    if bloom_num == 2:
+        if _doc_is_english:
+            _retry_angles = [
+                '',
+                'Explain one specific CONCEPT or MECHANISM from the section.',
+                'Describe the ROLE or PURPOSE of a term mentioned in the section.',
+                'Outline the PROCESS or HOW something works per the section.',
+                'Clarify the difference between two terms named in the section.',
+            ]
+        else:
+            _retry_angles = [
+                '',
+                'Giải thích một KHÁI NIỆM / CƠ CHẾ cụ thể trong mục nguồn.',
+                'Mô tả VAI TRÒ hoặc Ý NGHĨA của thuật ngữ được nêu trong mục.',
+                'Trình bày QUY TRÌNH hoặc CÁCH HOẠT ĐỘNG theo tài liệu.',
+                'Làm rõ sự khác nhau giữa hai khái niệm được nêu trong mục.',
+            ]
+    elif bloom_num == 3:
         if _doc_is_english:
             _retry_angles = [
                 '',
@@ -2172,6 +2660,44 @@ def new_agent2_generate_qa(section_content, section_title, target_bloom, require
             'Đặt câu hỏi về ĐÁNH GIÁ ưu/nhược điểm hoặc TÁC ĐỘNG.',
         ]
     retry_note = f"\n⚠️ [Lần thử {attempt}] {_retry_angles[min(attempt-1, len(_retry_angles)-1)]}" if attempt >= 2 else ""
+    if attempt >= 2 and bloom_num == 1:
+        retry_note += (
+            "\n⚠️ BLOOM 1: Chỉ LIỆT KÊ / NÊU / ĐỊNH NGHĨA thuật ngữ hoặc thành phần trong mục. "
+            "Được nhắc tên chủ đề mục (kể cả từ 'thách thức' nếu là thuật ngữ trong mục). "
+            "KHÔNG hỏi 'khía cạnh cần xem xét', 'phân tích khi', 'thách thức khi triển khai'. "
+            "VD ĐÚNG: 'Liệt kê các thuật toán được nêu trong Supervised Learning.' "
+            "VD SAI: 'Cho biết các khía cạnh cần xem xét khi áp dụng...'"
+        )
+    if attempt >= 2 and bloom_num == 2:
+        retry_note += (
+            "\n⚠️ BLOOM 2: Giải thích/mô tả/trình bày dựa trên MỤC NGUỒN. "
+            "TUYỆT ĐỐI KHÔNG dùng mẫu 'Phân tích định tính/định lượng', 'KPI', 'tiếp cận đa chiều'. "
+            "Mỗi ý PHẢI chứa thuật ngữ riêng từ mục (tên thuật toán, thành phần, bước, định nghĩa...). "
+            "VD ĐÚNG: '- Perceptron: mạng nơ-ron một lớp học trọng số từ dữ liệu mẫu.' "
+            "VD SAI: '- Phân tích định tính: đánh giá trải nghiệm người dùng...'"
+        )
+    if attempt >= 2 and bloom_num == 3:
+        retry_note += (
+            "\n⚠️ BLOOM 3: Tình huống + các BƯỚC HÀNH ĐỘNG; mỗi ý = 1 bước khác nhau. "
+            "TUYỆT ĐỐI KHÔNG dùng mẫu 'Phân tích định tính/định lượng'. "
+            "Mỗi ý PHẢI có thuật ngữ/bước cụ thể từ MỤC NGUỒN. "
+            "VD ĐÚNG: '- Bước 1 Thu thập dữ liệu: chuẩn hóa tập huấn luyện theo mô tả trong mục.'"
+            if not _doc_is_english else
+            "\n⚠️ BLOOM 3: Scenario + ACTION STEPS; no fake analysis template; each point uses section terms."
+        )
+        if not _doc_is_english:
+            retry_note += (
+                "\n\nVÍ DỤ ĐÚNG B3 (bắt chước format, KHÔNG copy nội dung):\n"
+                "QUESTION: Giả sử bạn là kỹ sư ML cần huấn luyện Perceptron cho tập dữ liệu mới, "
+                "hãy vận dụng gradient descent trong tài liệu để thực hiện các bước cần thiết.\n"
+                "ANSWER:\n"
+                "- Bước 1 Khởi tạo trọng số: gán giá trị ngẫu nhiên cho các nút Perceptron theo mô tả.\n"
+                "- Bước 2 Lan truyền xuôi: tính đầu ra từng lớp theo công thức lan truyền trong mục.\n"
+                "- Bước 3 Tính sai số: so sánh đầu ra với nhãn mẫu huấn luyện.\n"
+                "- Bước 4 Lan truyền ngược: cập nhật trọng số theo gradient descent.\n"
+                "- Bước 5 Lặp huấn luyện: lặp các bước trên đến khi hội tụ.\n"
+                "- Bước 6 Kiểm tra: đánh giá độ chính xác trên tập validation.\n"
+            )
     if attempt >= 3:
         retry_note += (
             "\n⚠️ Mỗi ý đáp án phải khác KHÍA CẠNH (mục đích / đối tượng / thời gian / hạn chế / hệ quả) — "
@@ -2180,10 +2706,25 @@ def new_agent2_generate_qa(section_content, section_title, target_bloom, require
             "\n⚠️ Each answer point must cover a DIFFERENT aspect (purpose / audience / time / limitation / outcome) — "
             "NO two points on the same theme (e.g. 'computer connectivity' and 'global connectivity')."
         )
+    if attempt >= 2 and bloom_num == 3:
+        retry_note += (
+            "\n⚠️ BLOOM 3: mỗi ý = 1 bước hành động hoặc 1 nhóm/đối tượng KHÁC NHAU trong tình huống; "
+            "tiêu đề ý không được lặp cùng động từ đầu (VD: 'Bước 1', 'Bước 2' hoặc 'B2C', 'B2B', 'B2G')."
+            if not _doc_is_english else
+            "\n⚠️ BLOOM 3: each point = one distinct action step OR one category; use different point titles."
+        )
 
     # Quy tắc chung cho ĐÁP ÁN — áp dụng mọi cấp Bloom
+    _forbidden_template_rule = (
+        "\n🚫 CẤM DÙNG MẪU ĐÁP ÁN SAU (mẫu B4 giả, không có trong giáo trình):\n"
+        "- 'Phân tích định tính: ...' / 'Phân tích định lượng: ...'\n"
+        "- 'Khả năng mở rộng: ...' / 'Tiếp cận đa chiều: ...' / 'chỉ số KPI'\n"
+        "- 'trải nghiệm người dùng cuối' / 'lớp hạ tầng cơ sở' / 'lớp ứng dụng logic cấp cao'\n"
+        "Mỗi ý PHẢI lấy thuật ngữ và sự kiện CỤ THỂ từ MỤC NGUỒN — không điền mẫu chung.\n"
+    )
     _common_answer_rules = (
-        "\n🚫 QUY TẮC CHUNG CHO ĐÁP ÁN (mọi cấp Bloom):\n"
+        _forbidden_template_rule
+        + "\n🚫 QUY TẮC CHUNG CHO ĐÁP ÁN (mọi cấp Bloom):\n"
         "- KHÔNG viết meta-comment như '(Không có ý thứ N trong tài liệu)', '(Tài liệu không đề cập)', '(Không đủ thông tin)' — đây là lỗi nghiêm trọng.\n"
         "- Tiêu đề ý KHÔNG được trùng với nội dung ý: '- Khái niệm: khái niệm' là SAI; phải là '- Khái niệm: [định nghĩa thực tế]'.\n"
         "- Nội dung mỗi ý phải là thông tin CỤ THỂ: số liệu, tên gọi, đặc điểm, quy trình — không phải câu mơ hồ.\n"
@@ -2211,6 +2752,16 @@ def new_agent2_generate_qa(section_content, section_title, target_bloom, require
             "Câu trả lời PHẢI sử dụng chính xác các từ, cụm từ và thuật ngữ xuất hiện trong đoạn MỤC NGUỒN.\n"
             "TUYỆT ĐỐI không dùng cấu trúc câu trả lời chung chung hoặc khuôn mẫu cố định.\n"
             "TUYỆT ĐỐI không thêm kiến thức bên ngoài tài liệu."
+            + _common_answer_rules
+        )
+
+    # Bloom 2: bám thuật ngữ mục nguồn — tránh mẫu phân tích chung
+    if bloom_num == 2:
+        grounding_rule = (
+            "BLOOM 2 — BÁM MỤC NGUỒN:\n"
+            "- Giải thích bằng thuật ngữ và chi tiết CÓ TRONG đoạn MỤC NGUỒN (paraphrase ngắn được phép).\n"
+            "- Mỗi ý đáp án PHẢI chứa ≥1 thuật ngữ riêng từ mục; tiêu đề ý = khái niệm/thành phần trong mục.\n"
+            "- TUYỆT ĐỐI KHÔNG dùng mẫu 'Phân tích định tính/định lượng', KPI, tiếp cận đa chiều.\n"
             + _common_answer_rules
         )
 
@@ -2347,6 +2898,12 @@ def new_agent2_generate_qa(section_content, section_title, target_bloom, require
                 "- SAI: '- Thanh toán điện tử: bao gồm các hoạt động như thanh toán điện tử'\n"
                 "- ĐÚNG: '- Thu hút người mua: tập trung vào người dùng hơn thị trường mục tiêu vì họ quyết định thành công TMĐT'\n"
                 "- ĐÚNG: '- Triển khai thanh toán: áp dụng hình thức thanh toán điện tử để hoàn tất giao dịch trực tuyến'\n"
+                "\n📋 FORMAT ĐÁP ÁN B3 BẮT BUỘC:\n"
+                "- Bước 1 [hành động]: [chi tiết từ mục nguồn]\n"
+                "- Bước 2 [hành động]: ...\n"
+                "CẤM tiêu đề: Phân tích định tính, Phân tích định lượng, Đánh giá định tính, Đo lường định lượng, "
+                "Khả năng mở rộng, KPI, Tiếp cận đa chiều, Cấu trúc dữ liệu phức tạp, Thuật toán tối ưu.\n"
+                "CẤM câu hỏi meta: xây dựng bộ câu hỏi, thang đo Bloom.\n"
                 "\n📌 BÁM MỤC NGUỒN:\n"
                 "- Tình huống chỉ dùng để đặt câu hỏi; mọi ý trong đáp án phải lấy chi tiết từ MỤC NGUỒN (không từ chương khác).\n"
                 "- Mỗi ý phải có ít nhất 1 thuật ngữ/cụm từ trích từ MỤC NGUỒN.\n"
@@ -2366,7 +2923,7 @@ def new_agent2_generate_qa(section_content, section_title, target_bloom, require
         # Dấu hiệu phương trình
         '→', '⇌', '↔', '⇒',
     ]
-    _content_lower = section_content[:3000]
+    _content_lower = source_excerpt[:3000]
     _is_stem_content = (
         sum(1 for sig in _stem_signals if sig in _content_lower) >= 3
         or bool(re.search(r'[A-Z][a-z]?\d+[A-Z]?', section_content[:2000]))  # H2O, CO2, Fe2O3
@@ -2399,6 +2956,30 @@ def new_agent2_generate_qa(section_content, section_title, target_bloom, require
             "Không lấy thông tin từ phần khác của chương/tài liệu.\n"
         )
 
+    snippet_block = ""
+    if bloom_num <= 3:
+        snippets = _extract_source_snippets(section_content, max_snippets=6 if bloom_num >= 2 else 4)
+        key_terms = _extract_key_terms_for_prompt(section_content, n=12 if bloom_num >= 2 else 8)
+        parts = []
+        if key_terms and bloom_num >= 2:
+            parts.append(
+                "🔑 THUẬT NGỮ BẮT BUỘC (mỗi ý đáp án phải dùng ≥1 từ trong danh sách): "
+                + ", ".join(key_terms[:10])
+            )
+        if snippets:
+            parts.append(
+                "📌 CỤM/CÂU TRÍCH TỪ MỤC NGUỒN "
+                "(mỗi ý đáp án PHẢI chứa ≥1 thuật ngữ/cụm từ các dòng sau):\n"
+                + "\n".join(f"  • {s}" for s in snippets)
+            )
+        if parts:
+            snippet_block = "\n" + "\n".join(parts) + "\n"
+        if attempt >= 2 and bloom_num in (2, 3):
+            snippet_block += (
+                "\n🔁 LẦN THỬ LẠI: TUYỆT ĐỐI không dùng mẫu Phân tích định tính/định lượng. "
+                "Copy-paraphrase thuật ngữ từ các dòng trên vào tiêu đề + nội dung từng ý.\n"
+            )
+
     prompt = (
         f"Bạn là giảng viên đại học. Tạo 1 cặp câu hỏi–đáp án DỰA HOÀN TOÀN vào đoạn MỤC NGUỒN dưới đây.\n"
         f"{_lang_instruction}"
@@ -2407,7 +2988,8 @@ def new_agent2_generate_qa(section_content, section_title, target_bloom, require
         f"{bloom_low_constraint}\n"
         f"{stem_formula_guide}\n"
         f"⭐ MỤC NGUỒN CHÍNH (bắt buộc lấy từ ngữ, thuật ngữ, nội dung từ đây — mục '{section_title}'):\n"
-        f"--- BẮT ĐẦU MỤC ---\n{section_content[:3000]}\n--- KẾT THÚC MỤC ---\n"
+        f"--- BẮT ĐẦU MỤC ---\n{source_excerpt}\n--- KẾT THÚC MỤC ---\n"
+        f"{snippet_block}"
         f"{chapter_ctx_block}\n"
         f"🎯 CẤP ĐỘ BLOOM: {target_bloom}\n"
         f"   Động từ bắt buộc: {verbs}\n"
@@ -2417,7 +2999,9 @@ def new_agent2_generate_qa(section_content, section_title, target_bloom, require
         f"2. Câu hỏi chỉ được chứa MỘT yêu cầu duy nhất — KHÔNG dùng 'và', 'cùng với' để ghép nhiều yêu cầu\n"
         f"   ⚠️ KHÔNG đặt số cụ thể trong câu hỏi (ví dụ: 'hai', 'ba', 'bốn', '2', '3', '4')\n"
         f"   Sai: 'Cho biết ba tên gọi...' | Đúng: 'Cho biết các tên gọi phổ biến...' hoặc 'Liệt kê những tên gọi...'\n"
-        f"3. Đáp án: ĐÚNG {required_points} ý, mỗi ý bắt đầu bằng '- tiêu đề ngắn: nội dung'\n"
+        f"3. Đáp án: ĐÚNG {required_points} ý, mỗi ý bắt đầu bằng '- "
+        + ("Bước N " if bloom_num == 3 and not _doc_is_english else "")
+        + "tiêu đề ngắn: nội dung'\n"
         f"   ⚠️ Mỗi ý phải khác KHÍA CẠNH — không có 2 ý cùng nói một chủ đề (VD: 2 ý đều về 'kết nối')\n"
         f"4. {ans_hint}\n"
         f"5. Mỗi ý PHẢI sử dụng từ ngữ, cụm từ cụ thể lấy trực tiếp từ MỤC NGUỒN trên\n"
@@ -2430,6 +3014,18 @@ def new_agent2_generate_qa(section_content, section_title, target_bloom, require
     )
 
     reasons = []
+    _b3_system_extra = ''
+    if bloom_num == 3:
+        _b3_system_extra = (
+            "BLOOM 3 APPLY: scenario question + action-step answers from SOURCE only. "
+            "NEVER use template titles: Qualitative/Quantitative analysis, KPI, scalability. "
+            if _doc_is_english else
+            "Bloom 3 VẬN DỤNG: câu hỏi tình huống + đáp án BƯỚC HÀNH ĐỘNG từ MỤC NGUỒN. "
+            "TUYỆT ĐỐI KHÔNG dùng tiêu đề Phân tích định tính/định lượng, KPI, Khả năng mở rộng. "
+        )
+    _temperature = 0.35 if bloom_num <= 3 else 0.5
+    if bloom_num == 3 and attempt >= 3:
+        _temperature = 0.28
     try:
         response = ai_client.chat.completions.create(
             model=_cfg.QUESTION_MODEL,
@@ -2440,11 +3036,12 @@ def new_agent2_generate_qa(section_content, section_title, target_bloom, require
                   "QUESTION: [question text]\n"
                   "ANSWER:\n- [point]: [content]\n"
                   "Do not add preamble or text outside this format.\n"
+                  + _b3_system_extra
                   + ("Write question and answer in ENGLISH only." if _doc_is_english
                      else "Viết câu hỏi và đáp án bằng TIẾNG VIỆT."))},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.5,
+            temperature=_temperature,
             max_tokens=1500,
             timeout=60,
         )
@@ -2474,6 +3071,43 @@ def new_agent2_generate_qa(section_content, section_title, target_bloom, require
                 "Đáp án Bloom 1-2 mơ hồ/lặp tiêu đề (VD: 'Khái niệm: khái niệm') — cần sinh lại"
             )
 
+        if _a3_has_forbidden_template_answer(answer, section_content, bloom_num):
+            if bloom_num == 3:
+                _, b3_reason = _b3_answer_compliance(answer)
+                raise ValueError(f"Đáp án B3 không hợp lệ — {b3_reason}")
+            if bloom_num == 4:
+                raise ValueError(
+                    "Đáp án B4 lặp mẫu chung — cần thuật ngữ cụ thể từ MỤC NGUỒN"
+                )
+            if bloom_num <= 2:
+                raise ValueError(
+                    "Đáp án dùng mẫu chung (Phân tích định tính/KPI/...) — phải trích thuật ngữ từ MỤC NGUỒN"
+                )
+            # B5–B6: _a3_has_forbidden_template_answer chỉ chặn meta
+            raise ValueError("Đáp án chứa meta thí nghiệm (Bloom/thang đo)")
+
+        if bloom_num in (2, 3):
+            anchor = _answer_source_anchor_ratio(answer, section_content)
+            min_anchor = 0.42 if bloom_num == 2 else 0.26
+            if anchor < min_anchor:
+                raise ValueError(
+                    f"Đáp án B{bloom_num} thiếu thuật ngữ cụ thể từ mục nguồn (anchor={anchor:.2f})"
+                )
+
+        if bloom_num <= 2:
+            q_ok, _, q_reason = _a3_bloom_question_compliance(question, bloom_num)
+            if not q_ok:
+                raise ValueError(f"Câu hỏi không đúng Bloom {bloom_num}: {q_reason}")
+        if bloom_num == 3:
+            q_ok, _, q_reason = _a3_bloom3_question_compliance(question)
+            if not q_ok:
+                raise ValueError(f"Câu hỏi không đúng Bloom 3: {q_reason}")
+            action_score = _b3_answer_action_score(answer)
+            if action_score < 0.20:
+                raise ValueError(
+                    f"Đáp án B3 thiếu bước hành động (action={action_score:.2f}) — dùng 'Bước N ...' từ mục nguồn"
+                )
+
         reasons.append('generation_success')
         decision = 'pass'
         quality  = 0.75  # điểm mặc định khi sinh thành công (A3 sẽ đánh giá thực sự)
@@ -2499,12 +3133,21 @@ def new_agent2_generate_qa(section_content, section_title, target_bloom, require
     return question, answer, (_cfg.QUESTION_MODEL if decision == 'pass' else None)
 
 
+def _a3_bloom3_question_has_b2_drift(question: str) -> bool:
+    q = question.lower()
+    if re.search(r'hãy\s+(mô tả|trình bày|giải thích|nêu|liệt kê|cho biết)\b', q):
+        return True
+    if re.search(r'vận dụng[^\n]{0,48}\b(mô tả|trình bày|giải thích)\b', q):
+        return True
+    if re.search(r'áp dụng[^\n]{0,48}\b(mô tả|trình bày|giải thích)\b', q):
+        return True
+    return False
+
+
 def _a3_bloom3_question_score(question: str) -> float:
     """Đánh giá câu hỏi Bloom 3 có thật sự 'vận dụng trong tình huống' hay chỉ mô tả (B2)."""
     q = question.lower()
-    b2_drift = ['mô tả', 'trình bày', 'giải thích', 'nêu ', 'liệt kê', 'cho biết', 'làm rõ', 'tóm tắt',
-                'describe', 'explain', 'list', 'define', 'state', 'summarize', 'outline']
-    if any(v in q for v in b2_drift):
+    if _a3_bloom3_question_has_b2_drift(q):
         return 0.25
     scenario = ['giả sử', 'tình huống', 'trong trường hợp', 'nếu ', 'khi một', 'khi doanh nghiệp',
                 'khi người', 'khi công ty', 'khi cửa hàng', 'trong bối cảnh', 'để thực hiện',
@@ -2522,6 +3165,22 @@ def _a3_bloom3_question_score(question: str) -> float:
     if has_scenario:
         return 0.50
     return 0.38
+
+
+def _a3_bloom3_question_compliance(question: str) -> tuple[bool, float, str]:
+    q = question.lower()
+    for pat in _B3_QUESTION_B4_PHRASES:
+        if pat in q:
+            return False, 0.15, f'B3 lạc cấp — "{pat}"'
+    for pat in _B3_QUESTION_META_PHRASES:
+        if pat in q:
+            return False, 0.12, f'B3 meta (hỏi về sinh câu hỏi/Bloom) — "{pat}"'
+    if _a3_bloom3_question_has_b2_drift(question):
+        return False, 0.20, 'B3 không được hỏi mô tả/giải thích (B2)'
+    score = _a3_bloom3_question_score(question)
+    if score < 0.30:
+        return False, score, 'B3 thiếu tình huống hoặc lẫn động từ B2'
+    return True, score, 'ok'
 
 
 _A3_VAGUE_FILLER = frozenset({
@@ -2667,12 +3326,15 @@ def _a3_pairwise_point_overlap(title_a: str, content_a: str, title_b: str, conte
     theme_score = min(0.55, len(strong_shared) * 0.22) if strong_shared else 0.0
 
     overlap = phrase_score
-    if jaccard >= 0.30:
-        overlap = max(overlap, jaccard * 0.90)
-    if title_j >= 0.50:
-        overlap = max(overlap, title_j * 0.45)
-    if theme_score >= 0.22:
+    if jaccard >= 0.38:
+        overlap = max(overlap, jaccard * 0.82)
+    if title_j >= 0.55:
+        overlap = max(overlap, title_j * 0.40)
+    if theme_score >= 0.30:
         overlap = max(overlap, theme_score)
+    # Tiêu đề ý khác hẳn → giảm false positive (phân loại B2C/B2B, các bước khác nhau)
+    if title_a_t and title_b_t and title_j < 0.32:
+        overlap = round(overlap * 0.58, 4)
     return round(min(overlap, 1.0), 4)
 
 
@@ -2690,14 +3352,16 @@ def _a3_answer_diversity_score(answer: str) -> tuple[float, float]:
             ov = _a3_pairwise_point_overlap(points[i][0], points[i][1], points[j][0], points[j][1])
             max_overlap = max(max_overlap, ov)
 
-    if max_overlap >= 0.50:
-        diversity = 0.15
-    elif max_overlap >= 0.38:
-        diversity = max(0.25, 0.88 - max_overlap)
-    elif max_overlap >= 0.25:
-        diversity = max(0.45, 0.95 - max_overlap * 0.75)
+    if max_overlap >= 0.72:
+        diversity = 0.20
+    elif max_overlap >= 0.55:
+        diversity = max(0.30, 0.98 - max_overlap * 0.80)
+    elif max_overlap >= 0.40:
+        diversity = max(0.45, 1.0 - max_overlap * 0.60)
+    elif max_overlap >= 0.28:
+        diversity = max(0.58, 0.95 - max_overlap * 0.50)
     else:
-        diversity = max(0.72, 1.0 - max_overlap * 0.45)
+        diversity = max(0.78, 1.0 - max_overlap * 0.35)
     return round(diversity, 4), round(max_overlap, 4)
 
 
@@ -2736,6 +3400,11 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
         concept_score = _a3_concept_overlap(answer, section_content)
         a_groundedness = round(max(ngram_score, concept_score * 0.90), 4)
         ground_method  = 'hybrid_b3'
+    elif bloom_num <= 2:
+        ngram_score = _a3_ngram_groundedness(answer, section_content)
+        concept_score = _a3_concept_overlap(answer, section_content)
+        a_groundedness = round(max(ngram_score, concept_score * 0.92), 4)
+        ground_method  = 'hybrid_b12'
     else:
         a_groundedness = _a3_ngram_groundedness(answer, section_content)
         ground_method  = 'ngram'
@@ -2771,6 +3440,21 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
     if has_bloom_verb: reasons.append('bloom_verb_correct')
     else:              reasons.append('bloom_verb_missing')
 
+    # Câu hỏi B1–B3: chống lạc cấp (VD B1 hỏi "khía cạnh cần xem xét" → B4)
+    if bloom_num <= 2:
+        q_ok, q_bloom_score, q_bloom_reason = _a3_bloom_question_compliance(question, bloom_num)
+        if not q_ok:
+            reasons.append(f'question_wrong_bloom({q_bloom_reason})')
+    elif bloom_num == 3:
+        q_ok, q_bloom_score, q_bloom_reason = _a3_bloom3_question_compliance(question)
+        if not q_ok:
+            reasons.append(f'question_wrong_bloom({q_bloom_reason})')
+    else:
+        q_ok, q_bloom_score = True, 1.0
+
+    if bloom_num <= 4 and _a3_has_forbidden_template_answer(answer, section_content, bloom_num):
+        reasons.append('answer_forbidden_template')
+
     # Kiểm tra đáp án lặp tiêu đề / mơ hồ (Bloom 1-2 siết nhất)
     bloom3_q_score = 1.0
     tautology_score = _a3_tautology_score(answer)
@@ -2783,6 +3467,9 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
     if bloom_num == 3:
         bloom3_q_score = _a3_bloom3_question_score(question)
         key_term_score = _a3_concept_overlap(answer, section_content)
+        b3_fill_ok, b3_fill_reason = _b3_answer_compliance(answer)
+        if not b3_fill_ok:
+            reasons.append(f'bloom3_filler({b3_fill_reason})')
         if bloom3_q_score < 0.40:
             reasons.append('bloom3_not_scenario')
         if key_term_score < 0.40:
@@ -2791,7 +3478,7 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
             reasons.append('bloom3_question_off_source')
     elif bloom_num <= 2:
         key_term_score = _a3_concept_overlap(answer, section_content)
-        if key_term_score < 0.30:
+        if key_term_score < 0.40:
             reasons.append('b12_low_key_terms')
     else:
         key_term_score = 1.0
@@ -2821,9 +3508,73 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
     elif bloom_num == 4:
         hard_floor = 0.22   # B4: phân tích, cho phép diễn đạt lại
     elif bloom_num == 3:
-        hard_floor = 0.34   # B3: vận dụng — hybrid ngram+concept, không siết như B1-2
+        hard_floor = 0.26
+    elif bloom_num == 2:
+        hard_floor = 0.40
+    elif bloom_num == 1:
+        hard_floor = 0.48
     else:
-        hard_floor = 0.35   # Bloom 1-2: đáp án factual phải bám sát tài liệu
+        hard_floor = 0.35
+
+    def _a3_hard_fail(quality_val: float, msg: str):
+        nonlocal decision
+        decision = 'fail'
+        print(f"    Agent 3: HARD FAIL — {msg}")
+        if user_id is not None:
+            log = Agent3EvaluationLog(
+                request_id=request_id, user_id=user_id, document_id=document_id,
+                plan_item_id=plan_item_id, attempt=attempt,
+                decision='fail', terminal_status='fail',
+                quality_score=round(quality_val, 4), reasons_json=json.dumps(reasons),
+                target_bloom=bloom_key, generated_bloom=bloom_key,
+                validated_bloom=bloom_key, bloom_match_type='strict_match',
+                source_faithfulness_score=round(q_faithfulness, 4),
+                scoreability_score=round(bloom_verb_score, 4),
+            )
+            db.session.add(log)
+        return 'fail', round(quality_val, 4)
+
+    if bloom_num <= 3 and not q_ok:
+        return _a3_hard_fail(q_bloom_score, f'câu hỏi sai cấp Bloom ({q_bloom_reason})')
+
+    if bloom_num <= 3 and _a3_has_forbidden_template_answer(answer, section_content, bloom_num):
+        return _a3_hard_fail(0.12, 'đáp án dùng mẫu chung (Phân tích định tính/KPI/...)')
+
+    if bloom_num == 4 and _a3_has_forbidden_template_answer(answer, section_content, bloom_num):
+        return _a3_hard_fail(0.12, 'đáp án B4 lặp mẫu chung — thiếu thuật ngữ mục nguồn')
+
+    if bloom_num >= 5 and _a3_has_forbidden_template_answer(answer, section_content, bloom_num):
+        return _a3_hard_fail(0.12, 'đáp án B5+ chứa meta thí nghiệm')
+
+    if bloom_num == 2 and _answer_source_anchor_ratio(answer, section_content) < 0.38:
+        return _a3_hard_fail(
+            _answer_source_anchor_ratio(answer, section_content),
+            'B2 thiếu thuật ngữ cụ thể từ mục nguồn',
+        )
+
+    if bloom_num == 3 and _answer_source_anchor_ratio(answer, section_content) < 0.22:
+        return _a3_hard_fail(
+            _answer_source_anchor_ratio(answer, section_content),
+            'B3 thiếu thuật ngữ cụ thể từ mục nguồn',
+        )
+
+    if bloom_num == 3 and _b3_answer_action_score(answer) < 0.15:
+        return _a3_hard_fail(
+            _b3_answer_action_score(answer),
+            'B3 đáp án không phải bước hành động',
+        )
+
+    if bloom_num == 3:
+        b3_ok, b3_reason = _b3_answer_compliance(answer)
+        if not b3_ok:
+            return _a3_hard_fail(0.10, f'B3 filler/mẫu chung — {b3_reason}')
+
+    if bloom_num == 1 and key_term_score < 0.38:
+        return _a3_hard_fail(key_term_score, f'thuật ngữ đáp án không bám mục nguồn (key_terms={key_term_score:.2f})')
+
+    if bloom_num == 2 and key_term_score < 0.28:
+        return _a3_hard_fail(key_term_score, f'thuật ngữ đáp án không bám mục nguồn (key_terms={key_term_score:.2f})')
+
     if a_groundedness < hard_floor:
         quality  = round(a_groundedness, 4)
         decision = 'fail'
@@ -2879,13 +3630,13 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
             db.session.add(log)
         return decision, quality
 
-    # Bloom 3 hard fail: lạc B2, lặp tiêu đề, hoặc không bám mục nguồn (ngưỡng đã nới)
+    # Bloom 3 hard fail: lạc B2, lặp tiêu đề, hoặc không bám mục nguồn
     if bloom_num == 3 and (
         bloom3_q_score < 0.22
-        or tautology_score < 0.32
-        or a_groundedness < 0.32
-        or key_term_score < 0.25
-        or q_faithfulness < 0.22
+        or tautology_score < 0.28
+        or a_groundedness < 0.22
+        or key_term_score < 0.15
+        or q_faithfulness < 0.18
     ):
         quality = round(min(bloom3_q_score, tautology_score, a_groundedness, key_term_score, q_faithfulness), 4)
         decision = 'fail'
@@ -2905,17 +3656,20 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
             db.session.add(log)
         return decision, quality
 
-    # Hard fail: hai ý (hoặc hơn) gần nghĩa — B4-6 nới hơn vì phân tích/đánh giá có thể cùng chủ đề
-    if bloom_num == 3:
-        overlap_fail = max_point_overlap >= 0.55
+    # Hard fail trùng ý: chỉ khi overlap RẤT cao (tránh reject oan giáo trình cùng miền từ)
+    if bloom_num <= 2:
+        overlap_fail = max_point_overlap >= 0.62
         diversity_fail = diversity_score < 0.24
-    elif bloom_num >= 4:
-        overlap_fail = max_point_overlap >= 0.64
-        diversity_fail = diversity_score < 0.16
+    elif bloom_num == 3:
+        overlap_fail = max_point_overlap >= 0.74
+        diversity_fail = diversity_score < 0.14
+    elif bloom_num == 4:
+        overlap_fail = max_point_overlap >= 0.76
+        diversity_fail = diversity_score < 0.12
     else:
-        overlap_fail = max_point_overlap >= 0.50
-        diversity_fail = diversity_score < 0.30
-    if overlap_fail or diversity_fail:
+        overlap_fail = max_point_overlap >= 0.78
+        diversity_fail = diversity_score < 0.10
+    if overlap_fail and diversity_fail:
         quality = round(min(diversity_score, 1.0 - max_point_overlap), 4)
         decision = 'fail'
         print(f"    Agent 3: HARD FAIL — ý đáp án trùng/gần nghĩa (diversity={diversity_score:.2f}, max_overlap={max_point_overlap:.2f})")
@@ -2970,7 +3724,7 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
                    + diversity_score * 0.10)
     quality = max(0.0, min(round(quality, 4), 1.0))
 
-    pass_threshold = 0.44 if bloom_num in (3, 4) else (0.48 if bloom_num <= 2 else (0.45 if bloom_num >= 5 else 0.50))
+    pass_threshold = 0.44 if bloom_num in (3, 4) else (0.52 if bloom_num <= 2 else (0.45 if bloom_num >= 5 else 0.50))
     decision = 'pass' if quality >= pass_threshold else 'fail'
 
     if user_id is not None:
@@ -3120,16 +3874,8 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
     page_boundaries = extraction_stats.get('page_boundaries', []) if extraction_stats else []
     all_sections = split_document_into_sections(content, page_boundaries=page_boundaries)
 
-    # Lọc chỉ giữ section hợp lệ: có số mục (1.1, 2.3...) hoặc Chương/Phần/Bài N
-    valid_sections = []
-    for sec in all_sections:
-        title = sec['title']
-        has_num     = bool(re.match(r'^\d+\.\d+', title))                            # dạng '1.2'
-        is_chapter  = bool(re.match(r'^(Chương|CHƯƠNG|Phần|PHẦN)', title, re.IGNORECASE))  # 'Chương 3'
-        is_bai      = bool(re.match(r'^(Bài|BÀI|Bai|BAI)\s+\d+', title, re.IGNORECASE))   # 'Bài 1'
-        is_fallback = bool(re.match(r'^(Đoạn|Trang) \d+', title))                   # fallback khi PDF không có mục
-        if has_num or is_chapter or is_bai or is_fallback:
-            valid_sections.append(sec)
+    # Lọc chỉ giữ section hợp lệ (mọi định dạng giáo trình phổ biến)
+    valid_sections = [sec for sec in all_sections if _section_title_is_valid(sec.get('title', ''))]
 
     if not valid_sections and all_sections:
         # Không lọc được section nào → dùng tất cả (PDF không có tiêu đề rõ ràng)
@@ -3152,6 +3898,12 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
         return (999, 0)  # không xác định được → xếp cuối
 
     sorted_sections = sorted(valid_sections, key=_section_sort_key)  # đã sắp xếp Chương 1 → N
+    before_split = len(sorted_sections)
+    sorted_sections = _split_oversized_sections(sorted_sections)
+    if len(sorted_sections) != before_split:
+        print(f"  ✂️ Chia mục dài: {before_split} → {len(sorted_sections)} đoạn (≤12k ký tự/đoạn)")
+    for _sec in sorted_sections:
+        _sec['boilerplate_score'] = _section_boilerplate_score(_sec.get('content', ''))
     print(f"  📄 Tìm thấy {len(sorted_sections)} mục trong tài liệu")
 
     # ── Xây dựng bản đồ nội dung toàn chương ─────────────────────────────────
@@ -3204,6 +3956,16 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
         bloom_key = bloom_level.split('(')[0].strip()
         points = custom_points if custom_points else default_points_map.get(bloom_key, 1.0)
         required_points = int(points / 0.25)
+        try:
+            bloom_num_target = int(bloom_key.replace('Bloom ', ''))
+        except Exception:
+            bloom_num_target = 0
+        if bloom_num_target == 3:
+            required_points = min(required_points, 6)
+        elif bloom_num_target == 5:
+            required_points = min(required_points, 10)
+        elif bloom_num_target == 6:
+            required_points = min(required_points, 10)
 
         pct = 15 + int((target_idx / max(total_targets, 1)) * 75)
         _progress(pct, progress_generating_question(
@@ -3216,18 +3978,21 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
 
         item_success = False  # cờ đánh dấu câu này đã sinh thành công chưa
         sections_tried = 0  # số sections đã thực sự thử A2→A3 (đã qua A1)
-        max_sections_per_q = min(
-            8,
-            max(4, len(sorted_sections) // max(total_targets, 1) + 2),
-        )
+        _sec_cap = {3: 22, 4: 28, 5: 24, 6: 24}.get(bloom_num_target, 12)
+        max_sections_per_q = _sec_cap
+
+        def _section_boilerplate_key(i: int) -> tuple:
+            return (sorted_sections[i].get('boilerplate_score', 1.0), i)
+
+        def _sort_by_boilerplate(lst: list[int]) -> list[int]:
+            if bloom_num_target >= 3:
+                return sorted(lst, key=_section_boilerplate_key)
+            return lst
 
         # Duyệt section theo thứ tự: chỉ những section chưa dùng thành công
         # → section đã sinh được câu hỏi sẽ bị loại hoàn toàn, không quay lại
         # Với đoạn ngắn: ưu tiên sections đã được pre-classify đúng bloom target (nhanh hơn)
-        try:
-            bloom_num_target = int(bloom_key.replace('Bloom ', ''))
-        except Exception:
-            bloom_num_target = 0
+        # bloom_num_target đã tính ở trên
 
         # Tách: sections đã biết ceiling → sort: exact match trước, gần đúng sau
         # Sections chưa biết ceiling → đưa vào sau (sẽ classify khi cần)
@@ -3245,7 +4010,11 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
         unknown       = [i for i in range(len(sorted_sections))
                          if _section_available(i)
                          and 'bloom_ceiling' not in sorted_sections[i]]
-        section_order = known_exact + unknown + known_adjacent
+        section_order = (
+            _sort_by_boilerplate(known_exact)
+            + _sort_by_boilerplate(unknown)
+            + _sort_by_boilerplate(known_adjacent)
+        )
 
         # Fallback: mọi mục đã có câu ở cùng mức Bloom → tái dùng mục, ưu tiên ceiling gần target
         if not section_order:
@@ -3256,6 +4025,18 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
                     (sorted_sections[i].get('bloom_ceiling') or 3) - bloom_num_target
                 ),
             )
+        else:
+            n_avail = len(section_order)
+            n_used_same = sum(
+                1 for i in range(len(sorted_sections))
+                if (i, bloom_num_target) in used_section_bloom_pairs
+            )
+            if n_used_same:
+                print(f"  📊 Pool Bloom {bloom_num_target}: {n_avail} mục khả dụng "
+                      f"({n_used_same} mục đã dùng cho cùng mức Bloom)")
+
+        _skipped_boilerplate = 0
+        _max_bp_skip = 20 if bloom_num_target in (3, 4) else 0
 
         for sec_idx in section_order:
             if item_success:
@@ -3271,6 +4052,19 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
             _min_content = 150 if bloom_num_target >= 2 else 80
             if len(section_content.strip()) < _min_content:
                 print(f"  ⏭️ Bỏ qua section quá ngắn ({len(section_content.strip())}c < {_min_content}c): {section_title[:60]}")
+                continue
+
+            _bp_score = section.get('boilerplate_score', 0.0)
+            if (
+                bloom_num_target in (3, 4)
+                and _bp_score > 0.72
+                and _skipped_boilerplate < _max_bp_skip
+                and sections_tried < max(0, max_sections_per_q - 2)
+            ):
+                _skipped_boilerplate += 1
+                print(
+                    f"  ⏭️ Bỏ qua mục nhiều boilerplate ({_bp_score:.2f}): {section_title[:50]}"
+                )
                 continue
 
             # Lấy toàn bộ nội dung chương mà mục này thuộc về
@@ -3291,6 +4085,7 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
                 section_content, section_title, bloom_level,
                 request_id, user_id, document_id, plan_item_id,
                 bloom_ceiling=section['bloom_ceiling'],
+                chapter_content=chapter_content,
             )
             if not feasible:
                 print(f"  ⛔ Agent 1: Mục không phù hợp cho {bloom_key} → bỏ qua")

@@ -82,6 +82,7 @@ app.config['SECRET_KEY']               = get_initial_secret_key()
 app.config['ENABLE_OCR']               = False
 app.config['SQLALCHEMY_DATABASE_URI']  = get_database_uri()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_pre_ping': True}
 app.config['SESSION_PERMANENT']        = True
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 
@@ -197,7 +198,7 @@ def _ensure_google_oauth() -> bool:
 
 
 def _apply_runtime_settings():
-    """Nạp cấu hình từ DB sau khi đã kết nối MySQL."""
+    """Nạp cấu hình từ DB sau khi đã kết nối PostgreSQL."""
     from models import SystemSetting
     try:
         seed_default_settings(db.session, SystemSetting)
@@ -1836,6 +1837,13 @@ def login_google():
     Captcha is NOT required here – Google OAuth is a trusted third-party
     provider that already handles its own bot/abuse protection.
     """
+    if not _ensure_google_oauth():
+        flash(_bi(
+            'Google login is not configured. Please contact the administrator.',
+            'Chưa cấu hình đăng nhập Google. Vui lòng liên hệ quản trị viên.',
+        ), 'warning')
+        return redirect(url_for('login'))
+
     # Ưu tiên google_redirect_uri trong DB (dùng khi ngrok URL thay đổi)
     redirect_uri = (
         get_google_oauth_config()['redirect_uri']
@@ -3179,16 +3187,11 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()  # Chỉ tạo bảng nếu chưa có (không xóa dữ liệu)
         _apply_runtime_settings()
-        # Auto-migrate: add terms_agreed_at column if missing (MySQL safe)
+        from utils.db_schema import ensure_column
         try:
-            from sqlalchemy import text as _text
-            with db.engine.connect() as _conn:
-                _conn.execute(_text(
-                    "ALTER TABLE users ADD COLUMN terms_agreed_at DATETIME NULL"
-                ))
-                _conn.commit()
+            ensure_column(db.engine, 'users', 'terms_agreed_at', 'terms_agreed_at TIMESTAMP NULL')
         except Exception:
-            pass  # Column already exists or not MySQL — skip silently
+            pass
     # Khởi động background thread tự huỷ pending transactions
     _cancel_thread = threading.Thread(target=_auto_cancel_pending_transactions, daemon=True)
     _cancel_thread.start()
