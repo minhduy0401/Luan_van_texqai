@@ -3069,6 +3069,7 @@ def admin_settings():
         'vnpay_url':             SystemSetting.get('vnpay_url', 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html'),
         'vnpay_return_url':      SystemSetting.get('vnpay_return_url', ''),
         'sepay_api_key':         SystemSetting.get('sepay_api_key', ''),
+        'secret_key':            SystemSetting.get('secret_key', ''),
         'has_secret_key':        bool(SystemSetting.get('secret_key', '').strip()),
     }
     return render_template('admin/settings.html', packages=packages, sub_packages=sub_packages, settings=settings)
@@ -3145,6 +3146,14 @@ def terms():
 @app.route('/data-deletion')
 def data_deletion():
     return render_template('data_deletion.html', last_updated=_LEGAL_UPDATED)
+
+@app.route('/payment-policy')
+def payment_policy():
+    return render_template('payment_policy.html', last_updated=_LEGAL_UPDATED)
+
+@app.route('/ai-policy')
+def ai_policy():
+    return render_template('ai_policy.html', last_updated=_LEGAL_UPDATED)
 
 @app.route('/support')
 def support():

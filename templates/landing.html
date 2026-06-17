@@ -1175,6 +1175,8 @@
                                     {% set legal_links = [
                                         ('/privacy',   'bi-shield-check',  '#7c3aed', 'rgba(124,58,237,0.08)', 'rgba(124,58,237,0.18)', '#4c1d95', 'Privacy Policy',        'Chính sách quyền riêng tư'),
                                         ('/terms',      'bi-file-text',     '#2563eb', 'rgba(37,99,235,0.08)',  'rgba(37,99,235,0.18)',  '#1e3a8a', 'Terms of Service',      'Điều khoản sử dụng'),
+                                        ('/payment-policy','bi-credit-card', '#0284c7', 'rgba(2,132,199,0.08)',  'rgba(2,132,199,0.18)',  '#0c4a6e', 'Payment Policy',        'Chính sách thanh toán'),
+                                        ('/ai-policy',  'bi-robot',         '#9333ea', 'rgba(147,51,234,0.08)', 'rgba(147,51,234,0.18)', '#581c87', 'AI Usage Policy',       'Chính sách sử dụng AI'),
                                         ('/data-deletion','bi-trash3',      '#dc2626', 'rgba(220,38,38,0.08)',  'rgba(220,38,38,0.18)',  '#7f1d1d', 'Data Deletion',         'Chính sách xóa dữ liệu'),
                                     ] %}
                                     {% for href, icon, icolor, bg, border, color, label_en, label_vi in legal_links %}
@@ -1351,6 +1353,8 @@
                         <span style="color:rgba(255,255,255,0.15);font-size:0.85rem;">|</span>
                         <a href="/privacy" style="font-size:0.85rem;color:rgba(255,255,255,0.35);text-decoration:none;" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.35)'">{{ 'Privacy' if current_lang == 'en' else 'Quyền riêng tư' }}</a>
                         <a href="/terms" style="font-size:0.85rem;color:rgba(255,255,255,0.35);text-decoration:none;" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.35)'">{{ 'Terms' if current_lang == 'en' else 'Điều khoản' }}</a>
+                        <a href="/payment-policy" style="font-size:0.85rem;color:rgba(255,255,255,0.35);text-decoration:none;" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.35)'">{{ 'Payment' if current_lang == 'en' else 'Thanh toán' }}</a>
+                        <a href="/ai-policy" style="font-size:0.85rem;color:rgba(255,255,255,0.35);text-decoration:none;" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.35)'">{{ 'AI Policy' if current_lang == 'en' else 'Chính sách AI' }}</a>
                         <a href="/data-deletion" style="font-size:0.85rem;color:rgba(255,255,255,0.35);text-decoration:none;" onmouseover="this.style.color='rgba(255,255,255,0.7)'" onmouseout="this.style.color='rgba(255,255,255,0.35)'">{{ 'Data Deletion' if current_lang == 'en' else 'Xóa dữ liệu' }}</a>
                     </div>
                 </div>

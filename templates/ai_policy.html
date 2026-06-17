@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8 col-xl-7">
+
+    <div class="text-center mb-4">
+      <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3"
+           style="width:64px;height:64px;background:linear-gradient(135deg,#7c3aed,#a855f7);">
+        <i class="bi bi-robot text-white fs-4"></i>
+      </div>
+      <h1 class="fw-bold" style="font-size:1.9rem;background:linear-gradient(135deg,#7c3aed,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
+        {{ 'AI Usage Policy' if current_lang == 'en' else 'Chính sách sử dụng AI' }}
+      </h1>
+      <p class="text-muted mb-0">AI Usage Policy — TEXTQAI</p>
+      <small class="text-muted">{{ 'Last updated' if current_lang == 'en' else 'Cập nhật lần cuối' }}: {{ last_updated }}</small>
+    </div>
+
+    <div class="card p-4 mb-4">
+      <div class="card-body p-0" style="line-height:1.8;color:#374151;">
+
+        <h5 class="mt-0">1. {{ 'Purpose' if current_lang == 'en' else 'Mục đích' }}</h5>
+        {% if current_lang == 'en' %}
+        <p><strong>TEXTQAI</strong> uses large language models (LLMs) to analyze documents, generate exam questions and answers aligned with Bloom's taxonomy, validate output quality, and optionally translate Q&amp;A to match your interface language.</p>
+        {% else %}
+        <p><strong>TEXTQAI</strong> sử dụng mô hình ngôn ngữ lớn (LLM) để phân tích tài liệu, sinh câu hỏi và đáp án theo thang Bloom, kiểm tra chất lượng đầu ra, và (khi cần) dịch Q&amp;A sang ngôn ngữ giao diện của bạn.</p>
+        {% endif %}
+
+        <hr class="my-3">
+        <h5>2. {{ 'How AI Is Used' if current_lang == 'en' else 'AI được dùng như thế nào' }}</h5>
+        <ul>
+          {% if current_lang == 'en' %}
+          <li><strong>Document analysis:</strong> chapter/section structure is inferred from extracted PDF text.</li>
+          <li><strong>Question generation (Agent 2):</strong> section content is sent to the configured LLM to produce questions and answers.</li>
+          <li><strong>Quality validation (Agent 3):</strong> generated Q&amp;A is checked against source content and Bloom-level rules.</li>
+          <li><strong>Translation (optional):</strong> when document language differs from UI language, Q&amp;A may be translated by the same LLM provider.</li>
+          {% else %}
+          <li><strong>Phân tích tài liệu:</strong> cấu trúc chương/mục được suy luận từ văn bản trích xuất từ PDF.</li>
+          <li><strong>Sinh câu hỏi (Agent 2):</strong> nội dung mục được gửi tới LLM đã cấu hình để tạo câu hỏi và đáp án.</li>
+          <li><strong>Kiểm tra chất lượng (Agent 3):</strong> Q&amp;A được đối chiếu với nguồn và quy tắc mức Bloom.</li>
+          <li><strong>Dịch thuật (tùy chọn):</strong> khi ngôn ngữ tài liệu khác ngôn ngữ giao diện, Q&amp;A có thể được LLM dịch sang ngôn ngữ tương ứng.</li>
+          {% endif %}
+        </ul>
+
+        <hr class="my-3">
+        <h5>3. {{ 'Third-Party Providers' if current_lang == 'en' else 'Nhà cung cấp bên thứ ba' }}</h5>
+        {% if current_lang == 'en' %}
+        <p>Depending on admin configuration, requests may be routed through <strong>OpenRouter</strong>, <strong>OpenAI</strong>, or <strong>Google Gemini</strong> APIs. Only the minimum text needed for each step is transmitted. We select providers that offer data non-retention or limited-retention terms where available.</p>
+        {% else %}
+        <p>Tùy cấu hình admin, yêu cầu có thể đi qua API <strong>OpenRouter</strong>, <strong>OpenAI</strong> hoặc <strong>Google Gemini</strong>. Chỉ gửi phần văn bản tối thiểu cần thiết cho từng bước. Chúng tôi ưu tiên nhà cung cấp có điều khoản không lưu trữ hoặc lưu trữ hạn chế dữ liệu khi có thể.</p>
+        {% endif %}
+
+        <hr class="my-3">
+        <h5>4. {{ 'Your Responsibilities' if current_lang == 'en' else 'Trách nhiệm của bạn' }}</h5>
+        <ul>
+          {% if current_lang == 'en' %}
+          <li>Upload only documents you have the right to use for educational or research purposes.</li>
+          <li>Do not upload unlawful, confidential, or personal data of third parties without consent.</li>
+          <li>Review AI-generated output before use in exams or official assessments.</li>
+          {% else %}
+          <li>Chỉ upload tài liệu bạn có quyền sử dụng cho mục đích giáo dục hoặc nghiên cứu.</li>
+          <li>Không upload nội dung vi phạm pháp luật, bí mật hoặc dữ liệu cá nhân của bên thứ ba khi chưa có sự đồng ý.</li>
+          <li>Kiểm tra lại kết quả do AI sinh trước khi dùng cho thi cử hoặc đánh giá chính thức.</li>
+          {% endif %}
+        </ul>
+
+        <hr class="my-3">
+        <h5>5. {{ 'Limitations & Disclaimer' if current_lang == 'en' else 'Giới hạn & miễn trừ' }}</h5>
+        {% if current_lang == 'en' %}
+        <p>AI output may contain inaccuracies, omissions, or misclassified Bloom levels. TEXTQAI provides results on an <strong>"as-is"</strong> basis for academic assistance — not as a substitute for professional or legal advice. Service availability depends on third-party API uptime and rate limits.</p>
+        {% else %}
+        <p>Kết quả AI có thể sai sót, thiếu ý hoặc phân loại Bloom chưa chính xác. TEXTQAI cung cấp kết quả theo dạng <strong>"nguyên trạng"</strong> để hỗ trợ học thuật — không thay thế tư vấn chuyên môn hay pháp lý. Dịch vụ phụ thuộc thời gian hoạt động và giới hạn tốc độ của API bên thứ ba.</p>
+        {% endif %}
+
+        <hr class="my-3">
+        <h5>6. {{ 'Contact' if current_lang == 'en' else 'Liên hệ' }}</h5>
+        <p>
+          {% if current_lang == 'en' %}Questions about AI usage:{% else %}Thắc mắc về việc sử dụng AI:{% endif %}<br>
+          <i class="bi bi-envelope-fill me-1 text-primary"></i>
+          <a href="mailto:duy226466@student.nctu.edu.vn">duy226466@student.nctu.edu.vn</a>
+        </p>
+
+      </div>
+    </div>
+
+    <div class="text-center text-muted mb-5" style="font-size:.85rem;">
+      <a href="/privacy" class="me-3">{{ 'Privacy' if current_lang == 'en' else 'Quyền riêng tư' }}</a>
+      <a href="/terms" class="me-3">{{ 'Terms' if current_lang == 'en' else 'Điều khoản' }}</a>
+      <a href="/payment-policy" class="me-3">{{ 'Payment Policy' if current_lang == 'en' else 'Chính sách thanh toán' }}</a>
+      <a href="/data-deletion" class="me-3">{{ 'Data Deletion' if current_lang == 'en' else 'Xóa dữ liệu' }}</a>
+      <a href="/support">{{ 'Support' if current_lang == 'en' else 'Hỗ trợ' }}</a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

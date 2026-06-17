@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8 col-xl-7">
+
+    <div class="text-center mb-4">
+      <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-3"
+           style="width:64px;height:64px;background:linear-gradient(135deg,#2563eb,#0ea5e9);">
+        <i class="bi bi-credit-card-fill text-white fs-4"></i>
+      </div>
+      <h1 class="fw-bold" style="font-size:1.9rem;background:linear-gradient(135deg,#2563eb,#0ea5e9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">
+        {{ 'Payment Policy' if current_lang == 'en' else 'Chính sách Thanh toán' }}
+      </h1>
+      <p class="text-muted mb-0">Payment Policy — TEXTQAI</p>
+      <small class="text-muted">{{ 'Last updated' if current_lang == 'en' else 'Cập nhật lần cuối' }}: {{ last_updated }}</small>
+    </div>
+
+    <div class="card p-4 mb-4">
+      <div class="card-body p-0" style="line-height:1.8;color:#374151;">
+
+        <h5 class="mt-0">1. {{ 'Overview' if current_lang == 'en' else 'Tổng quan' }}</h5>
+        {% if current_lang == 'en' %}
+        <p>This policy describes how payments, credits, and subscriptions work on <strong>TEXTQAI</strong>. By purchasing credits or packages, you agree to the terms below.</p>
+        {% else %}
+        <p>Chính sách này mô tả cách thanh toán, credits và gói dịch vụ hoạt động trên <strong>TEXTQAI</strong>. Khi mua credits hoặc gói, bạn đồng ý với các điều khoản dưới đây.</p>
+        {% endif %}
+
+        <hr class="my-3">
+        <h5>2. {{ 'Payment Methods' if current_lang == 'en' else 'Phương thức thanh toán' }}</h5>
+        <ul>
+          {% if current_lang == 'en' %}
+          <li><strong>VNPay:</strong> online payment via the VNPay gateway (sandbox or production, depending on system configuration).</li>
+          <li><strong>Bank transfer:</strong> manual transfer to the account displayed on the payment page; credits are added after admin or webhook confirmation.</li>
+          <li><strong>SePay webhook:</strong> automatic confirmation when a transfer matches the order reference.</li>
+          {% else %}
+          <li><strong>VNPay:</strong> thanh toán trực tuyến qua cổng VNPay (sandbox hoặc production tùy cấu hình hệ thống).</li>
+          <li><strong>Chuyển khoản ngân hàng:</strong> chuyển khoản thủ công theo thông tin trên trang thanh toán; credits được cộng sau khi admin hoặc webhook xác nhận.</li>
+          <li><strong>SePay webhook:</strong> xác nhận tự động khi giao dịch khớp mã đơn hàng.</li>
+          {% endif %}
+        </ul>
+
+        <hr class="my-3">
+        <h5>3. {{ 'Credits & Packages' if current_lang == 'en' else 'Credits & Gói dịch vụ' }}</h5>
+        {% if current_lang == 'en' %}
+        <p>Credits are consumed when you generate question sets. Package prices and credit amounts are shown on the <a href="/pricing">Pricing</a> page before checkout. Successfully added credits are tied to your account and cannot be transferred to another user.</p>
+        {% else %}
+        <p>Credits được trừ khi bạn sinh bộ câu hỏi. Giá gói và số credits hiển thị tại trang <a href="/pricing">Bảng giá</a> trước khi thanh toán. Credits đã nạp thành công gắn với tài khoản của bạn và không chuyển nhượng cho người khác.</p>
+        {% endif %}
+
+        <hr class="my-3">
+        <h5>4. {{ 'Refunds' if current_lang == 'en' else 'Hoàn tiền' }}</h5>
+        {% if current_lang == 'en' %}
+        <p>Successfully purchased credits are <strong>non-refundable</strong>, except when a confirmed system error caused incorrect charging or failed credit delivery. We do not refund credits already used for generation.</p>
+        {% else %}
+        <p>Credits đã mua thành công <strong>không hoàn tiền</strong>, trừ khi có lỗi hệ thống được xác nhận khiến bạn bị trừ tiền sai hoặc không nhận đủ credits. Credits đã sử dụng để sinh câu hỏi không được hoàn lại.</p>
+        {% endif %}
+
+        <hr class="my-3">
+        <h5>5. {{ 'Transaction Records' if current_lang == 'en' else 'Lưu trữ giao dịch' }}</h5>
+        {% if current_lang == 'en' %}
+        <p>We store order codes, package names, amounts, payment status, and timestamps. We do <strong>not</strong> store full bank card numbers on our servers — card/banking data is handled by VNPay or your bank.</p>
+        {% else %}
+        <p>Chúng tôi lưu mã đơn, tên gói, số tiền, trạng thái thanh toán và thời gian giao dịch. Chúng tôi <strong>không</strong> lưu số thẻ ngân hàng đầy đủ trên server — dữ liệu thẻ/tài khoản do VNPay hoặc ngân hàng xử lý.</p>
+        {% endif %}
+
+        <hr class="my-3">
+        <h5>6. {{ 'Disputes' if current_lang == 'en' else 'Khiếu nại & tranh chấp' }}</h5>
+        {% if current_lang == 'en' %}
+        <p>If you believe a payment was processed incorrectly, contact us within <strong>7 days</strong> of the transaction with your order code and payment proof:</p>
+        {% else %}
+        <p>Nếu bạn cho rằng giao dịch bị xử lý sai, vui lòng liên hệ trong vòng <strong>7 ngày</strong> kể từ ngày giao dịch, kèm mã đơn và chứng từ thanh toán:</p>
+        {% endif %}
+        <p>
+          <i class="bi bi-envelope-fill me-1 text-primary"></i>
+          <a href="mailto:duy226466@student.nctu.edu.vn">duy226466@student.nctu.edu.vn</a>
+        </p>
+
+        <hr class="my-3">
+        <h5>7. {{ 'Policy Changes' if current_lang == 'en' else 'Thay đổi chính sách' }}</h5>
+        {% if current_lang == 'en' %}
+        <p>We may update this policy. The latest version will always be published on this page with an updated date.</p>
+        {% else %}
+        <p>Chúng tôi có thể cập nhật chính sách này. Phiên bản mới nhất luôn được đăng tại trang này kèm ngày cập nhật.</p>
+        {% endif %}
+
+      </div>
+    </div>
+
+    <div class="text-center text-muted mb-5" style="font-size:.85rem;">
+      <a href="/privacy" class="me-3">{{ 'Privacy' if current_lang == 'en' else 'Quyền riêng tư' }}</a>
+      <a href="/terms" class="me-3">{{ 'Terms' if current_lang == 'en' else 'Điều khoản' }}</a>
+      <a href="/ai-policy" class="me-3">{{ 'AI Policy' if current_lang == 'en' else 'Chính sách AI' }}</a>
+      <a href="/data-deletion" class="me-3">{{ 'Data Deletion' if current_lang == 'en' else 'Xóa dữ liệu' }}</a>
+      <a href="/support">{{ 'Support' if current_lang == 'en' else 'Hỗ trợ' }}</a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

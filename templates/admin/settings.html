@@ -196,7 +196,7 @@
                             <!-- API Key -->
                             <div class="mb-3">
                                 <label class="form-label">{{ t('API Key OpenRouter') }}</label>
-                                <input type="password" name="openrouter_api_key"
+                                <input type="text" name="openrouter_api_key"
                                     class="form-control form-control-sm font-monospace"
                                     value="{{ settings.openrouter_api_key or '' }}" placeholder="sk-or-v1-...">
                             </div>
@@ -230,7 +230,7 @@
                             <!-- API Key -->
                             <div class="mb-3">
                                 <label class="form-label">{{ t('API Key OpenAI') }}</label>
-                                <input type="password" name="openai_api_key"
+                                <input type="text" name="openai_api_key"
                                     class="form-control form-control-sm font-monospace"
                                     value="{{ settings.openai_api_key or '' }}" placeholder="sk-proj-...">
                             </div>
@@ -265,7 +265,7 @@
                             <!-- API Key -->
                             <div class="mb-3">
                                 <label class="form-label">{{ t('API Key Gemini') }}</label>
-                                <input type="password" name="gemini_api_key"
+                                <input type="text" name="gemini_api_key"
                                     class="form-control form-control-sm font-monospace"
                                     value="{{ settings.gemini_api_key or '' }}" placeholder="AIzaSy...">
                             </div>
@@ -688,8 +688,9 @@
                             <h6 class="fw-bold text-dark border-bottom pb-2" style="font-size:.88rem;">
                                 <i class="bi bi-key me-2"></i>Flask SECRET_KEY
                             </h6>
-                            <input type="password" name="secret_key" class="form-control form-control-sm font-monospace"
-                                placeholder="{{ t('Để trống nếu không đổi') }}{% if settings.has_secret_key %} — {{ t('đã cấu hình') }}{% endif %}">
+                            <input type="text" name="secret_key" class="form-control form-control-sm font-monospace"
+                                value="{{ settings.secret_key or '' }}"
+                                placeholder="{{ t('Flask SECRET_KEY') }}">
                             <div class="form-text">{{ t('Dùng cho session/login. Đổi key sẽ đăng xuất toàn bộ user.') }}</div>
                         </div>
 
@@ -705,7 +706,7 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Client Secret</label>
-                            <input type="password" name="google_client_secret" class="form-control form-control-sm font-monospace"
+                            <input type="text" name="google_client_secret" class="form-control form-control-sm font-monospace"
                                 value="{{ settings.google_client_secret or '' }}" placeholder="{{ t('Để trống nếu không đổi') }}">
                         </div>
                         <div class="col-12">
@@ -727,7 +728,7 @@
                         </div>
                         <div class="col-md-8">
                             <label class="form-label">Hash Secret</label>
-                            <input type="password" name="vnpay_hash_secret" class="form-control form-control-sm font-monospace"
+                            <input type="text" name="vnpay_hash_secret" class="form-control form-control-sm font-monospace"
                                 value="{{ settings.vnpay_hash_secret or '' }}" placeholder="{{ t('Để trống nếu không đổi') }}">
                         </div>
                         <div class="col-md-6">
@@ -749,7 +750,7 @@
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">SePay API Key</label>
-                            <input type="password" name="sepay_api_key" class="form-control form-control-sm font-monospace"
+                            <input type="text" name="sepay_api_key" class="form-control form-control-sm font-monospace"
                                 value="{{ settings.sepay_api_key or '' }}" placeholder="{{ t('Để trống nếu không đổi') }}">
                         </div>
 
@@ -815,7 +816,7 @@
 
                         <div class="col-md-6">
                             <label class="form-label">{{ t('Google reCAPTCHA Secret Key') }}</label>
-                            <input type="password" name="recaptcha_secret_key"
+                            <input type="text" name="recaptcha_secret_key"
                                 class="form-control form-control-sm font-monospace"
                                 value="{{ settings.recaptcha_secret_key or '' }}" placeholder="{{ t('Nhập Google Secret Key') }}">
                         </div>
@@ -853,7 +854,7 @@
 
                         <div class="col-md-6">
                             <label class="form-label">{{ t('SMTP Password / Mật khẩu ứng dụng') }}</label>
-                            <input type="password" name="smtp_password"
+                            <input type="text" name="smtp_password"
                                 class="form-control form-control-sm font-monospace"
                                 value="{{ settings.smtp_password or '' }}"
                                 placeholder="{{ t('Nhập SMTP Password / App Password') }}">
