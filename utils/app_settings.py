@@ -16,6 +16,20 @@ SETTING_DEFAULTS = {
     'smtp_port': '587',
     'smtp_sender_name': 'TEXTQAI Support',
     'captcha_type': 'none',
+    'site_name': 'TEXTQAI',
+    'site_title_vi': 'Hệ thống sinh câu hỏi tự động',
+    'site_title_en': 'Automatic Question Generation System',
+    'site_description_vi': (
+        'Hệ thống sinh câu hỏi tự động theo thang Bloom — hỗ trợ giảng viên tạo đề thi nhanh, '
+        'chính xác và đúng chuẩn giáo dục từ tài liệu PDF.'
+    ),
+    'site_description_en': (
+        "Automatic question generation based on Bloom's taxonomy — helping educators build tests "
+        'rapidly, accurately, and aligned with standard pedagogy from PDF documents.'
+    ),
+    'site_logo': '',
+    'site_favicon': '',
+    'site_branding_version': '1',
 }
 
 

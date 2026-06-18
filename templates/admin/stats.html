@@ -3,60 +3,68 @@
 {% block page_title %}{{ t('Thống kê sử dụng') }}{% endblock %}
 
 {% block content %}
+{% set ns = namespace(visible=[]) %}
+{% for algo, cnt in (algo_stats or []) %}
+  {% if not (algo and 'Gemini-2.0' in algo) %}
+    {% set _ = ns.visible.append((algo, cnt)) %}
+  {% endif %}
+{% endfor %}
+{% set algo_stats = ns.visible %}
+<style>
+    .stats-pie-wrap {
+        position: relative;
+        height: 280px;
+        max-width: 360px;
+        margin: 0 auto;
+    }
+    .stats-pie-empty {
+        min-height: 200px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
+
 <div class="row g-3 mb-3">
-    <!-- Bloom chart -->
+    <!-- Bloom pie -->
     <div class="col-lg-6">
         <div class="card-admin h-100">
             <div class="card-header">
                 <span><i class="bi bi-pie-chart-fill me-2" style="color:#6366f1;"></i>{{ t('Phân bố mức Bloom') }}</span>
             </div>
             <div class="card-body-pad">
-                {% set bloom_colors = ['#6366f1','#3b82f6','#06b6d4','#10b981','#f59e0b','#ef4444'] %}
-                {% set total_bloom = namespace(val=0) %}
-                {% for level, cnt in bloom_stats %}{% set total_bloom.val = total_bloom.val + cnt %}{% endfor %}
-                {% for level, cnt in bloom_stats %}
-                {% set pct = (cnt / (total_bloom.val or 1) * 100)|round(1) %}
-                {% set color = bloom_colors[loop.index0 % 6] %}
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:.82rem;">
-                        <span class="fw-semibold">{{ t(level) or t('Không xác định') }}</span>
-                        <span style="color:{{ color }};font-weight:600;">{{ cnt }} {{ t('câu') }} &nbsp;<span class="text-muted fw-normal">({{ pct }}%)</span></span>
-                    </div>
-                    <div class="progress" style="height:8px;">
-                        <div class="progress-bar" style="width:{{ pct }}%;background:{{ color }};transition:width 0.6s ease;"></div>
-                    </div>
+                {% if bloom_stats %}
+                {% if bloom_top_level %}
+                <div class="mb-3 px-3 py-2 rounded" style="background:#f8fafc;border:1px solid #e2e8f0;font-size:.84rem;line-height:1.45;">
+                    <span class="text-muted">{{ t('Dùng nhiều nhất') }}:</span>
+                    <strong class="text-dark">{{ bloom_top_level|bloom_short(current_lang) }}</strong>
+                    <span class="text-muted">— {{ bloom_top_count }} {{ t('câu') }} ({{ bloom_top_pct }}%)</span>
+                </div>
+                {% endif %}
+                <div class="stats-pie-wrap">
+                    <canvas id="bloomPieChart"></canvas>
                 </div>
                 {% else %}
-                <p class="text-muted text-center py-4">{{ t('Chưa có dữ liệu') }}</p>
-                {% endfor %}
+                <div class="stats-pie-empty text-muted">{{ t('Chưa có dữ liệu') }}</div>
+                {% endif %}
             </div>
         </div>
     </div>
 
-    <!-- Algorithm chart -->
+    <!-- Algorithm pie -->
     <div class="col-lg-6">
         <div class="card-admin h-100">
             <div class="card-header">
                 <span><i class="bi bi-cpu me-2" style="color:#8b5cf6;"></i>{{ t('Tỷ lệ thuật toán') }}</span>
             </div>
             <div class="card-body-pad">
-                {% set total_algo = namespace(val=0) %}
-                {% for algo, cnt in algo_stats %}{% set total_algo.val = total_algo.val + cnt %}{% endfor %}
-                {% for algo, cnt in algo_stats %}
-                {% set pct = (cnt / (total_algo.val or 1) * 100)|round(1) %}
-                {% set color = '#6366f1' if 'TEXTQAI' in (algo or '') and 'Fallback' not in (algo or '') else '#94a3b8' %}
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:.82rem;">
-                        <span class="fw-semibold">{{ t(algo) or t('Không rõ') }}</span>
-                        <span style="color:{{ color }};font-weight:600;">{{ cnt }} {{ t('câu') }} &nbsp;<span class="text-muted fw-normal">({{ pct }}%)</span></span>
-                    </div>
-                    <div class="progress" style="height:8px;">
-                        <div class="progress-bar" style="width:{{ pct }}%;background:{{ color }};transition:width 0.6s ease;"></div>
-                    </div>
+                {% if algo_stats %}
+                <div class="stats-pie-wrap">
+                    <canvas id="algoPieChart"></canvas>
                 </div>
                 {% else %}
-                <p class="text-muted text-center py-4">{{ t('Chưa có dữ liệu') }}</p>
-                {% endfor %}
+                <div class="stats-pie-empty text-muted">{{ t('Chưa có dữ liệu') }}</div>
+                {% endif %}
 
                 <div class="mt-3 p-3 rounded d-flex align-items-center gap-3" style="background:#f8fafc;border:1px solid #e2e8f0;">
                     <div class="stat-icon" style="background:#ede9fe;color:#6366f1;flex-shrink:0;"><i class="bi bi-stopwatch"></i></div>
@@ -134,4 +142,94 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/chart.umd.min.js', v=asset_v) }}"></script>
+<script>
+(function () {
+    const bloomColors = ['#10b981', '#f59e0b', '#06b6d4', '#3b82f6', '#8b5cf6', '#ef4444'];
+    const algoPalette = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#94a3b8'];
+    const questionUnit = {{ t('câu')|tojson }};
+
+    function pieOptions() {
+        return {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { boxWidth: 12, padding: 14, font: { size: 11 } },
+                },
+                tooltip: {
+                    callbacks: {
+                        label(ctx) {
+                            const total = ctx.dataset.data.reduce((a, b) => a + b, 0) || 1;
+                            const pct = (ctx.parsed / total * 100).toFixed(1);
+                            return `${ctx.label}: ${ctx.parsed} ${questionUnit} (${pct}%)`;
+                        },
+                    },
+                },
+            },
+        };
+    }
+
+    function makePie(canvasId, labels, values, colors) {
+        const el = document.getElementById(canvasId);
+        if (!el || !values.length) return;
+        new Chart(el, {
+            type: 'pie',
+            data: {
+                labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: colors,
+                    borderWidth: 2,
+                    borderColor: '#ffffff',
+                }],
+            },
+            options: pieOptions(),
+        });
+    }
+
+    {% if bloom_stats %}
+    makePie(
+        'bloomPieChart',
+        [
+            {% for level, cnt in bloom_stats %}
+            {{ (level|bloom_short(current_lang))|tojson }}{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ],
+        [
+            {% for level, cnt in bloom_stats %}
+            {{ cnt }}{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ],
+        bloomColors.slice(0, {{ bloom_stats|length }})
+    );
+    {% endif %}
+
+    {% if algo_stats %}
+    makePie(
+        'algoPieChart',
+        [
+            {% for algo, cnt in algo_stats %}
+            {{ (t(algo) or t('Không rõ'))|tojson }}{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ],
+        [
+            {% for algo, cnt in algo_stats %}
+            {{ cnt }}{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ],
+        [
+            {% set algo_palette = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#94a3b8'] %}
+            {% for algo, cnt in algo_stats %}
+            {{ ('#6366f1' if algo and 'TEXTQAI' in algo and 'Fallback' not in algo else algo_palette[loop.index0 % 6])|tojson }}{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ]
+    );
+    {% endif %}
+})();
+</script>
 {% endblock %}

@@ -1,0 +1,41 @@
+{% for item in questions %}
+<div class="accordion-item qa-question-item">
+    <div class="accordion-header" id="qHeading{{ item.id }}">
+        <div class="qa-acc-check" onclick="event.stopPropagation()">
+            <input type="checkbox" class="form-check-input question-checkbox"
+                   name="selected_question_ids" value="{{ item.id }}"
+                   data-batch="{{ batch_id }}"
+                   onclick="event.stopPropagation()"
+                   onchange="window.QaExport && QaExport.onQuestionToggle(this)">
+        </div>
+        <button class="accordion-button collapsed" type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#qCollapse{{ item.id }}"
+                aria-expanded="false"
+                aria-controls="qCollapse{{ item.id }}">
+            <span class="w-100">
+                <span class="qa-question-preview">{{ item.question }}</span>
+                <span class="qa-question-meta">
+                    <span class="badge bg-success badge-bloom">{{ t(item.bloom_level|normalize_bloom) }}</span>
+                    <span class="badge bg-warning text-dark">
+                        <i class="bi bi-star-fill"></i> {{ "%.2f"|format(item.total_points) }}{{ 'pt' if current_lang == 'en' else 'đ' }}
+                    </span>
+                    <span class="badge bg-light text-secondary border">{{ item.algorithm }}</span>
+                </span>
+            </span>
+        </button>
+    </div>
+    <div id="qCollapse{{ item.id }}" class="accordion-collapse collapse"
+         aria-labelledby="qHeading{{ item.id }}">
+        <div class="accordion-body pt-2 qa-lazy-body" data-qid="{{ item.id }}" data-loaded="0">
+            <div class="qa-lazy-placeholder text-muted small py-2 text-center">
+                <span class="spinner-border spinner-border-sm d-none qa-lazy-spinner" role="status"></span>
+                <span class="qa-lazy-hint">
+                    <i class="bi bi-chevron-down"></i>
+                    {{ 'Expand to load answer details' if current_lang == 'en' else 'Mở ra để tải đáp án chi tiết' }}
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}

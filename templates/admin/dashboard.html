@@ -47,31 +47,43 @@
     </div>
 </div>
 
+<style>
+    .stats-pie-wrap {
+        position: relative;
+        height: 280px;
+        max-width: 360px;
+        margin: 0 auto;
+    }
+    .stats-pie-empty {
+        min-height: 200px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
+
 <div class="row g-3">
-    <!-- Bloom chart -->
+    <!-- Bloom pie -->
     <div class="col-lg-5">
         <div class="card-admin h-100">
             <div class="card-header">
-                <span><i class="bi bi-bar-chart-steps me-2" style="color:#6366f1;"></i>{{ t('Phân bố mức Bloom') }}</span>
+                <span><i class="bi bi-pie-chart-fill me-2" style="color:#6366f1;"></i>{{ t('Phân bố mức Bloom') }}</span>
             </div>
             <div class="card-body-pad">
-                {% set bloom_colors = ['#6366f1','#3b82f6','#06b6d4','#10b981','#f59e0b','#ef4444'] %}
-                {% set total_q = stats.total_questions or 1 %}
-                {% for level, cnt in bloom_stats %}
-                {% set pct = (cnt / total_q * 100)|round(1) %}
-                {% set color = bloom_colors[loop.index0 % 6] %}
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between mb-1" style="font-size:.81rem;">
-                        <span class="fw-500">{{ t(level) or t('Không rõ') }}</span>
-                        <span class="fw-semibold" style="color:{{ color }};">{{ cnt }} <span class="text-muted fw-normal">({{ pct }}%)</span></span>
-                    </div>
-                    <div class="progress" style="height:7px;">
-                        <div class="progress-bar" style="width:{{ pct }}%;background:{{ color }};"></div>
-                    </div>
+                {% if bloom_stats %}
+                {% if bloom_top_level %}
+                <div class="mb-3 px-3 py-2 rounded" style="background:#f8fafc;border:1px solid #e2e8f0;font-size:.84rem;line-height:1.45;">
+                    <span class="text-muted">{{ t('Dùng nhiều nhất') }}:</span>
+                    <strong class="text-dark">{{ bloom_top_level|bloom_short(current_lang) }}</strong>
+                    <span class="text-muted">— {{ bloom_top_count }} {{ t('câu') }} ({{ bloom_top_pct }}%)</span>
+                </div>
+                {% endif %}
+                <div class="stats-pie-wrap">
+                    <canvas id="bloomPieChart"></canvas>
                 </div>
                 {% else %}
-                <p class="text-muted text-center py-3">{{ t('Chưa có dữ liệu') }}</p>
-                {% endfor %}
+                <div class="stats-pie-empty text-muted">{{ t('Chưa có dữ liệu') }}</div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -142,4 +154,59 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/chart.umd.min.js', v=asset_v) }}"></script>
+<script>
+(function () {
+    const bloomColors = ['#10b981', '#f59e0b', '#06b6d4', '#3b82f6', '#8b5cf6', '#ef4444'];
+    const questionUnit = {{ t('câu')|tojson }};
+
+    {% if bloom_stats %}
+    const el = document.getElementById('bloomPieChart');
+    if (el && typeof Chart !== 'undefined') {
+        new Chart(el, {
+            type: 'pie',
+            data: {
+                labels: [
+                    {% for level, cnt in bloom_stats %}
+                    {{ (level|bloom_short(current_lang))|tojson }}{% if not loop.last %},{% endif %}
+                    {% endfor %}
+                ],
+                datasets: [{
+                    data: [
+                        {% for level, cnt in bloom_stats %}
+                        {{ cnt }}{% if not loop.last %},{% endif %}
+                        {% endfor %}
+                    ],
+                    backgroundColor: bloomColors.slice(0, {{ bloom_stats|length }}),
+                    borderWidth: 2,
+                    borderColor: '#ffffff',
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { boxWidth: 12, padding: 14, font: { size: 11 } },
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label(ctx) {
+                                const total = ctx.dataset.data.reduce((a, b) => a + b, 0) || 1;
+                                const pct = (ctx.parsed / total * 100).toFixed(1);
+                                return `${ctx.label}: ${ctx.parsed} ${questionUnit} (${pct}%)`;
+                            },
+                        },
+                    },
+                },
+            },
+        });
+    }
+    {% endif %}
+})();
+</script>
 {% endblock %}

@@ -27,25 +27,101 @@
         }
     }
 
-    /* Mobile table: ẩn cột ít quan trọng */
+    /* Mobile accordion */
     @media (max-width: 767.98px) {
-        /* Ẩn cột "Mức tài liệu" và "Thuật toán" trên mobile */
-        .table th:nth-child(4),
-        .table td:nth-child(4),
-        .table th:nth-child(6),
-        .table td:nth-child(6) { display: none; }
-
-        /* Câu hỏi và đáp án chiếm nhiều hơn */
-        .table { table-layout: auto !important; font-size: .8rem; }
-        .table thead th, .table tbody td { padding: 8px 6px; }
-
-        /* Sticky submit button full width */
-        #submitWrap { left: 0 !important; right: 0 !important; border-radius: 0 !important; padding: 8px !important; }
-
-        /* Export toolbar cuộn ngang */
+        .qa-accordion .accordion-button { font-size: .82rem; padding: .55rem .75rem; }
+        .qa-acc-check { padding: 0 .5rem; }
         .export-toolbar { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; }
         .toolbar-divider { display: none; }
     }
+
+    /* ── Q&A Accordion ─────────────────────────────────── */
+    .qa-accordion { --bs-accordion-border-color: #e2e8f0; --bs-accordion-btn-focus-box-shadow: 0 0 0 .2rem rgba(102,126,234,.15); }
+    .qa-accordion .accordion-item {
+        border: 1px solid #e2e8f0;
+        border-radius: 12px !important;
+        overflow: hidden;
+        margin-bottom: 10px;
+        box-shadow: 0 1px 4px rgba(15,23,42,.04);
+    }
+    .qa-accordion .accordion-item:last-child { margin-bottom: 0; }
+    .qa-accordion .accordion-header { display: flex; align-items: stretch; }
+    .qa-acc-check {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 .85rem;
+        background: #f8fafc;
+        border-right: 1px solid #e2e8f0;
+        flex-shrink: 0;
+        position: relative;
+        z-index: 2;
+    }
+    .qa-acc-check .form-check-input { margin: 0; cursor: pointer; width: 1.1em; height: 1.1em; }
+    .qa-batch-item > .accordion-header .accordion-button {
+        background: linear-gradient(135deg, #f8fafc, #eef2ff);
+        font-weight: 600;
+        font-size: .84rem;
+        color: #475569;
+        box-shadow: none;
+    }
+    .qa-batch-item > .accordion-header .accordion-button:not(.collapsed) {
+        background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+        color: #312e81;
+    }
+    .qa-question-item .accordion-button {
+        font-size: .84rem;
+        padding: .65rem .85rem;
+        background: #fff;
+        color: #334155;
+        box-shadow: none;
+    }
+    .qa-question-item .accordion-button:not(.collapsed) {
+        background: linear-gradient(135deg, rgba(102,126,234,.06), rgba(118,75,162,.04));
+        color: #1e293b;
+    }
+    .qa-question-preview {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-align: left;
+        line-height: 1.45;
+        font-weight: 600;
+    }
+    .qa-question-meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+    .qa-answer-body {
+        white-space: pre-line;
+        line-height: 1.75;
+        word-wrap: break-word;
+        color: #374151;
+        font-size: .88rem;
+        background: #fafafa;
+        border-radius: 8px;
+        padding: 12px 14px;
+        border: 1px solid #f1f5f9;
+    }
+    .qa-detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 10px;
+        margin-top: 12px;
+    }
+    .qa-detail-chip {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 8px 10px;
+        font-size: .78rem;
+    }
+    .qa-nested-accordion { --bs-accordion-border-width: 0; }
+    .qa-nested-accordion .accordion-item {
+        border: 1px solid #edf2f7;
+        border-radius: 10px !important;
+        margin-bottom: 8px;
+        box-shadow: none;
+    }
+    .badge-bloom { font-size: .72rem; }
 
     @media (max-width: 575.98px) {
         /* Bloom box inputs nhỏ hơn */
@@ -191,9 +267,31 @@
     .btn-export-ans:not(:disabled):hover .exp-label  { color: rgba(255,255,255,.75); }
     .btn-export-ans:not(:disabled):hover .exp-count  { color: #fff; }
     .btn-export-ans:not(:disabled):active { transform: translateY(0); box-shadow: none; }
+
+    /* Layout: form −10% / results +10% (lg 50→45/55, xl 5/7→37.5/62.5) */
+    @media (min-width: 992px) {
+        .layout-generator {
+            flex: 0 0 45%;
+            max-width: 45%;
+        }
+        .layout-results {
+            flex: 0 0 55%;
+            max-width: 55%;
+        }
+    }
+    @media (min-width: 1200px) {
+        .layout-generator {
+            flex: 0 0 37.5%;
+            max-width: 37.5%;
+        }
+        .layout-results {
+            flex: 0 0 62.5%;
+            max-width: 62.5%;
+        }
+    }
 </style>
 <div class="row g-4">
-    <div class="col-lg-6 col-xl-5">
+    <div class="col-12 layout-generator">
         <div class="card shadow-lg p-4 mb-4 generator-sticky">
 
             <!-- ░░ PROGRESS OVERLAY ░░ -->
@@ -624,16 +722,17 @@
 }());
 </script>
 
-    <div class="col-lg-6 col-xl-7">
+    <div class="col-12 layout-results">
         <div class="card shadow-lg p-4">
             <div class="d-flex align-items-center justify-content-between mb-4">
                 <div class="d-flex align-items-center">
                     <i class="bi bi-journal-text fs-3 me-3" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;"></i>
                     <h5 class="mb-0">{{ t('Kết Quả Đã Lưu') }}</h5>
                 </div>
-                <span class="badge bg-info text-dark">{{ history|length }} {{ t('câu') }}</span>
+                <span class="badge bg-info text-dark">{{ total_questions }} {{ t('câu') }}</span>
             </div>
-            {% if history %}
+            {% if total_questions > 0 %}
+            <script type="application/json" id="qaBatchMeta">{{ batches_meta | tojson }}</script>
             <form action="/export-pdf-both" method="POST" id="exportPdfForm">
                 <div class="export-toolbar mb-3">
                     <!-- Export buttons -->
@@ -658,83 +757,24 @@
                         </span>
                     </button>
                 </div>
-                <div class="table-responsive">
-                    <table class="table align-middle table-hover" style="table-layout:fixed;width:100%;">
-                        <thead class="table-light">
-                            <tr>
-                                <th style="width:36px;"></th>
-                                <th style="width:22%;vertical-align:middle;">{{ t('Câu hỏi / Bloom') }}</th>
-                                <th style="width:30%;vertical-align:middle;">{{ t('Đáp án') }}</th>
-                                <th style="width:22%;vertical-align:middle;">{{ t('Mục tài liệu') }}</th>
-                                <th style="width:12%;vertical-align:middle;">{{ t('Điểm') }}</th>
-                                <th style="vertical-align:middle;">{{ t('Thuật toán') }}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for grp in batches %}
-                            {# --- Section header row --- #}
-                            <tr class="table-secondary">
-                                <td class="text-center" style="vertical-align:middle;">
-                                    <input type="checkbox" class="form-check-input batch-checkbox"
-                                           data-batch="{{ grp.batch_id }}"
-                                           title="Select all">
-                                </td>
-                                <td colspan="5" style="vertical-align:middle;padding:6px 8px;">
-                                    {% if grp.batch_id != 'legacy' %}
-                                        {% set b = grp.batch_id %}
-                                        {% set ts = b[:4] ~ '/' ~ b[4:6] ~ '/' ~ b[6:8] ~ ' ' ~ b[8:10] ~ ':' ~ b[10:12] %}
-                                    {% else %}
-                                        {% set ts = '' %}
-                                    {% endif %}
-                                    <span class="fw-semibold text-secondary" style="font-size:0.82rem;">
-                                        &#128200;
-                                        {% if ts %}&nbsp;&middot;&nbsp;{{ ts }}{% endif %}
-                                        {% if grp.doc_title %}&nbsp;&middot;&nbsp;<span class="text-info">{{ grp.doc_title }}</span>{% endif %}
-                                        &nbsp;&middot;&nbsp;<span class="text-muted">{{ grp.questions | length }} {{ t('câu') }}</span>
-                                    </span>
-                                </td>
-                            </tr>
-                            {# --- Question rows --- #}
-                            {% for item in grp.questions %}
-                            <tr>
-                                <td class="text-center">
-                                    <input type="checkbox" class="form-check-input question-checkbox"
-                                           name="selected_question_ids" value="{{ item.id }}"
-                                           data-batch="{{ grp.batch_id }}">
-                                </td>
-                                <td style="overflow:hidden;text-overflow:ellipsis;">
-                                    <strong style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;">{{ item.question }}</strong><br>
-                                    <span class="badge bg-success badge-bloom">{{ t(item.bloom_level|normalize_bloom) }}</span>
-                                </td>
-                                <td style="overflow:hidden;">
-                                    <small class="text-secondary" style="display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;">{{ item.answer[:200] }}{% if item.answer|length > 200 %}...{% endif %}</small>
-                                    <br><a href="#" class="text-primary" data-bs-toggle="modal" data-bs-target="#answerModal{{ item.id }}" style="text-decoration: none;">&#128214; {{ 'View Details' if current_lang == 'en' else 'Xem đầy đủ' }}</a>
-                                </td>
-                                <td style="vertical-align:middle;">
-                                    {% if item.section_mapping %}
-                                    <div style="font-size:0.75rem;line-height:1.4;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;color:#0dcaf0;">
-                                        📍 {{ item.section_mapping|fix_enc|localize_section }}
-                                    </div>
-                                    {% else %}
-                                    <small class="text-muted">N/A</small>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <div class="text-center">
-                                        <span class="badge bg-warning text-dark mb-1" style="font-size:0.75rem;">
-                                            <i class="bi bi-star-fill"></i> {{ "%.2f"|format(item.total_points) }}{{ 'pt' if current_lang == 'en' else 'đ' }}
-                                        </span>
-                                        <br>
-                                        <small class="text-muted" style="font-size:0.7rem;">{{ item.sub_points_count }} {{ 'items × 0.25 pts' if current_lang == 'en' else 'ý × 0.25đ' }}</small>
-                                    </div>
-                                </td>
-                                <td><small class="text-muted" style="font-size:0.72rem;word-break:keep-all;white-space:nowrap;">{{ item.algorithm }}</small></td>
-                            </tr>
-                            {% endfor %}
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                <div class="accordion qa-accordion" id="batchAccordion">
+                    {% include 'partials/_batch_accordion_items.html' with context %}
                 </div>
+                {% if has_more_batches %}
+                <div class="text-center mt-3" id="loadMoreBatchesWrap">
+                    <p class="small text-muted mb-2" id="batchLoadStatus">
+                        {% if current_lang == 'en' %}
+                        Showing {{ batches|length }} of {{ total_batches }} generation runs
+                        {% else %}
+                        Đang hiển thị {{ batches|length }} / {{ total_batches }} lần sinh
+                        {% endif %}
+                    </p>
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="btnLoadMoreBatches"
+                            data-offset="{{ batch_load_offset }}" data-limit="{{ batch_load_limit }}">
+                        <i class="bi bi-arrow-down-circle me-1"></i>{{ 'Load more' if current_lang == 'en' else 'Tải thêm' }}
+                    </button>
+                </div>
+                {% endif %}
             </form>
             {% else %}
             <div class="text-center py-5 text-muted">
@@ -746,7 +786,7 @@
     </div>
 </div>
 
-<!-- MODALS - Đặt ngoài table để tránh conflict -->
+<!-- MODALS -->
 
 <!-- Modal: Xuất Đề Thi Chính Thức -->
 <div class="modal fade" id="exportExamModal" tabindex="-1" aria-labelledby="exportExamModalLabel" aria-hidden="true">
@@ -822,80 +862,6 @@
         </div>
     </div>
 </div>
-
-{% for item in history %}
-<!-- Modal cho từng câu trả lời -->
-<div class="modal fade" id="answerModal{{ item.id }}" tabindex="-1" aria-labelledby="answerModalLabel{{ item.id }}" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="answerModalLabel{{ item.id }}">📝 {{ 'Full Answer Key' if current_lang == 'en' else 'Câu trả lời đầy đủ' }}</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <strong>{{ 'Question:' if current_lang == 'en' else 'Câu hỏi:' }}</strong> {{ item.question }}<br>
-                    <span class="badge bg-success mt-2">{{ t(item.bloom_level|normalize_bloom) }}</span>
-                    {% if item.section_mapping %}
-                    <span class="badge bg-info text-dark mt-2">📍 {{ item.section_mapping|fix_enc|localize_section }}</span>
-                    {% endif %}
-                </div>
-                <hr>
-                <div style="white-space: pre-line; line-height: 1.8; word-wrap: break-word;">{{ item.answer }}</div>
-            </div>
-            <div class="modal-footer bg-light">
-                <small class="text-muted me-auto">{{ item.algorithm }} - {{ "%.3f"|format(item.process_time) }}s</small>
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="bi bi-x-circle"></i> {{ t('Đóng') }}
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Modal cho chi tiết điểm -->
-<div class="modal fade" id="pointsModal{{ item.id }}" tabindex="-1" aria-labelledby="pointsModalLabel{{ item.id }}" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-warning">
-                <h5 class="modal-title" id="pointsModalLabel{{ item.id }}">
-                    <i class="bi bi-star-fill"></i> {{ t('Chi tiết điểm') }} - {{ t(item.bloom_level|normalize_bloom) }}
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="alert alert-info">
-                    <strong>{{ t('Tổng điểm:') }}</strong> {{ "%.2f"|format(item.total_points) }} {{ t('điểm') }}<br>
-                    <strong>{{ t('Số ý:') }}</strong> {{ item.sub_points_count }} {{ t('ý (mỗi ý 0.25đ)') }}
-                </div>
-                <hr>
-                <h6 class="mb-3">{{ t('Phân chia điểm theo ý:') }}</h6>
-                <div class="row">
-                    {% if item.points_breakdown %}
-                    {% set breakdown_list = item.points_breakdown.split(' | ') %}
-                    {% for point_item in breakdown_list %}
-                    <div class="col-6 mb-2">
-                        <span class="badge bg-light text-dark w-100 py-2" style="font-size: 0.9rem;">
-                            {{ point_item }}
-                        </span>
-                    </div>
-                    {% endfor %}
-                    {% else %}
-                    <div class="col-12 text-center text-muted">
-                        <em>{{ t('Chưa có thông tin breakdown') }}</em>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-            <div class="modal-footer bg-light">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="bi bi-x-circle"></i> {{ t('Đóng') }}
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-{% endfor %}
 
 <script>
 // Nếu mở trong app TEXTQAI (Flutter WebView), ẩn hướng dẫn drag-and-drop
@@ -1071,106 +1037,354 @@ uploadForm.addEventListener('submit', (e) => {
     return true;
 });
 
-// Chọn câu hỏi để xuất PDF
-const exportPdfForm = document.getElementById('exportPdfForm');
-if (exportPdfForm) {
-    const toggleAllQuestions = document.getElementById('toggleAllQuestions');
-    const selectAllQuestionsBtn = document.getElementById('selectAllQuestionsBtn');
-    const clearQuestionsBtn = document.getElementById('clearQuestionsBtn');
-    const btnExportExam = document.getElementById('btnExportExam');
+// ── Chọn câu hỏi xuất PDF / đề thi (v3) ────────────────────────────────────
+window.QaExport = (function () {
+    const selection = new Set();
+    const countSuffix = '{{ " questions" if current_lang == "en" else " câu" }}';
+    let batchMeta = {};
 
-    function getQuestionCheckboxes() {
-        return Array.from(document.querySelectorAll('.question-checkbox'));
+    function loadBatchMeta() {
+        const el = document.getElementById('qaBatchMeta');
+        if (!el) return;
+        try {
+            batchMeta = JSON.parse(el.textContent || '{}') || {};
+        } catch {
+            batchMeta = {};
+        }
+    }
+
+    function mergeBatchMeta(extra) {
+        if (!extra || typeof extra !== 'object') return;
+        Object.assign(batchMeta, extra);
+        Object.entries(extra).forEach(([batch, ids]) => {
+            const bc = document.querySelector(`.batch-checkbox[data-batch="${cssEsc(batch)}"]`);
+            if (bc && Array.isArray(ids) && ids.length) {
+                bc.setAttribute('data-question-ids', ids.join(','));
+            }
+        });
+    }
+
+    function parseIds(raw) {
+        if (!raw) return [];
+        return String(raw).split(',')
+            .map(s => parseInt(s.trim(), 10))
+            .filter(n => !Number.isNaN(n));
+    }
+
+    function idsForBatch(batch, checkbox) {
+        let ids = parseIds(checkbox?.getAttribute('data-question-ids'));
+        if (!ids.length && batchMeta[batch]) ids = batchMeta[batch].slice();
+        return ids;
+    }
+
+    function cssEsc(v) {
+        return (typeof CSS !== 'undefined' && CSS.escape)
+            ? CSS.escape(String(v))
+            : String(v);
     }
 
     function updateExportButtonState() {
-        const checkboxes = getQuestionCheckboxes();
-        const checkedCount = checkboxes.filter(cb => cb.checked).length;
-
-        if (btnExportExam) {
-            btnExportExam.disabled = checkedCount === 0;
-            const countEl = document.getElementById('exportExamCount');
-            if (countEl) countEl.textContent = checkedCount + '{{ " questions" if current_lang == "en" else " câu" }}';
-            btnExportExam.style.opacity = checkedCount === 0 ? '.42' : '1';
-            btnExportExam.style.cursor  = checkedCount === 0 ? 'not-allowed' : 'pointer';
+        const btn = document.getElementById('btnExportExam');
+        const countEl = document.getElementById('exportExamCount');
+        const n = selection.size;
+        if (btn) {
+            btn.disabled = n === 0;
+            btn.style.opacity = n === 0 ? '.42' : '1';
+            btn.style.cursor = n === 0 ? 'not-allowed' : 'pointer';
         }
-
-        if (toggleAllQuestions) {
-            toggleAllQuestions.checked = checkboxes.length > 0 && checkedCount === checkboxes.length;
-        }
+        if (countEl) countEl.textContent = n + countSuffix;
     }
 
-    if (toggleAllQuestions) {
-        toggleAllQuestions.addEventListener('change', () => {
-            const shouldCheck = toggleAllQuestions.checked;
-            getQuestionCheckboxes().forEach(cb => {
-                cb.checked = shouldCheck;
-            });
-            // Sync batch checkboxes
-            document.querySelectorAll('.batch-checkbox').forEach(bc => bc.checked = shouldCheck);
-            updateExportButtonState();
+    function syncBatchCheckbox(batch) {
+        if (!batch) return;
+        const bc = document.querySelector(`.batch-checkbox[data-batch="${cssEsc(batch)}"]`);
+        if (!bc) return;
+        const ids = idsForBatch(batch, bc);
+        if (!ids.length) return;
+        const selected = ids.filter(id => selection.has(id)).length;
+        bc.checked = selected === ids.length;
+        bc.indeterminate = selected > 0 && selected < ids.length;
+    }
+
+    function syncAllBatchCheckboxes() {
+        document.querySelectorAll('.batch-checkbox').forEach(bc => {
+            syncBatchCheckbox(bc.getAttribute('data-batch'));
         });
     }
 
-    // Batch-level checkbox: toggle all questions in that section
-    document.addEventListener('change', function(e) {
-        if (e.target.classList.contains('batch-checkbox')) {
-            const batch = e.target.dataset.batch;
-            document.querySelectorAll(`.question-checkbox[data-batch="${batch}"]`)
-                .forEach(cb => { cb.checked = e.target.checked; });
-            updateExportButtonState();
+    function syncVisibleQuestionCheckboxes() {
+        document.querySelectorAll('.question-checkbox').forEach(cb => {
+            cb.checked = selection.has(parseInt(cb.value, 10));
+        });
+        syncAllBatchCheckboxes();
+    }
+
+    function syncModalHiddenIds() {
+        const container = document.getElementById('exportExamHiddenIds');
+        if (!container) return;
+        container.innerHTML = '';
+        selection.forEach(id => {
+            const inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = 'selected_question_ids';
+            inp.value = id;
+            container.appendChild(inp);
+        });
+    }
+
+    async function fetchBatchIds(batch) {
+        const urls = [
+            `/api/history/batch-question-ids?batch_id=${encodeURIComponent(batch)}`,
+            `/api/history/batch-question?batch_q_id=${encodeURIComponent(batch)}`,
+            `/api/history/batch-question?batch_id=${encodeURIComponent(batch)}`,
+        ];
+        for (const url of urls) {
+            try {
+                const res = await fetch(url, {
+                    credentials: 'same-origin',
+                    headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                });
+                const data = await res.json().catch(() => null);
+                if (res.ok && data && Array.isArray(data.ids) && data.ids.length) {
+                    return data.ids;
+                }
+            } catch { /* thử URL kế tiếp */ }
+        }
+        return [];
+    }
+
+    function onBatchToggle(checkbox) {
+        const batch = checkbox.getAttribute('data-batch');
+        const checked = checkbox.checked;
+        let ids = idsForBatch(batch, checkbox);
+
+        if (!ids.length) {
+            if (!checked) return;
+            checkbox.disabled = true;
+            fetchBatchIds(batch).then(fetched => {
+                checkbox.disabled = false;
+                if (!fetched.length) {
+                    checkbox.checked = false;
+                    alert('{{ "Could not load question list for this batch." if current_lang == "en" else "Không tải được danh sách câu hỏi của lần sinh này." }}');
+                    updateExportButtonState();
+                    return;
+                }
+                batchMeta[batch] = fetched;
+                checkbox.setAttribute('data-question-ids', fetched.join(','));
+                fetched.forEach(id => selection.add(id));
+                document.querySelectorAll(`.question-checkbox[data-batch="${cssEsc(batch)}"]`)
+                    .forEach(cb => { cb.checked = true; });
+                checkbox.indeterminate = false;
+                updateExportButtonState();
+            }).catch(() => {
+                checkbox.disabled = false;
+                checkbox.checked = false;
+                updateExportButtonState();
+            });
+            return;
+        }
+
+        if (checked) {
+            ids.forEach(id => selection.add(id));
+        } else {
+            ids.forEach(id => selection.delete(id));
+        }
+        document.querySelectorAll(`.question-checkbox[data-batch="${cssEsc(batch)}"]`)
+            .forEach(cb => { cb.checked = checked; });
+        checkbox.indeterminate = false;
+        updateExportButtonState();
+    }
+
+    function onQuestionToggle(checkbox) {
+        const id = parseInt(checkbox.value, 10);
+        if (checkbox.checked) selection.add(id);
+        else selection.delete(id);
+        syncBatchCheckbox(checkbox.getAttribute('data-batch'));
+        updateExportButtonState();
+    }
+
+    function clearAll() {
+        selection.clear();
+        document.querySelectorAll('.question-checkbox, .batch-checkbox').forEach(cb => {
+            cb.checked = false;
+            cb.indeterminate = false;
+        });
+        updateExportButtonState();
+    }
+
+    async function selectAll() {
+        const res = await fetch('/api/history/question-ids', { credentials: 'same-origin' });
+        if (!res.ok) return;
+        const data = await res.json();
+        selection.clear();
+        (data.ids || []).forEach(id => selection.add(id));
+        syncVisibleQuestionCheckboxes();
+        updateExportButtonState();
+    }
+
+    function init() {
+        loadBatchMeta();
+        const exportPdfForm = document.getElementById('exportPdfForm');
+        const exportExamModal = document.getElementById('exportExamModal');
+        const btnExportExam = document.getElementById('btnExportExam');
+        const selectAllBtn = document.getElementById('selectAllQuestionsBtn');
+        const clearBtn = document.getElementById('clearQuestionsBtn');
+
+        if (btnExportExam) btnExportExam.addEventListener('click', syncModalHiddenIds);
+        if (exportExamModal) exportExamModal.addEventListener('show.bs.modal', syncModalHiddenIds);
+        const exportExamForm = document.getElementById('exportExamForm');
+        if (exportExamForm) exportExamForm.addEventListener('submit', syncModalHiddenIds);
+        if (selectAllBtn) selectAllBtn.addEventListener('click', selectAll);
+        if (clearBtn) clearBtn.addEventListener('click', clearAll);
+        if (exportPdfForm) {
+            exportPdfForm.addEventListener('submit', e => {
+                if (selection.size === 0) {
+                    e.preventDefault();
+                    alert('⚠️ Vui lòng chọn ít nhất 1 câu hỏi để xuất PDF!');
+                }
+            });
+        }
+        updateExportButtonState();
+    }
+
+    return {
+        selection,
+        onBatchToggle,
+        onQuestionToggle,
+        syncVisibleQuestionCheckboxes,
+        syncModalHiddenIds,
+        mergeBatchMeta,
+        clearAll,
+        selectAll,
+        init,
+        updateExportButtonState,
+    };
+})();
+
+let syncCheckboxesFromSelection = () => QaExport.syncVisibleQuestionCheckboxes();
+QaExport.init();
+
+// Lazy-load chi tiết câu hỏi khi mở accordion
+const batchAccordion = document.getElementById('batchAccordion');
+if (batchAccordion) {
+    batchAccordion.addEventListener('shown.bs.collapse', async (e) => {
+        const collapse = e.target;
+        if (!collapse.id || !collapse.id.startsWith('qCollapse')) return;
+
+        const body = collapse.querySelector('.qa-lazy-body');
+        if (!body || body.dataset.loaded !== '0') return;
+
+        body.dataset.loaded = 'loading';
+        const spinner = body.querySelector('.qa-lazy-spinner');
+        const hint = body.querySelector('.qa-lazy-hint');
+        spinner?.classList.remove('d-none');
+        hint?.classList.add('d-none');
+
+        try {
+            const res = await fetch(`/api/questions/${body.dataset.qid}/detail`);
+            if (!res.ok) throw new Error('load failed');
+            body.innerHTML = await res.text();
+            body.dataset.loaded = '1';
+        } catch {
+            body.innerHTML = '<div class="text-danger small py-2">{{ "Could not load details." if current_lang == "en" else "Không tải được chi tiết." }}</div>';
+            body.dataset.loaded = '0';
         }
     });
+}
 
-    if (selectAllQuestionsBtn) {
-        selectAllQuestionsBtn.addEventListener('click', () => {
-            getQuestionCheckboxes().forEach(cb => {
-                cb.checked = true;
-            });
-            updateExportButtonState();
-        });
-    }
+// Tải thêm câu hỏi trong một lần sinh
+if (batchAccordion) {
+    batchAccordion.addEventListener('click', async (e) => {
+        const btn = e.target.closest('.btn-load-more-questions');
+        if (!btn) return;
 
-    if (clearQuestionsBtn) {
-        clearQuestionsBtn.addEventListener('click', () => {
-            getQuestionCheckboxes().forEach(cb => {
-                cb.checked = false;
-            });
-            updateExportButtonState();
-        });
-    }
+        const offset = parseInt(btn.dataset.offset || '0', 10);
+        const limit = parseInt(btn.dataset.limit || '20', 10);
+        const batchId = btn.dataset.batchId;
+        const accordion = document.getElementById(btn.dataset.accordionId);
+        const wrap = btn.closest('.qa-load-more-questions-wrap');
+        const statusEl = wrap?.querySelector('.qa-question-load-status');
 
-    document.addEventListener('change', (e) => {
-        if (e.target.classList.contains('question-checkbox')) {
-            updateExportButtonState();
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>{{ "Loading..." if current_lang == "en" else "Đang tải..." }}';
+
+        try {
+            const res = await fetch(
+                `/api/history/batch-questions?batch_id=${encodeURIComponent(batchId)}&offset=${offset}&limit=${limit}`
+            );
+            const data = await res.json();
+            if (data.html && accordion) {
+                accordion.insertAdjacentHTML('beforeend', data.html);
+                if (syncCheckboxesFromSelection) syncCheckboxesFromSelection();
+            }
+            btn.dataset.offset = data.next_offset;
+
+            const shown = accordion ? accordion.querySelectorAll('.qa-question-item').length : data.next_offset;
+            if (statusEl) {
+                statusEl.textContent = {% if current_lang == 'en' %}
+                    `Showing ${shown} of ${data.total} questions`
+                {% else %}
+                    `Đang hiển thị ${shown} / ${data.total} câu`
+                {% endif %};
+            }
+
+            if (!data.has_more && wrap) {
+                wrap.remove();
+            } else {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="bi bi-arrow-down-circle me-1"></i>{{ "Load more questions" if current_lang == "en" else "Tải thêm câu" }}';
+            }
+        } catch {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-arrow-down-circle me-1"></i>{{ "Load more questions" if current_lang == "en" else "Tải thêm câu" }}';
+            alert('{{ "Could not load more questions." if current_lang == "en" else "Không tải được thêm câu hỏi." }}');
         }
     });
+}
 
-    exportPdfForm.addEventListener('submit', (e) => {
-        const checkedCount = getQuestionCheckboxes().filter(cb => cb.checked).length;
-        if (checkedCount === 0) {
-            e.preventDefault();
-            alert('⚠️ Vui lòng chọn ít nhất 1 câu hỏi để xuất PDF!');
-            return false;
+// Tải thêm lần sinh cũ (pagination)
+const btnLoadMoreBatches = document.getElementById('btnLoadMoreBatches');
+if (btnLoadMoreBatches) {
+    btnLoadMoreBatches.addEventListener('click', async () => {
+        const offset = parseInt(btnLoadMoreBatches.dataset.offset || '0', 10);
+        const limit = parseInt(btnLoadMoreBatches.dataset.limit || '10', 10);
+        const wrap = document.getElementById('loadMoreBatchesWrap');
+        const statusEl = document.getElementById('batchLoadStatus');
+
+        btnLoadMoreBatches.disabled = true;
+        btnLoadMoreBatches.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>{{ "Loading..." if current_lang == "en" else "Đang tải..." }}';
+
+        try {
+            const res = await fetch(`/api/history/batches?offset=${offset}&limit=${limit}`);
+            const data = await res.json();
+            if (data.html) {
+                batchAccordion.insertAdjacentHTML('beforeend', data.html);
+                if (data.batch_meta) QaExport.mergeBatchMeta(data.batch_meta);
+                if (syncCheckboxesFromSelection) syncCheckboxesFromSelection();
+            }
+            btnLoadMoreBatches.dataset.offset = data.next_offset;
+
+            const shown = batchAccordion.querySelectorAll('.qa-batch-item').length;
+            if (statusEl) {
+                statusEl.textContent = {% if current_lang == 'en' %}
+                    `Showing ${shown} of ${data.total_batches} generation runs`
+                {% else %}
+                    `Đang hiển thị ${shown} / ${data.total_batches} lần sinh`
+                {% endif %};
+            }
+
+            if (!data.has_more && wrap) {
+                wrap.remove();
+            } else {
+                btnLoadMoreBatches.disabled = false;
+                btnLoadMoreBatches.innerHTML = '<i class="bi bi-arrow-down-circle me-1"></i>{{ "Load more" if current_lang == "en" else "Tải thêm" }}';
+            }
+        } catch {
+            btnLoadMoreBatches.disabled = false;
+            btnLoadMoreBatches.innerHTML = '<i class="bi bi-arrow-down-circle me-1"></i>{{ "Load more" if current_lang == "en" else "Tải thêm" }}';
+            alert('{{ "Could not load more results." if current_lang == "en" else "Không tải được thêm kết quả." }}');
         }
-        return true;
     });
-
-    // Khi mở modal: copy selected IDs vào hidden fields
-    const exportExamModal = document.getElementById('exportExamModal');
-    if (exportExamModal) {
-        exportExamModal.addEventListener('show.bs.modal', () => {
-            const container = document.getElementById('exportExamHiddenIds');
-            container.innerHTML = '';
-            getQuestionCheckboxes().filter(cb => cb.checked).forEach(cb => {
-                const inp = document.createElement('input');
-                inp.type = 'hidden'; inp.name = 'selected_question_ids'; inp.value = cb.value;
-                container.appendChild(inp);
-            });
-        });
-    }
-
-    updateExportButtonState();
 }
 
 // exportExamForm: Flutter intercept for ZIP download

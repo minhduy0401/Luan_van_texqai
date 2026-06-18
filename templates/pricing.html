@@ -101,12 +101,12 @@
       <div
         class="card h-100 border-0 shadow-sm text-center position-relative {% if pkg.is_popular %}border border-2 border-primary{% endif %}">
         {% if pkg.is_popular %}
-        <span class="badge bg-primary position-absolute top-0 start-50 translate-middle px-3">{{ 'Popular' if current_lang == 'en' else 'Phổ biến' }}</span>
+        <span class="badge bg-primary position-absolute top-0 start-50 translate-middle px-3">{{ t('Phổ biến') }}</span>
         {% endif %}
         <div class="card-body pt-4">
-          <h6 class="fw-semibold text-muted">{{ pkg.name }}</h6>
+          <h6 class="fw-semibold text-muted">{{ t(pkg.name) }}</h6>
           <div class="display-6 fw-bold text-primary my-2">{{ pkg.credits }}</div>
-          <p class="text-muted small mb-1">{{ 'questions' if current_lang == 'en' else 'câu hỏi' }}</p>
+          <p class="text-muted small mb-1">{{ t('câu hỏi') }}</p>
           <p class="fw-bold fs-5 text-dark">{{ '{:,.0f}'.format(pkg.price_vnd) }}{{ ' VND' if current_lang == 'en' else 'đ' }}</p>
           <p class="text-muted small">~{{ '{:,.0f}'.format((pkg.price_vnd / pkg.credits)|int) }}{{ ' VND/Q' if current_lang == 'en' else 'đ/câu' }}</p>
           {% if current_user.is_authenticated %}
@@ -165,10 +165,10 @@
     <div class="col-12 col-sm-6 col-md-4">
       <div class="card h-100 border-0 shadow-sm text-center">
         <div class="card-body py-4">
-          <h5 class="fw-bold">{{ pkg.name }}</h5>
+          <h5 class="fw-bold">{{ t(pkg.name) }}</h5>
           <div class="display-5 fw-bold text-primary my-2">{{ pkg.credits }}</div>
-          <p class="text-muted">{{ 'questions' if current_lang == 'en' else 'câu hỏi' }} / {{ 'month' if (current_lang == 'en' and pkg.period == 'tháng') else pkg.period }}</p>
-          <p class="fw-bold fs-4">{{ '{:,.0f}'.format(pkg.price_vnd) }}{{ ' VND' if current_lang == 'en' else 'đ' }}<span class="fs-6 text-muted">/{{ 'mo' if (current_lang == 'en' and pkg.period == 'tháng') else pkg.period }}</span></p>
+          <p class="text-muted">{{ t('câu hỏi') }} / {{ t(pkg.period) if pkg.period else t('tháng') }}</p>
+          <p class="fw-bold fs-4">{{ '{:,.0f}'.format(pkg.price_vnd) }}{{ ' VND' if current_lang == 'en' else 'đ' }}<span class="fs-6 text-muted">/{{ t('tháng (rút gọn)') if (not pkg.period or pkg.period == 'tháng') else t(pkg.period) }}</span></p>
           <p class="text-muted small">~{{ '{:,.0f}'.format((pkg.price_vnd / pkg.credits)|int) }}{{ ' VND/Q' if current_lang == 'en' else 'đ/câu' }}</p>
           {% if current_user.is_authenticated %}
           

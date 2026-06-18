@@ -1,0 +1,17 @@
+{# SEO: meta description (Google snippet) + Open Graph / Twitter for deploy & link preview #}
+<meta name="description" content="{{ site_meta_description }}">
+<meta name="robots" content="index, follow">
+{% if seo_canonical_url %}
+<link rel="canonical" href="{{ seo_canonical_url }}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ site_name }}">
+<meta property="og:title" content="{{ site_page_title }}">
+<meta property="og:description" content="{{ site_meta_description }}">
+<meta property="og:url" content="{{ seo_canonical_url }}">
+<meta property="og:image" content="{{ seo_og_image_url }}">
+<meta property="og:locale" content="{{ 'en_US' if current_lang == 'en' else 'vi_VN' }}">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="{{ site_page_title }}">
+<meta name="twitter:description" content="{{ site_meta_description }}">
+<meta name="twitter:image" content="{{ seo_og_image_url }}">
+{% endif %}

@@ -1,0 +1,66 @@
+{% set batch_idx_start = batch_idx_start|default(1) %}
+{% set q_limit = question_load_limit|default(20) %}
+{% for grp in batches %}
+{% set batch_idx = batch_idx_start + loop.index0 %}
+{% if grp.batch_id != 'legacy' %}
+    {% set b = grp.batch_id %}
+    {% set ts = b[:4] ~ '/' ~ b[4:6] ~ '/' ~ b[6:8] ~ ' ' ~ b[8:10] ~ ':' ~ b[10:12] %}
+{% else %}
+    {% set ts = '' %}
+{% endif %}
+<div class="accordion-item qa-batch-item">
+    <div class="accordion-header" id="batchHeading{{ batch_idx }}">
+        <div class="qa-acc-check" onclick="event.stopPropagation()">
+            <input type="checkbox" class="form-check-input batch-checkbox"
+                   data-batch="{{ grp.batch_id }}"
+                   data-question-ids="{{ grp.all_question_ids|default([])|join(',') }}"
+                   onclick="event.stopPropagation()"
+                   onchange="window.QaExport && QaExport.onBatchToggle(this)"
+                   title="{{ 'Select all' if current_lang == 'en' else 'Chọn tất cả' }}">
+        </div>
+        <button class="accordion-button{% if batch_idx > 1 %} collapsed{% endif %}" type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#batchCollapse{{ batch_idx }}"
+                aria-expanded="{{ 'true' if batch_idx == 1 else 'false' }}"
+                aria-controls="batchCollapse{{ batch_idx }}">
+            <span>
+                &#128200;
+                {% if ts %}&nbsp;&middot;&nbsp;{{ ts }}{% endif %}
+                {% if grp.doc_title %}&nbsp;&middot;&nbsp;<span class="text-primary">{{ grp.doc_title }}</span>{% endif %}
+                &nbsp;&middot;&nbsp;<span class="text-muted fw-normal">{{ grp.question_total }} {{ t('câu') }}</span>
+                {% if batch_idx == 1 %}
+                <span class="badge bg-primary ms-2" style="font-size:.65rem;">{{ 'Latest' if current_lang == 'en' else 'Mới nhất' }}</span>
+                {% endif %}
+            </span>
+        </button>
+    </div>
+    <div id="batchCollapse{{ batch_idx }}" class="accordion-collapse collapse{% if batch_idx == 1 %} show{% endif %}"
+         aria-labelledby="batchHeading{{ batch_idx }}">
+        <div class="accordion-body p-2 p-md-3">
+            <div class="accordion qa-nested-accordion" id="questionAccordion{{ batch_idx }}">
+                {% with questions=grp.questions, batch_id=grp.batch_id %}
+                {% include 'partials/_question_accordion_items.html' %}
+                {% endwith %}
+            </div>
+            {% if grp.has_more_questions %}
+            <div class="text-center mt-2 qa-load-more-questions-wrap">
+                <p class="small text-muted mb-1 qa-question-load-status">
+                    {% if current_lang == 'en' %}
+                    Showing {{ grp.questions|length }} of {{ grp.question_total }} questions
+                    {% else %}
+                    Đang hiển thị {{ grp.questions|length }} / {{ grp.question_total }} câu
+                    {% endif %}
+                </p>
+                <button type="button" class="btn btn-outline-secondary btn-sm btn-load-more-questions"
+                        data-batch-id="{{ grp.batch_id }}"
+                        data-offset="{{ grp.question_offset }}"
+                        data-limit="{{ q_limit }}"
+                        data-accordion-id="questionAccordion{{ batch_idx }}">
+                    <i class="bi bi-arrow-down-circle me-1"></i>{{ 'Load more questions' if current_lang == 'en' else 'Tải thêm câu' }}
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endfor %}

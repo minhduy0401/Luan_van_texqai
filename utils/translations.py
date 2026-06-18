@@ -610,6 +610,42 @@ TRANSLATIONS = {
         "en": "Please check the \"I'm not a robot\" Captcha box before continuing with Google!",
         "vi": "Vui lòng tích chọn Captcha \"Tôi không phải là robot\" trước khi tiếp tục với Google!"
     },
+    "Tôi đã đọc và đồng ý với": {
+        "en": "I have read and agree to the",
+        "vi": "Tôi đã đọc và đồng ý với"
+    },
+    "Điều khoản sử dụng": {
+        "en": "Terms of Service",
+        "vi": "Điều khoản sử dụng"
+    },
+    "và": {
+        "en": "and",
+        "vi": "và"
+    },
+    "Chính sách quyền riêng tư": {
+        "en": "Privacy Policy",
+        "vi": "Chính sách quyền riêng tư"
+    },
+    "của TEXTQAI": {
+        "en": "of TEXTQAI.",
+        "vi": "của TEXTQAI."
+    },
+    "Vui lòng đồng ý với điều khoản để tiếp tục.": {
+        "en": "Please agree to the terms to continue.",
+        "vi": "Vui lòng đồng ý với điều khoản để tiếp tục."
+    },
+    "Đồng ý điều khoản": {
+        "en": "Agree to Terms",
+        "vi": "Đồng ý điều khoản"
+    },
+    "Quay lại": {
+        "en": "Back",
+        "vi": "Quay lại"
+    },
+    "Email": {
+        "en": "Email",
+        "vi": "Email"
+    },
     "Khôi phục mật khẩu": {
         "en": "Password Recovery",
         "vi": "Khôi phục mật khẩu"
@@ -1005,6 +1041,10 @@ TRANSLATIONS = {
     "Phân bố mức Bloom": {
         "en": "Bloom Levels Distribution",
         "vi": "Phân bố mức Bloom"
+    },
+    "Dùng nhiều nhất": {
+        "en": "Most used",
+        "vi": "Dùng nhiều nhất"
     },
     "Không rõ": {
         "en": "Unknown",
@@ -1600,6 +1640,66 @@ TRANSLATIONS = {
         "en": "Save Payment Settings",
         "vi": "Lưu cài đặt thanh toán"
     },
+    "Tích hợp & bí mật hệ thống": {
+        "en": "System Integration & Secrets",
+        "vi": "Tích hợp & bí mật hệ thống"
+    },
+    "Lưu trong database — không dùng file .env": {
+        "en": "Stored in database — no .env file",
+        "vi": "Lưu trong database — không dùng file .env"
+    },
+    "Flask SECRET_KEY": {
+        "en": "Flask SECRET_KEY",
+        "vi": "Flask SECRET_KEY"
+    },
+    "Dùng cho session/login. Đổi key sẽ đăng xuất toàn bộ user.": {
+        "en": "Used for session/login. Changing the key logs out all users.",
+        "vi": "Dùng cho session/login. Đổi key sẽ đăng xuất toàn bộ user."
+    },
+    "Google OAuth (Đăng nhập Google)": {
+        "en": "Google OAuth (Google Sign-In)",
+        "vi": "Google OAuth (Đăng nhập Google)"
+    },
+    "Client ID": {
+        "en": "Client ID",
+        "vi": "Client ID"
+    },
+    "Client Secret": {
+        "en": "Client Secret",
+        "vi": "Client Secret"
+    },
+    "Redirect URI (tùy chọn — ngrok/production)": {
+        "en": "Redirect URI (optional — ngrok/production)",
+        "vi": "Redirect URI (tùy chọn — ngrok/production)"
+    },
+    "TMN Code": {
+        "en": "TMN Code",
+        "vi": "TMN Code"
+    },
+    "Hash Secret": {
+        "en": "Hash Secret",
+        "vi": "Hash Secret"
+    },
+    "Return URL": {
+        "en": "Return URL",
+        "vi": "Return URL"
+    },
+    "SePay Webhook": {
+        "en": "SePay Webhook",
+        "vi": "SePay Webhook"
+    },
+    "SePay API Key": {
+        "en": "SePay API Key",
+        "vi": "SePay API Key"
+    },
+    "Lưu tích hợp": {
+        "en": "Save Integration Settings",
+        "vi": "Lưu tích hợp"
+    },
+    "Để trống nếu không đổi": {
+        "en": "Leave blank to keep current value",
+        "vi": "Để trống nếu không đổi"
+    },
     "Cấu hình Bảo mật & Captcha": {
         "en": "Security & Captcha Configuration",
         "vi": "Cấu hình Bảo mật & Captcha"
@@ -1663,6 +1763,150 @@ TRANSLATIONS = {
     "Lưu cấu hình bảo mật": {
         "en": "Save Security Configuration",
         "vi": "Lưu cấu hình bảo mật"
+    },
+    "Dùng thử": {
+        "en": "Trial",
+        "vi": "Dùng thử"
+    },
+    "Starter": {
+        "en": "Starter",
+        "vi": "Khởi đầu"
+    },
+    "Standard": {
+        "en": "Standard",
+        "vi": "Tiêu chuẩn"
+    },
+    "Pro": {
+        "en": "Pro",
+        "vi": "Nâng cao"
+    },
+    "Academic": {
+        "en": "Academic",
+        "vi": "Học thuật"
+    },
+    "Sinh viên": {
+        "en": "Student",
+        "vi": "Sinh viên"
+    },
+    "Giảng viên": {
+        "en": "Lecturer",
+        "vi": "Giảng viên"
+    },
+    "Khoa/Bộ môn": {
+        "en": "Faculty / Department",
+        "vi": "Khoa/Bộ môn"
+    },
+    "câu hỏi": {
+        "en": "questions",
+        "vi": "câu hỏi"
+    },
+    "tháng (rút gọn)": {
+        "en": "mo",
+        "vi": "tháng"
+    },
+    "Cấu hình giao diện (Shell)": {
+        "en": "Site Shell / Branding",
+        "vi": "Cấu hình giao diện (Shell)"
+    },
+    "Tên trang web": {
+        "en": "Site Name",
+        "vi": "Tên trang web"
+    },
+    "Hiển thị trên tab trình duyệt và navbar": {
+        "en": "Shown in browser tab and navbar",
+        "vi": "Hiển thị trên tab trình duyệt và navbar"
+    },
+    "Mô tả trang web (Tiếng Việt)": {
+        "en": "Site Description (Vietnamese)",
+        "vi": "Mô tả trang web (Tiếng Việt)"
+    },
+    "Mô tả trang web (English)": {
+        "en": "Site Description (English)",
+        "vi": "Mô tả trang web (English)"
+    },
+    "Tên thương hiệu — hiển thị navbar, Google site name": {
+        "en": "Brand name — navbar and Google site name",
+        "vi": "Tên thương hiệu — hiển thị navbar, Google site name"
+    },
+    "Tiêu đề tab & Google (Tiếng Việt)": {
+        "en": "Tab & Google title (Vietnamese)",
+        "vi": "Tiêu đề tab & Google (Tiếng Việt)"
+    },
+    "Tiêu đề tab & Google (English)": {
+        "en": "Tab & Google title (English)",
+        "vi": "Tiêu đề tab & Google (English)"
+    },
+    "Dòng xanh trên kết quả Google + tab trình duyệt": {
+        "en": "Blue link on Google + browser tab",
+        "vi": "Dòng xanh trên kết quả Google + tab trình duyệt"
+    },
+    "Blue title on Google results + browser tab": {
+        "en": "Blue title on Google results + browser tab",
+        "vi": "Blue title on Google results + browser tab"
+    },
+    "Mô tả SEO — Google (Tiếng Việt)": {
+        "en": "SEO description — Google (Vietnamese)",
+        "vi": "Mô tả SEO — Google (Tiếng Việt)"
+    },
+    "Mô tả SEO — Google (English)": {
+        "en": "SEO description — Google (English)",
+        "vi": "Mô tả SEO — Google (English)"
+    },
+    "Đoạn mô tả xám dưới tiêu đề trên Google...": {
+        "en": "Grey snippet below the title on Google...",
+        "vi": "Đoạn mô tả xám dưới tiêu đề trên Google..."
+    },
+    "Grey snippet below title on Google...": {
+        "en": "Grey snippet below title on Google...",
+        "vi": "Grey snippet below title on Google..."
+    },
+    "Khuyến nghị 120–160 ký tự": {
+        "en": "Recommended 120–160 characters",
+        "vi": "Khuyến nghị 120–160 ký tự"
+    },
+    "Recommended 120–160 characters": {
+        "en": "Recommended 120–160 characters",
+        "vi": "Recommended 120–160 characters"
+    },
+    "Logo trang web": {
+        "en": "Site Logo",
+        "vi": "Logo trang web"
+    },
+    "Xem trước logo hiện tại": {
+        "en": "Current logo preview",
+        "vi": "Xem trước logo hiện tại"
+    },
+    "Xem trước favicon hiện tại": {
+        "en": "Current favicon preview",
+        "vi": "Xem trước favicon hiện tại"
+    },
+    "Dùng logo mặc định": {
+        "en": "Use default logo",
+        "vi": "Dùng logo mặc định"
+    },
+    "Dùng favicon mặc định": {
+        "en": "Use default favicon",
+        "vi": "Dùng favicon mặc định"
+    },
+    "Lưu cấu hình giao diện": {
+        "en": "Save Branding Settings",
+        "vi": "Lưu cấu hình giao diện"
+    },
+    "tối đa ~2MB": {
+        "en": "max ~2MB",
+        "vi": "tối đa ~2MB"
+    },
+    "khuyến nghị 32×32 hoặc 64×64": {
+        "en": "recommended 32×32 or 64×64",
+        "vi": "khuyến nghị 32×32 hoặc 64×64"
+    },
+    "Chọn file": {
+        "en": "Choose file",
+        "vi": "Chọn file"
+    },
+    "Chưa chọn file": {
+        "en": "No file chosen",
+        "vi": "Chưa chọn file"
     }
 }
 

@@ -17,7 +17,7 @@ def safe_print(*args, **kwargs):
 
 builtins.print = safe_print
 
-from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify, session, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, flash, send_file, jsonify, session, send_from_directory, has_request_context
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
@@ -50,6 +50,18 @@ from utils.app_settings import (
     get_sepay_api_key,
     seed_default_settings,
 )
+from utils.branding import (
+    resolve_branding,
+    save_branding_upload,
+    bump_branding_version,
+    favicon_static_parts,
+    sync_favicon_public_copies,
+    restore_default_favicon,
+    restore_default_logo,
+    ensure_default_asset_backups,
+    mime_for_path,
+    get_branding_version,
+)
 from extensions import db, login_manager, ai_client, oauth
 from models import (
     User, Document, QAResult,
@@ -57,7 +69,7 @@ from models import (
     Agent3EvaluationLog,
     UserAuthProvider, Feedback,
 )
-from utils.bloom import normalize_bloom_level
+from utils.bloom import normalize_bloom_level, aggregate_bloom_stats, bloom_short_label
 from utils.helpers import (
     clean_answer_formatting,
     calculate_points_from_bloom,
@@ -75,6 +87,7 @@ from utils.helpers import (
 )
 from services.pdf import extract_pdf_text_plain, extract_pdf_text_with_ocr
 from services.pipeline import run_agent_pipeline
+from services.user_cleanup import delete_user_account
 
 # ── Flask app setup ───────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -82,9 +95,48 @@ app.config['SECRET_KEY']               = get_initial_secret_key()
 app.config['ENABLE_OCR']               = False
 app.config['SQLALCHEMY_DATABASE_URI']  = get_database_uri()
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_pre_ping': True}
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,
+    'pool_size': 10,
+    'max_overflow': 20,
+}
+app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config['SESSION_PERMANENT']        = True
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
+
+
+def _asset_version():
+    """Cache-bust static assets when file changes."""
+    try:
+        path = os.path.join(app.static_folder or 'static', 'js', 'chart.umd.min.js')
+        return str(int(os.path.getmtime(path)))
+    except OSError:
+        return str(int(time.time()) // 86400)
+
+
+@app.after_request
+def _no_cache_html(response):
+    """Tránh trình duyệt cache HTML/redirect cũ (gây lỗi sau khi deploy)."""
+    ct = response.content_type or ''
+    if 'text/html' in ct or response.status_code in (301, 302, 303, 307, 308):
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        response.headers['Vary'] = 'Cookie'
+    elif request.path.startswith('/static/'):
+        if request.args.get('v'):
+            response.headers['Cache-Control'] = 'public, max-age=604800, immutable'
+        else:
+            response.headers['Cache-Control'] = 'no-cache'
+    return response
+
+
+def _clear_auth_cookies(response):
+    """Xóa toàn bộ cookie đăng nhập (session + remember)."""
+    for name in request.cookies:
+        if name == 'session' or name.startswith('remember'):
+            response.delete_cookie(name, path='/')
+    return response
 
 # Tin tưởng proxy headers từ ngrok / nginx / reverse proxy
 # x_proto=1 → đọc X-Forwarded-Proto (https) ; x_host=1 → đọc X-Forwarded-Host
@@ -95,6 +147,7 @@ db.init_app(app)
 login_manager.init_app(app)
 oauth.init_app(app)
 app.jinja_env.filters['normalize_bloom'] = normalize_bloom_level
+app.jinja_env.filters['bloom_short'] = bloom_short_label
 
 from utils.translations import TRANSLATIONS
 
@@ -108,15 +161,121 @@ def inject_translations():
         if lang == 'en':
             return TRANSLATIONS.get(txt_str, {}).get('en', txt_str)
         return TRANSLATIONS.get(txt_str, {}).get('vi', txt_str)
-    return dict(t=translate, current_lang=lang)
+
+    def bilingual(text):
+        if not text:
+            return ""
+        txt_str = str(text)
+        entry = TRANSLATIONS.get(txt_str, {})
+        vi = entry.get('vi', txt_str)
+        en = entry.get('en', txt_str)
+        if vi == en:
+            return vi
+        return f"{vi} | {en}"
+
+    branding = resolve_branding(lang)
+    if has_request_context():
+        branding['seo_canonical_url'] = request.url.split('#')[0].split('?')[0]
+        branding['seo_og_image_url'] = (
+            url_for('static', filename=branding['site_logo_file'], _external=True)
+            + f"?v={branding['branding_v']}"
+        )
+    else:
+        branding['seo_canonical_url'] = ''
+        branding['seo_og_image_url'] = ''
+
+    return dict(
+        t=translate,
+        t_both=bilingual,
+        current_lang=lang,
+        asset_v=_asset_version(),
+        **branding,
+    )
+
+
+@app.before_request
+def _sync_lang_from_cookie():
+    """WebView app sets lang cookie; keep session in sync."""
+    if request.endpoint == 'set_language':
+        return
+    cookie_lang = request.cookies.get('lang')
+    if cookie_lang in ('en', 'vi'):
+        session['lang'] = cookie_lang
+
+
+@app.before_request
+def _sanitize_login_session():
+    """Xóa session login hỏng (cookie cũ / user_id không hợp lệ)."""
+    raw_id = session.get('_user_id')
+    if raw_id is not None:
+        try:
+            int(raw_id)
+        except (TypeError, ValueError):
+            session.pop('_user_id', None)
+            session.pop('_fresh', None)
+            session['_remember'] = 'clear'
+
+
+@app.errorhandler(500)
+def _handle_500(exc):
+    import traceback
+    traceback.print_exc()
+    if request.path == '/clear-cookies':
+        return 'OK', 200
+    if request.path.startswith('/api') or request.is_json:
+        return jsonify({'error': 'Internal Server Error'}), 500
+    return (
+        '<!DOCTYPE html><html><body style="font-family:sans-serif;padding:2rem;">'
+        '<h1>Internal Server Error</h1>'
+        '<p>Cookie phiên đăng nhập có thể bị lỗi (thường gặp sau khi cập nhật server).</p>'
+        '<p><a href="/clear-cookies" style="color:#6366f1;font-weight:600;">'
+        'Nhấn vào đây để xóa cookie và tải lại trang</a></p>'
+        '</body></html>',
+        500,
+        {'Content-Type': 'text/html; charset=utf-8'},
+    )
+
+def _safe_next_url(raw):
+    """Allow same-site relative paths or absolute URLs on this host only."""
+    if not raw:
+        return None
+    raw = raw.strip()
+    if raw.startswith('/') and not raw.startswith('//'):
+        return raw
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(raw)
+        if parsed.netloc and parsed.netloc != request.host:
+            return None
+        if parsed.path:
+            return parsed.path + (f'?{parsed.query}' if parsed.query else '')
+    except Exception:
+        return None
+    return None
+
 
 @app.route('/set-language/<lang>')
 def set_language(lang):
     if lang in ('en', 'vi'):
         session['lang'] = lang
-    # Use explicit ?next= param first (iOS WebView doesn't send Referer)
-    next_url = request.args.get('next') or request.referrer or url_for('index')
-    return redirect(next_url)
+    next_url = _safe_next_url(request.args.get('next')) or request.referrer or url_for('index')
+    if next_url and next_url.startswith('http'):
+        from urllib.parse import urlparse
+        parsed = urlparse(next_url)
+        if parsed.netloc == request.host:
+            next_url = parsed.path + (f'?{parsed.query}' if parsed.query else '')
+        else:
+            next_url = url_for('index')
+    resp = redirect(next_url or url_for('index'))
+    if lang in ('en', 'vi'):
+        resp.set_cookie(
+            'lang', lang,
+            max_age=60 * 60 * 24 * 365,
+            path='/',
+            samesite='Lax',
+            secure=request.is_secure,
+        )
+    return resp
 
 def get_lang():
     """Return current UI language ('en' or 'vi')."""
@@ -245,6 +404,88 @@ threading.Thread(target=_cleanup_progress_store, daemon=True).start()
 print("   Chi phi: ~$0.075/1M tokens (~1,500d/trieu tu)")
 
 
+# ── Index history helpers (batch pagination + lazy question detail) ───────────
+from sqlalchemy import func as sqlfunc
+from types import SimpleNamespace
+
+INDEX_BATCH_LIMIT = 10
+INDEX_QUESTION_LIMIT = 20
+
+
+def _apply_batch_filter(query, batch_id):
+    """batch_id: DB value (None for legacy) or route key 'legacy'."""
+    if batch_id is None or batch_id == 'legacy':
+        return query.filter(QAResult.batch_id.is_(None))
+    return query.filter(QAResult.batch_id == batch_id)
+
+
+def _batch_summaries_for_user(user_id):
+    return (
+        db.session.query(
+            QAResult.batch_id,
+            sqlfunc.max(QAResult.id).label('max_id'),
+            sqlfunc.count(QAResult.id).label('q_count'),
+            sqlfunc.max(QAResult.document_id).label('doc_id'),
+        )
+        .filter(QAResult.user_id == user_id)
+        .group_by(QAResult.batch_id)
+        .order_by(sqlfunc.max(QAResult.id).desc())
+        .all()
+    )
+
+
+def _question_list_query(user_id):
+    """Light columns only — answer/breakdown loaded on accordion expand."""
+    return (
+        db.session.query(
+            QAResult.id,
+            QAResult.question,
+            QAResult.bloom_level,
+            QAResult.algorithm,
+            QAResult.process_time,
+            QAResult.total_points,
+            QAResult.sub_points_count,
+            QAResult.batch_id,
+            QAResult.document_id,
+        )
+        .filter(QAResult.user_id == user_id)
+    )
+
+
+def _questions_for_single_batch(user_id, batch_id, offset=0, limit=INDEX_QUESTION_LIMIT):
+    q = _question_list_query(user_id)
+    q = _apply_batch_filter(q, batch_id)
+    return q.order_by(QAResult.id.desc()).offset(offset).limit(limit).all()
+
+
+def _batch_question_ids(user_id, batch_id):
+    q = db.session.query(QAResult.id).filter(QAResult.user_id == user_id)
+    q = _apply_batch_filter(q, batch_id)
+    return [r.id for r in q.order_by(QAResult.id.desc()).all()]
+
+
+def _load_batches_with_questions(user_id, summaries, doc_map, question_limit=INDEX_QUESTION_LIMIT):
+    batches = []
+    for summary in summaries:
+        key = summary.batch_id or 'legacy'
+        doc_title = doc_map.get(summary.doc_id, '') if summary.doc_id else ''
+        questions = _questions_for_single_batch(
+            user_id, summary.batch_id, offset=0, limit=question_limit,
+        )
+        shown = len(questions)
+        total = summary.q_count
+        batches.append(SimpleNamespace(
+            batch_id=key,
+            doc_title=doc_title,
+            questions=questions,
+            question_total=total,
+            question_offset=shown,
+            has_more_questions=total > shown,
+            all_question_ids=_batch_question_ids(user_id, summary.batch_id),
+        ))
+    return batches
+
+
 # --- ROUTES ---
 @app.route('/')
 def index():
@@ -276,42 +517,156 @@ def index():
         .all()
     )
 
-    # QAResults: load all columns except the raw source `content` (not shown in table)
-    history = (
-        db.session.query(
-            QAResult.id,
-            QAResult.question,
-            QAResult.answer,
-            QAResult.bloom_level,
-            QAResult.algorithm,
-            QAResult.process_time,
-            QAResult.section_mapping,
-            QAResult.total_points,
-            QAResult.sub_points_count,
-            QAResult.points_breakdown,
-            QAResult.batch_id,
-            QAResult.user_id,
-            QAResult.document_id,
-        )
+    doc_map = {d.id: d.title for d in documents}
+    all_summaries = _batch_summaries_for_user(current_user.id)
+    total_batches = len(all_summaries)
+    total_questions = (
+        db.session.query(sqlfunc.count(QAResult.id))
+        .filter(QAResult.user_id == current_user.id)
+        .scalar() or 0
+    )
+
+    visible_summaries = all_summaries[:INDEX_BATCH_LIMIT]
+    batches = _load_batches_with_questions(current_user.id, visible_summaries, doc_map)
+    batches_meta = {b.batch_id: b.all_question_ids for b in batches}
+
+    return render_template(
+        'index.html',
+        documents=documents,
+        batches=batches,
+        batches_meta=batches_meta,
+        total_questions=total_questions,
+        total_batches=total_batches,
+        has_more_batches=total_batches > INDEX_BATCH_LIMIT,
+        batch_load_offset=len(visible_summaries),
+        batch_load_limit=INDEX_BATCH_LIMIT,
+        question_load_limit=INDEX_QUESTION_LIMIT,
+    )
+
+
+@app.route('/api/history/batches')
+@login_required
+def api_history_batches():
+    offset = request.args.get('offset', 0, type=int)
+    limit = request.args.get('limit', INDEX_BATCH_LIMIT, type=int)
+    offset = max(0, offset)
+    limit = min(max(1, limit), 20)
+
+    documents = (
+        db.session.query(Document.id, Document.title)
+        .filter_by(user_id=current_user.id)
+        .all()
+    )
+    doc_map = {d.id: d.title for d in documents}
+
+    all_summaries = _batch_summaries_for_user(current_user.id)
+    total_batches = len(all_summaries)
+    visible = all_summaries[offset:offset + limit]
+    if not visible:
+        return jsonify({
+            'html': '',
+            'has_more': False,
+            'next_offset': offset,
+            'total_batches': total_batches,
+        })
+
+    batches = _load_batches_with_questions(current_user.id, visible, doc_map)
+
+    html = render_template(
+        'partials/_batch_accordion_items.html',
+        batches=batches,
+        batch_idx_start=offset + 1,
+        question_load_limit=INDEX_QUESTION_LIMIT,
+    )
+    batch_meta = {b.batch_id: b.all_question_ids for b in batches}
+    next_offset = offset + len(visible)
+    return jsonify({
+        'html': html,
+        'has_more': next_offset < total_batches,
+        'next_offset': next_offset,
+        'total_batches': total_batches,
+        'batch_meta': batch_meta,
+    })
+
+
+@app.route('/api/questions/<int:qid>/detail')
+@login_required
+def api_question_detail(qid):
+    item = QAResult.query.filter_by(id=qid, user_id=current_user.id).first_or_404()
+    return render_template('partials/_question_detail_body.html', item=item)
+
+
+@app.route('/api/history/question-ids')
+@login_required
+def api_history_question_ids():
+    ids = [
+        r.id for r in
+        db.session.query(QAResult.id)
         .filter_by(user_id=current_user.id)
         .order_by(QAResult.id.desc())
         .all()
+    ]
+    return jsonify({'ids': ids, 'count': len(ids)})
+
+
+@app.route('/api/history/batch-questions')
+@login_required
+def api_batch_questions():
+    batch_key = request.args.get('batch_id', '')
+    offset = request.args.get('offset', 0, type=int)
+    limit = request.args.get('limit', INDEX_QUESTION_LIMIT, type=int)
+    offset = max(0, offset)
+    limit = min(max(1, limit), 50)
+
+    db_batch_id = None if batch_key == 'legacy' else batch_key
+    total = (
+        _apply_batch_filter(
+            db.session.query(sqlfunc.count(QAResult.id)).filter(
+                QAResult.user_id == current_user.id,
+            ),
+            db_batch_id,
+        )
+        .scalar() or 0
     )
+    if total == 0:
+        return jsonify({
+            'html': '',
+            'has_more': False,
+            'next_offset': offset,
+            'total': 0,
+        })
 
-    # Nhóm history theo batch_id để hiển thị section
-    from types import SimpleNamespace
-    doc_map = {d.id: d.title for d in documents}
-    batches = []
-    seen = {}
-    for item in history:
-        key = item.batch_id or 'legacy'
-        if key not in seen:
-            seen[key] = len(batches)
-            doc_title = doc_map.get(item.document_id, '') if item.document_id else ''
-            batches.append(SimpleNamespace(batch_id=key, doc_title=doc_title, questions=[]))
-        batches[seen[key]].questions.append(item)
+    items = _questions_for_single_batch(current_user.id, db_batch_id, offset, limit)
+    html = render_template(
+        'partials/_question_accordion_items.html',
+        questions=items,
+        batch_id=batch_key or 'legacy',
+    )
+    next_offset = offset + len(items)
+    return jsonify({
+        'html': html,
+        'has_more': next_offset < total,
+        'next_offset': next_offset,
+        'total': total,
+    })
 
-    return render_template('index.html', history=history, batches=batches, documents=documents)
+
+@app.route('/api/history/batch-question-ids')
+@login_required
+def api_batch_question_ids():
+    batch_key = request.args.get('batch_id') or request.args.get('batch_q_id') or ''
+    db_batch_id = None if batch_key == 'legacy' else batch_key
+    q = db.session.query(QAResult.id).filter(QAResult.user_id == current_user.id)
+    q = _apply_batch_filter(q, db_batch_id)
+    ids = [r.id for r in q.order_by(QAResult.id.desc()).all()]
+    return jsonify({'ids': ids, 'count': len(ids), 'batch_id': batch_key})
+
+
+@app.route('/api/history/batch-question')
+@login_required
+def api_batch_question_legacy():
+    """Alias cũ — tránh 404 khi trình duyệt cache JS phiên bản trước."""
+    return api_batch_question_ids()
 
 
 @app.route('/document/rename', methods=['POST'])
@@ -1822,13 +2177,24 @@ def change_password():
     return render_template('change_password.html')
 
 
+@app.route('/clear-cookies')
+def clear_cookies():
+    """Xóa cookie session/remember hỏng — dùng khi trang báo 500."""
+    try:
+        logout_user()
+    except Exception:
+        pass
+    session.clear()
+    resp = redirect(url_for('index'))
+    return _clear_auth_cookies(resp)
+
+
 @app.route('/logout')
 def logout():
     logout_user()
     next_url = request.args.get('next', '')
-    if next_url and next_url.startswith('/'):
-        return redirect(next_url)
-    return redirect(url_for('login'))
+    resp = redirect(next_url if next_url and next_url.startswith('/') else url_for('login'))
+    return _clear_auth_cookies(resp)
 
 # ── Google OAuth routes ────────────────────────────────────────────────────────
 @app.route('/login/google')
@@ -2485,6 +2851,35 @@ def payment_status():
 from functools import wraps
 from sqlalchemy import func as sqlfunc
 
+
+def _revenue_chart_months(months=12):
+    """Doanh thu đã TT theo tháng (12 tháng gần nhất)."""
+    today = datetime.utcnow()
+    y, m = today.year, today.month
+    keys, labels = [], []
+    for _ in range(months):
+        keys.append((y, m))
+        labels.append(f'{m:02d}/{y}')
+        m -= 1
+        if m == 0:
+            m, y = 12, y - 1
+    keys.reverse()
+    labels.reverse()
+
+    rows = db.session.query(
+        sqlfunc.extract('year', Transaction.paid_at).label('yr'),
+        sqlfunc.extract('month', Transaction.paid_at).label('mo'),
+        sqlfunc.sum(Transaction.amount_vnd).label('total'),
+    ).filter(
+        Transaction.status == 'paid',
+        Transaction.paid_at.isnot(None),
+    ).group_by('yr', 'mo').all()
+
+    revenue_map = {(int(r.yr), int(r.mo)): int(r.total or 0) for r in rows}
+    values = [revenue_map.get(k, 0) for k in keys]
+    return labels, values
+
+
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -2520,9 +2915,10 @@ def admin_dashboard():
     }
 
     # Bloom distribution
-    bloom_stats = db.session.query(
+    bloom_raw = db.session.query(
         QAResult.bloom_level, sqlfunc.count(QAResult.id)
     ).group_by(QAResult.bloom_level).all()
+    bloom_agg = aggregate_bloom_stats(bloom_raw)
 
     # Recent transactions
     recent_txns = Transaction.query.order_by(Transaction.created_at.desc()).limit(10).all()
@@ -2535,7 +2931,11 @@ def admin_dashboard():
 
     return render_template('admin/dashboard.html',
                            stats=stats,
-                           bloom_stats=bloom_stats,
+                           bloom_stats=bloom_agg['stats'],
+                           bloom_total=bloom_agg['total'],
+                           bloom_top_level=bloom_agg['top_level'],
+                           bloom_top_count=bloom_agg['top_count'],
+                           bloom_top_pct=bloom_agg['top_pct'],
                            recent_txns=recent_txns,
                            top_users=top_users)
 
@@ -2573,7 +2973,14 @@ def admin_user_detail(user_id):
     user  = User.query.get_or_404(user_id)
     txns  = Transaction.query.filter_by(user_id=user_id).order_by(Transaction.created_at.desc()).limit(20).all()
     questions = QAResult.query.filter_by(user_id=user_id).order_by(QAResult.id.desc()).limit(20).all()
-    return render_template('admin/user_detail.html', user=user, txns=txns, questions=questions)
+    delete_confirm_name = user.username or user.email or user.display
+    return render_template(
+        'admin/user_detail.html',
+        user=user,
+        txns=txns,
+        questions=questions,
+        delete_confirm_name=delete_confirm_name,
+    )
 
 
 @app.route('/admin/users/<int:user_id>/credits', methods=['POST'])
@@ -2618,14 +3025,32 @@ def admin_delete_user(user_id):
         flash('Không thể xóa tài khoản Admin!', 'danger')
         return redirect(url_for('admin_user_detail', user_id=user_id))
 
-    name = user.display
-    # Delete all related data
-    QAResult.query.filter_by(user_id=user_id).delete()
-    Transaction.query.filter_by(user_id=user_id).delete()
-    Document.query.filter_by(user_id=user_id).delete()
-    UserAuthProvider.query.filter_by(user_id=user_id).delete()
-    db.session.delete(user)
-    db.session.commit()
+    expected = (user.username or user.email or user.display or '').strip()
+    typed = (request.form.get('confirm_name') or '').strip()
+    if not typed or typed != expected:
+        flash(
+            _bi(
+                'Deletion cancelled: confirmation text did not match.',
+                'Đã hủy xóa: nội dung xác nhận không khớp.',
+            ),
+            'warning',
+        )
+        return redirect(url_for('admin_user_detail', user_id=user_id))
+
+    try:
+        name = delete_user_account(user_id)
+    except Exception as exc:
+        db.session.rollback()
+        app.logger.exception('admin_delete_user failed for user_id=%s', user_id)
+        flash(
+            _bi(
+                f'Could not delete account: {exc}',
+                f'Không thể xóa tài khoản: {exc}',
+            ),
+            'danger',
+        )
+        return redirect(url_for('admin_user_detail', user_id=user_id))
+
     flash(f'Đã xóa tài khoản "{name}" và toàn bộ dữ liệu liên quan.', 'success')
     return redirect(url_for('admin_users'))
 
@@ -2655,11 +3080,14 @@ def admin_transactions():
             pass
 
     total_revenue = db.session.query(sqlfunc.sum(Transaction.amount_vnd)).filter_by(status='paid').scalar() or 0
+    revenue_labels, revenue_values = _revenue_chart_months(12)
     txns = query.order_by(Transaction.created_at.desc()).paginate(page=page, per_page=30, error_out=False)
     return render_template('admin/transactions.html',
                            txns=txns, status=status,
                            date_from=date_from, date_to=date_to,
-                           total_revenue=total_revenue)
+                           total_revenue=total_revenue,
+                           revenue_labels=revenue_labels,
+                           revenue_values=revenue_values)
 
 
 @app.route('/admin/transactions/export-csv')
@@ -2779,14 +3207,19 @@ def admin_reject_transaction(txn_id):
 @admin_required
 def admin_stats():
     # Bloom distribution
-    bloom_stats = db.session.query(
+    bloom_raw = db.session.query(
         QAResult.bloom_level, sqlfunc.count(QAResult.id)
-    ).group_by(QAResult.bloom_level).order_by(sqlfunc.count(QAResult.id).desc()).all()
+    ).group_by(QAResult.bloom_level).all()
+    bloom_agg = aggregate_bloom_stats(bloom_raw)
 
-    # Algorithm distribution (AI vs fallback)
-    algo_stats = db.session.query(
+    # Algorithm distribution — ẩn Gemini-2.0 (legacy test)
+    _algo_rows = db.session.query(
         QAResult.algorithm, sqlfunc.count(QAResult.id)
     ).group_by(QAResult.algorithm).order_by(sqlfunc.count(QAResult.id).desc()).all()
+    algo_stats = [
+        (algo, cnt) for algo, cnt in _algo_rows
+        if not (algo and 'Gemini-2.0' in algo)
+    ]
 
     # Avg process time
     avg_time = db.session.query(sqlfunc.avg(QAResult.process_time)).scalar() or 0
@@ -2803,15 +3236,12 @@ def admin_stats():
     ).join(QAResult, QAResult.user_id == User.id)\
      .group_by(User.id).order_by(sqlfunc.count(QAResult.id).desc()).limit(10).all()
 
-    # Questions per day (last 30 days)
-    from datetime import timedelta
-    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-    daily_questions = db.session.query(
-        sqlfunc.date(QAResult.id), sqlfunc.count(QAResult.id)
-    ).filter(User.created_at >= thirty_days_ago).all()
-
     return render_template('admin/stats.html',
-                           bloom_stats=bloom_stats,
+                           bloom_stats=bloom_agg['stats'],
+                           bloom_total=bloom_agg['total'],
+                           bloom_top_level=bloom_agg['top_level'],
+                           bloom_top_count=bloom_agg['top_count'],
+                           bloom_top_pct=bloom_agg['top_pct'],
                            algo_stats=algo_stats,
                            avg_time=avg_time,
                            top_docs=top_docs,
@@ -2825,7 +3255,47 @@ def admin_settings():
     if request.method == 'POST':
         action = request.form.get('action')
 
-        if action == 'general':
+        if action == 'branding':
+            SystemSetting.set('site_name', request.form.get('site_name', 'TEXTQAI').strip() or 'TEXTQAI')
+            SystemSetting.set('site_title_vi', request.form.get('site_title_vi', '').strip())
+            SystemSetting.set('site_title_en', request.form.get('site_title_en', '').strip())
+            SystemSetting.set('site_description_vi', request.form.get('site_description_vi', '').strip())
+            SystemSetting.set('site_description_en', request.form.get('site_description_en', '').strip())
+            static_dir = app.static_folder or os.path.join(app.root_path, 'static')
+            changed = False
+            try:
+                logo_up = request.files.get('site_logo_file')
+                if logo_up and logo_up.filename:
+                    rel = save_branding_upload(logo_up, 'logo', static_dir)
+                    SystemSetting.set('site_logo', rel)
+                    changed = True
+                elif request.form.get('reset_logo') == '1':
+                    SystemSetting.set('site_logo', '')
+                    restore_default_logo(static_dir)
+                    changed = True
+
+                fav_up = request.files.get('site_favicon_file')
+                if fav_up and fav_up.filename:
+                    rel = save_branding_upload(fav_up, 'favicon', static_dir)
+                    SystemSetting.set('site_favicon', rel)
+                    sync_favicon_public_copies(static_dir, rel)
+                    changed = True
+                elif request.form.get('reset_favicon') == '1':
+                    SystemSetting.set('site_favicon', '')
+                    restore_default_favicon(static_dir)
+                    changed = True
+            except ValueError as exc:
+                reason = str(exc)
+                if reason == 'save_failed':
+                    flash('Không thể lưu file favicon/logo. Vui lòng thử lại.', 'danger')
+                else:
+                    flash('Định dạng file không hợp lệ. Logo: PNG/JPG/WEBP/SVG — Favicon: ICO/PNG/SVG.', 'danger')
+                return redirect(url_for('admin_settings'))
+            if changed:
+                bump_branding_version()
+            flash('Đã lưu cấu hình giao diện.', 'success')
+
+        elif action == 'general':
             SystemSetting.set('allow_register',    request.form.get('allow_register', '0'))
             SystemSetting.set('default_credits',   request.form.get('default_credits', '5'))
             SystemSetting.set('enable_ocr',        request.form.get('enable_ocr', '0'))
@@ -3071,6 +3541,19 @@ def admin_settings():
         'sepay_api_key':         SystemSetting.get('sepay_api_key', ''),
         'secret_key':            SystemSetting.get('secret_key', ''),
         'has_secret_key':        bool(SystemSetting.get('secret_key', '').strip()),
+        'site_name':             SystemSetting.get('site_name', 'TEXTQAI'),
+        'site_title_vi':         SystemSetting.get('site_title_vi', 'Hệ thống sinh câu hỏi tự động'),
+        'site_title_en':         SystemSetting.get('site_title_en', 'Automatic Question Generation System'),
+        'site_description_vi':   SystemSetting.get('site_description_vi', (
+            'Hệ thống sinh câu hỏi tự động theo thang Bloom — hỗ trợ giảng viên tạo đề thi nhanh, '
+            'chính xác và đúng chuẩn giáo dục từ tài liệu PDF.'
+        )),
+        'site_description_en':   SystemSetting.get('site_description_en', (
+            "Automatic question generation based on Bloom's taxonomy — helping educators build tests "
+            'rapidly, accurately, and aligned with standard pedagogy from PDF documents.'
+        )),
+        'site_logo':             SystemSetting.get('site_logo', ''),
+        'site_favicon':          SystemSetting.get('site_favicon', ''),
     }
     return render_template('admin/settings.html', packages=packages, sub_packages=sub_packages, settings=settings)
 
@@ -3161,11 +3644,15 @@ def support():
 
 @app.route('/favicon.ico')
 def favicon():
-    return send_from_directory(
-        os.path.join(app.root_path, 'static'),
-        'favicon.ico',
-        mimetype='image/vnd.microsoft.icon',
-    )
+    static_root = os.path.join(app.root_path, 'static')
+    directory, filename = favicon_static_parts(static_root)
+    stored = SystemSetting.get('site_favicon', '').strip()
+    rel = stored if stored else 'favicon.ico'
+    resp = send_from_directory(directory, filename, mimetype=mime_for_path(rel))
+    resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+    resp.headers['Pragma'] = 'no-cache'
+    resp.headers['ETag'] = f'branding-{get_branding_version()}'
+    return resp
 
 @app.route('/user-guide')
 def user_guide():
@@ -3205,12 +3692,29 @@ if __name__ == '__main__':
     _cancel_thread = threading.Thread(target=_auto_cancel_pending_transactions, daemon=True)
     _cancel_thread.start()
 
-    # Dùng Waitress (production WSGI, multi-threaded) nếu có,
-    # fallback về Flask dev server khi dev local.
+    # Waitress: WSGI multi-threaded (8 luồng HTTP song song)
+    _PORT = 5000
+
+    def _port_in_use(port):
+        import socket
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind(('0.0.0.0', port))
+                return False
+            except OSError:
+                return True
+
+    if _port_in_use(_PORT):
+        print(f'[ERROR] Port {_PORT} da bi chiem — co the dang chay nhieu python app.py.')
+        print('        PowerShell: Get-NetTCPConnection -LocalPort 5000 | %% { Stop-Process -Id $_.OwningProcess -Force }')
+        sys.exit(1)
+
     try:
         from waitress import serve
-        print(" * Running on http://0.0.0.0:5000 (Waitress - production mode)")
-        serve(app, host='0.0.0.0', port=5000, threads=8)
+        _threads = 8
+        print(f" * Running on http://0.0.0.0:{_PORT} (Waitress, {_threads} threads)")
+        serve(app, host='0.0.0.0', port=_PORT, threads=_threads, channel_timeout=300)
     except ImportError:
-        print(" * waitress chua cai, dung Flask dev server (chi dung khi dev).")
-        app.run(debug=True, use_reloader=False, host='0.0.0.0', port=5000)
+        print(" * waitress chua cai — chay: pip install waitress")
+        print(" * Fallback: Flask dev server (khong phu hop nhieu user dong thoi).")
+        app.run(debug=True, use_reloader=False, host='0.0.0.0', port=_PORT)

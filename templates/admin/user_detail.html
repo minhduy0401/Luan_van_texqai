@@ -85,18 +85,14 @@
         {% if not user.is_admin and user.id != current_user.id %}
         <!-- Delete Account -->
         <hr style="border-color:#fecaca;margin:14px 0;">
-        <form method="post" action="{{ url_for('admin_delete_user', user_id=user.id) }}"
-              onsubmit="return confirmDelete('{{ user.display|e }}')">
-            <button type="submit" class="btn btn-sm w-100"
+        <form method="post" action="{{ url_for('admin_delete_user', user_id=user.id) }}" id="deleteUserForm">
+            <input type="hidden" name="confirm_name" id="deleteConfirmHidden" value="">
+            <button type="button" class="btn btn-sm w-100"
+                    data-bs-toggle="modal" data-bs-target="#deleteUserModal"
                     style="background:#fef2f2;border:1.5px solid #fca5a5;color:#dc2626;font-weight:600;">
                 <i class="bi bi-trash3-fill me-1"></i>{{ t('Xóa tài khoản') }}
             </button>
         </form>
-        <div id="deleteI18n" style="display:none"
-             data-confirm="{{ '⚠️ Delete account \"{name}\"?\\n\\nAll questions, documents and transactions will be permanently deleted.' if current_lang == 'en' else '⚠️ Xóa tài khoản \"{name}\"?\\n\\nToàn bộ câu hỏi, tài liệu và giao dịch sẽ bị xóa vĩnh viễn.' }}"
-             data-prompt="{{ 'Type the exact username \"{name}\" to confirm deletion:' if current_lang == 'en' else 'Nhập chính xác tên tài khoản \"{name}\" để xác nhận xóa:' }}"
-             data-mismatch="{{ 'Username does not match. Cancelled.' if current_lang == 'en' else 'Tên tài khoản không khớp. Đã hủy.' }}">
-        </div>
         {% endif %}
     </div>
 
@@ -157,19 +153,98 @@
         </div>
 </div>
 
+{% if not user.is_admin and user.id != current_user.id %}
+<div class="modal fade" id="deleteUserModal" tabindex="-1" aria-labelledby="deleteUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="border-radius:14px;overflow:hidden;border:1px solid #fecaca;">
+            <div class="modal-header" style="background:#fef2f2;border-bottom:1px solid #fecaca;">
+                <h5 class="modal-title fw-bold" id="deleteUserModalLabel" style="color:#b91c1c;">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    {{ 'Delete account?' if current_lang == 'en' else 'Xóa tài khoản?' }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" style="padding:1.25rem 1.35rem;">
+                <p class="mb-2" style="color:#374151;line-height:1.6;">
+                    {% if current_lang == 'en' %}
+                    You are about to permanently delete account <strong>{{ delete_confirm_name }}</strong>.
+                    All questions, documents, transactions and auth data will be removed. This cannot be undone.
+                    {% else %}
+                    Bạn sắp xóa vĩnh viễn tài khoản <strong>{{ delete_confirm_name }}</strong>.
+                    Toàn bộ câu hỏi, tài liệu, giao dịch và dữ liệu đăng nhập sẽ bị xóa. Không thể hoàn tác.
+                    {% endif %}
+                </p>
+                <label for="deleteConfirmInput" class="form-label small fw-semibold mb-1" style="color:#64748b;">
+                    {% if current_lang == 'en' %}
+                    Type <code>{{ delete_confirm_name }}</code> to confirm:
+                    {% else %}
+                    Nhập <code>{{ delete_confirm_name }}</code> để xác nhận:
+                    {% endif %}
+                </label>
+                <input type="text" class="form-control" id="deleteConfirmInput" autocomplete="off"
+                       placeholder="{{ delete_confirm_name }}">
+                <div id="deleteConfirmError" class="text-danger small mt-2" style="display:none;"></div>
+            </div>
+            <div class="modal-footer" style="background:#fafafa;border-top:1px solid #f1f5f9;">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">
+                    {{ 'Cancel' if current_lang == 'en' else 'Hủy' }}
+                </button>
+                <button type="button" class="btn btn-sm btn-danger fw-semibold" id="deleteConfirmBtn" disabled>
+                    <i class="bi bi-trash3-fill me-1"></i>{{ 'Delete permanently' if current_lang == 'en' else 'Xóa vĩnh viễn' }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 {% endblock %}
 
 {% block scripts %}
+{% if not user.is_admin and user.id != current_user.id %}
 <script>
-function confirmDelete(username) {
-    const el = document.getElementById('deleteI18n');
-    const confirmMsg = el ? el.dataset.confirm.replace('{name}', username) : '⚠️ Delete "' + username + '"?';
-    const promptMsg  = el ? el.dataset.prompt.replace('{name}', username)  : 'Type username to confirm:';
-    const mismatch   = el ? el.dataset.mismatch : 'Username does not match.';
-    if (!confirm(confirmMsg)) return false;
-    const typed = prompt(promptMsg);
-    if (typed !== username) { alert(mismatch); return false; }
-    return true;
-}
+(function () {
+    const expected = {{ delete_confirm_name|tojson }};
+    const input    = document.getElementById('deleteConfirmInput');
+    const btn      = document.getElementById('deleteConfirmBtn');
+    const errEl    = document.getElementById('deleteConfirmError');
+    const form     = document.getElementById('deleteUserForm');
+    const hidden   = document.getElementById('deleteConfirmHidden');
+    const modalEl  = document.getElementById('deleteUserModal');
+    const mismatch = {{ ('Confirmation text does not match.' if current_lang == 'en' else 'Nội dung xác nhận không khớp.')|tojson }};
+
+    if (!input || !btn || !form) return;
+
+    function syncBtn() {
+        const ok = input.value.trim() === expected;
+        btn.disabled = !ok;
+        if (errEl) errEl.style.display = 'none';
+    }
+
+    input.addEventListener('input', syncBtn);
+
+    if (modalEl) {
+        modalEl.addEventListener('show.bs.modal', function () {
+            input.value = '';
+            syncBtn();
+        });
+    }
+
+    btn.addEventListener('click', function () {
+        const typed = input.value.trim();
+        if (typed !== expected) {
+            if (errEl) {
+                errEl.textContent = mismatch;
+                errEl.style.display = 'block';
+            }
+            return;
+        }
+        hidden.value = typed;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>{{ "Deleting..." if current_lang == "en" else "Đang xóa..." }}';
+        form.submit();
+    });
+})();
 </script>
+{% endif %}
 {% endblock %}

@@ -1,7 +1,9 @@
 -- TEXTQAI – Database init
 --
--- PostgreSQL (khuyến nghị):
+-- PostgreSQL:
 --   psql -U postgres -f database/init_postgres.sql
+--   psql -U postgres -d luanvan_ai -f database/schema_postgres.sql
 --
--- MySQL / XAMPP (legacy):
+-- MySQL / MariaDB / XAMPP:
 --   mysql -u root -p < database/init_mysql.sql
+--   mysql -u root -p luanvan_ai < database/schema_mysql.sql

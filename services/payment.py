@@ -62,17 +62,17 @@ def vnpay_return_url_default() -> str:
 # Bảng giá credit (đồng bộ với frontend)
 CREDIT_PACKAGES = [
     {'id': 1, 'name': 'Dùng thử',  'credits': 10,   'price_vnd': 4_000,   'is_popular': False},
-    {'id': 2, 'name': 'Starter',   'credits': 50,   'price_vnd': 13_000,  'is_popular': False},
-    {'id': 3, 'name': 'Standard',  'credits': 200,  'price_vnd': 40_000,  'is_popular': True},
-    {'id': 4, 'name': 'Pro',       'credits': 500,  'price_vnd': 90_000,  'is_popular': False},
+    {'id': 2, 'name': 'Starter',   'credits': 50,   'price_vnd': 15_000,  'is_popular': False},
+    {'id': 3, 'name': 'Standard',  'credits': 100,  'price_vnd': 19_000,  'is_popular': True},
+    {'id': 4, 'name': 'Pro',       'credits': 500,  'price_vnd': 85_000,  'is_popular': False},
     {'id': 5, 'name': 'Academic',  'credits': 1500, 'price_vnd': 220_000, 'is_popular': False},
 ]
 
 # Thuê bao tháng
 SUBSCRIPTION_PACKAGES = [
-    {'id': 10, 'name': 'Sinh viên',    'credits': 100,  'price_vnd': 39_000,  'period': 'tháng'},
-    {'id': 11, 'name': 'Giảng viên',   'credits': 500,  'price_vnd': 89_000,  'period': 'tháng'},
-    {'id': 12, 'name': 'Khoa/Bộ môn',  'credits': 2000, 'price_vnd': 209_000, 'period': 'tháng'},
+    {'id': 10, 'name': 'Sinh viên',    'credits': 120,  'price_vnd': 29_000,  'period': 'tháng'},
+    {'id': 11, 'name': 'Giảng viên',   'credits': 600,  'price_vnd': 99_000,  'period': 'tháng'},
+    {'id': 12, 'name': 'Khoa/Bộ môn',  'credits': 2000, 'price_vnd': 289_000, 'period': 'tháng'},
 ]
 
 

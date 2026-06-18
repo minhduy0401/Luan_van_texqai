@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     {% include '_favicon.html' %}
     {% set ua = request.headers.get('User-Agent', '') %}
-    {% set is_app = 'TEXTQAI' in ua %}
+    {% set is_app = 'TEXTQAI' in ua or request.cookies.get('viewappmobie') == 'true' %}
     {% if is_app %}
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <style>
@@ -15,7 +15,11 @@
     {% else %}
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     {% endif %}
-    <title>TEXTQAI | Landing Page</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>{{ site_page_title }}</title>
+    {% include '_seo_meta.html' %}
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -80,6 +84,213 @@
         .landing-offcanvas .lang-btn--primary { background: linear-gradient(135deg,#ffffff,#fff3e8); border-color: rgba(255,107,53,0.08); }
         .landing-offcanvas .lang-btn--secondary { background: linear-gradient(135deg,#ffffff,#f1f5ff); border-color: rgba(99,102,241,0.08); }
         .landing-offcanvas .nav-link .bi { font-size:1.05rem; color: #4f46e5; }
+
+        /* ── APK / iOS WebView app shell ───────────────────────────── */
+        body.is-app .landing-nav .app-nav-shell {
+            display: grid;
+            grid-template-columns: 48px minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: nowrap !important;
+        }
+        body.is-app .landing-nav .app-nav-hamburger {
+            grid-column: 1;
+            justify-self: start;
+        }
+        body.is-app .landing-nav .app-nav-brand {
+            grid-column: 2;
+            justify-self: center;
+            min-width: 0;
+        }
+        body.is-app .landing-nav .app-nav-brand img {
+            height: 34px;
+            width: auto;
+            max-width: min(220px, 52vw);
+            object-fit: contain;
+        }
+        body.is-app .landing-nav .app-nav-lang {
+            grid-column: 3;
+            justify-self: end;
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+        body.is-app .landing-nav .app-lang-pill {
+            padding: 7px 11px;
+            border-radius: 999px;
+            font-size: .78rem;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            touch-action: manipulation;
+            line-height: 1;
+            min-width: 44px;
+            min-height: 36px;
+        }
+        body.is-app .landing-nav .app-lang-pill.is-active {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 6px 16px rgba(255, 107, 53, 0.28);
+        }
+        body.is-app .landing-nav .app-lang-pill.is-idle {
+            background: rgba(29, 36, 51, 0.07);
+            color: var(--ink);
+        }
+        body.is-app .landing-offcanvas {
+            width: min(300px, 86vw);
+        }
+        body.is-app .landing-offcanvas .offcanvas-header {
+            padding: 14px 16px;
+        }
+        body.is-app .landing-offcanvas .oc-menu-title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: 1.05rem;
+            color: var(--ink);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0;
+        }
+        body.is-app .landing-offcanvas .oc-menu-title i {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            display: grid;
+            place-items: center;
+            background: linear-gradient(135deg, rgba(255,107,53,0.14), rgba(102,126,234,0.12));
+            color: var(--secondary);
+            font-size: 1rem;
+        }
+        body.is-app .offcanvas-section {
+            padding: 6px 14px;
+        }
+        body.is-app .offcanvas-section-inner {
+            background: #fff;
+            border: 1px solid rgba(29, 36, 51, 0.06);
+            border-radius: 14px;
+            padding: 6px;
+            box-shadow: 0 8px 24px rgba(33, 45, 74, 0.05);
+        }
+        body.is-app .oc-group-label {
+            padding: 8px 12px 4px;
+            font-size: .72rem;
+            font-weight: 800;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+        body.is-app .landing-offcanvas .nav-link {
+            min-height: 48px;
+            padding: 12px 14px;
+            font-size: .95rem;
+        }
+        body.is-app .landing-offcanvas .nav-link.text-danger i {
+            color: #dc3545 !important;
+        }
+        body.is-app .landing-offcanvas .nav-link.text-danger {
+            color: #dc3545 !important;
+        }
+        body.is-app .oc-divider {
+            height: 1px;
+            background: rgba(29, 36, 51, 0.06);
+            margin: 4px 10px;
+        }
+        body.is-app .offcanvas-lang-section {
+            display: none;
+        }
+
+        /* App WebView: compact header + hero */
+        :root {
+            --app-nav-h: 50px;
+        }
+        body.is-app .landing-nav {
+            /* Flutter SafeArea handles status bar; nav only needs bar height */
+            padding-top: 0 !important;
+            padding-bottom: 0 !important;
+        }
+        body.is-app .landing-nav .container {
+            min-height: var(--app-nav-h);
+            align-content: center;
+        }
+        body.is-app .hero-copy {
+            padding-right: 0 !important;
+            margin-bottom: 0 !important;
+        }
+        body.is-app .page-shell {
+            padding-top: var(--app-nav-h) !important;
+            min-height: auto !important;
+        }
+        body.is-app .container {
+            max-width: 100% !important;
+            padding-left: 14px !important;
+            padding-right: 14px !important;
+        }
+        body.is-app main {
+            position: relative;
+            z-index: 1;
+        }
+        body.is-app .hero {
+            padding: 0.5rem 0 1rem !important;
+            min-height: 0 !important;
+        }
+        body.is-app .hero .row {
+            align-items: flex-start !important;
+            --bs-gutter-y: 0;
+            --bs-gutter-x: 0;
+            margin: 0 !important;
+        }
+        body.is-app .hero .row > .col-lg-6 {
+            flex: 0 0 100% !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            padding: 0 !important;
+        }
+        body.is-app .hero-stage,
+        body.is-app .hero-app-hide {
+            display: none !important;
+            height: 0 !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+        body.is-app .hero-title {
+            font-size: clamp(1.65rem, 6.5vw, 2.15rem) !important;
+            line-height: 1.12 !important;
+            letter-spacing: -0.03em;
+            margin-bottom: 0.75rem;
+        }
+        body.is-app .hero-subtitle {
+            font-size: 0.92rem !important;
+            line-height: 1.55;
+            margin-bottom: 1rem;
+        }
+        body.is-app .hero-actions {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.65rem;
+        }
+        body.is-app .hero-actions .btn {
+            width: 100%;
+            justify-content: center;
+        }
+        body.is-app .hero-metrics {
+            grid-template-columns: 1fr !important;
+            gap: 0.65rem;
+            margin-top: 1rem;
+        }
+        body.is-app .eyebrow {
+            font-size: 0.8rem;
+            margin-bottom: 0.85rem;
+        }
+        body.is-app .section {
+            padding: 2rem 0 !important;
+        }
+        body.is-app .page-shell::before,
+        body.is-app .page-shell::after {
+            opacity: 0.18;
+        }
 
         html {
             scroll-behavior: smooth;
@@ -151,13 +362,6 @@
             background: rgba(255, 250, 242, 0.98) !important;
             -webkit-transform: translate3d(0, 0, 0) !important;
             transform: translate3d(0, 0, 0) !important;
-            /* Keep 12px internal padding + push below status bar / notch */
-            padding-top: calc(12px + env(safe-area-inset-top, 0px)) !important;
-            padding-bottom: 12px !important;
-        }
-        body.is-app .page-shell {
-            /* nav height (logo 52px + padding ~28px) + safe area inset */
-            padding-top: calc(80px + env(safe-area-inset-top, 0px)) !important;
         }
 
         .landing-brand {
@@ -690,38 +894,38 @@
     </style>
 </head>
 <body class="{{ 'is-app' if is_app else '' }}">
+<script>
+(function () {
+    if (/TEXTQAI/i.test(navigator.userAgent)) {
+        document.documentElement.classList.add('is-app');
+        document.body.classList.add('is-app');
+    }
+})();
+</script>
     <div class="page-shell">
-        <nav class="landing-nav py-3">
-            <div class="container d-flex align-items-center justify-content-between flex-wrap">
+        <nav class="landing-nav{{ '' if is_app else ' py-3' }}">
+            <div class="container d-flex align-items-center justify-content-between flex-wrap{{ ' app-nav-shell' if is_app else '' }}">
+                {% if is_app %}
+                <button class="btn border-0 app-nav-hamburger" type="button" data-bs-toggle="offcanvas" data-bs-target="#landingOffcanvas" aria-controls="landingOffcanvas"
+                    style="background:transparent;color:var(--ink);min-width:48px;min-height:48px;padding:10px;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:rgba(0,0,0,0.08);touch-action:manipulation;">
+                    <i class="bi bi-list" style="font-size:1.45rem;"></i>
+                </button>
+                <a class="landing-brand app-nav-brand" href="/?landing=1"
+                    style="touch-action:manipulation;-webkit-tap-highlight-color:rgba(0,0,0,0.08);min-height:44px;display:inline-flex;align-items:center;text-decoration:none;">
+                    <img src="{{ url_for('static', filename=site_logo_file) }}?v={{ branding_v }}" alt="{{ site_name }}">
+                </a>
+                <div class="app-nav-lang">
+                    <button type="button" class="app-lang-pill {{ 'is-active' if current_lang == 'vi' else 'is-idle' }}" onclick="setAppLang('vi')">🇻🇳 VI</button>
+                    <button type="button" class="app-lang-pill {{ 'is-active' if current_lang == 'en' else 'is-idle' }}" onclick="setAppLang('en')">🇺🇸 EN</button>
+                </div>
+                {% else %}
                 <div class="d-flex align-items-center">
-                    {% if is_app %}
-                    <button class="btn border-0 d-lg-none me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#landingOffcanvas" aria-controls="landingOffcanvas"
-                        style="background:transparent;color:var(--ink);min-width:48px;min-height:48px;padding:10px;display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:rgba(0,0,0,0.08);touch-action:manipulation;">
-                        <i class="bi bi-list" style="font-size:1.6rem;"></i>
-                    </button>
-                    {% endif %}
                     <a class="landing-brand" href="/?landing=1"
                         style="touch-action:manipulation;-webkit-tap-highlight-color:rgba(0,0,0,0.08);min-height:48px;display:inline-flex;align-items:center;">
-                        <img src="{{ url_for('static', filename='logo.png') }}" alt="TEXTQAI" style="height:52px;">
+                        <img src="{{ url_for('static', filename=site_logo_file) }}?v={{ branding_v }}" alt="{{ site_name }}" style="height:52px;">
                     </a>
                 </div>
                 <div class="d-flex align-items-center gap-4 flex-wrap">
-                    {% if is_app %}
-                    <!-- App: language toggle — JS fetch to avoid iOS redirect issues -->
-                    <div style="display:flex;gap:6px;margin-left:auto;">
-                        <button onclick="setAppLang('vi')"
-                           style="padding:6px 12px;border-radius:999px;font-size:.82rem;font-weight:600;border:none;cursor:pointer;touch-action:manipulation;
-                                  {% if current_lang == 'vi' %}background:var(--accent);color:#fff;{% else %}background:rgba(29,36,51,0.07);color:var(--ink);{% endif %}">
-                            🇻🇳 VI
-                        </button>
-                        <button onclick="setAppLang('en')"
-                           style="padding:6px 12px;border-radius:999px;font-size:.82rem;font-weight:600;border:none;cursor:pointer;touch-action:manipulation;
-                                  {% if current_lang == 'en' %}background:var(--accent);color:#fff;{% else %}background:rgba(29,36,51,0.07);color:var(--ink);{% endif %}">
-                            🇺🇸 EN
-                        </button>
-                    </div>
-                    {% endif %}
-                    {% if not is_app %}
                     <a class="nav-link-lite" href="#features">{{ 'Features' if current_lang == 'en' else 'Tính năng' }}</a>
                     <a class="nav-link-lite" href="#showcase">{{ 'Showcase' if current_lang == 'en' else 'Minh họa' }}</a>
                     <a class="nav-link-lite" href="#workflow">{{ 'Workflow' if current_lang == 'en' else 'Quy trình' }}</a>
@@ -737,8 +941,8 @@
                         <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width:150px;">
                             <li><h6 class="dropdown-header" style="font-size:0.88rem;">{{ t('Chọn ngôn ngữ') }}</h6></li>
                             <li><hr class="dropdown-divider my-1"></li>
-                            <li><a class="dropdown-item" href="/set-language/en">🇺🇸 English</a></li>
-                            <li><a class="dropdown-item" href="/set-language/vi">🇻🇳 Tiếng Việt</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('set_language', lang='en', next=request.full_path) }}">🇺🇸 English</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('set_language', lang='vi', next=request.full_path) }}">🇻🇳 Tiếng Việt</a></li>
                         </ul>
                     </div>
                     {% if current_user.is_authenticated %}
@@ -755,8 +959,7 @@
                                     <i class="bi bi-house-door me-2 text-muted"></i>{{ 'Workspace' if current_lang == 'en' else 'Trang làm việc' }}
                                 </a>
                             </li>
-                            {% set is_google_user = current_user.auth_providers.filter_by(provider='google').first() %}
-                            {% if not is_google_user %}
+                            {% if not current_user.has_google_auth %}
                             <li>
                                 <a class="dropdown-item rounded-2" href="/change-password" style="font-size:0.88rem;padding:8px 12px;">
                                     <i class="bi bi-key me-2 text-muted"></i>{{ 'Change Password' if current_lang == 'en' else 'Đổi mật khẩu' }}
@@ -837,7 +1040,8 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-lg-6">
+                        {% if not is_app %}
+                        <div class="col-lg-6 hero-app-hide">
                             <div class="hero-stage fade-up delay-1 is-visible">
                                 <div class="floating-note note-a">
                                     <div class="small text-uppercase fw-bold text-secondary mb-2">{{ 'Strength' if current_lang == 'en' else 'Điểm mạnh' }}</div>
@@ -886,6 +1090,7 @@
                                 </div>
                             </div>
                         </div>
+                        {% endif %}
                     </div>
                 </div>
             </section>
@@ -1201,45 +1406,41 @@
         <!-- Offcanvas menu for landing (app hamburger) -->
         <div class="offcanvas offcanvas-start landing-offcanvas" tabindex="-1" id="landingOffcanvas" aria-labelledby="landingOffcanvasLabel">
             <div class="offcanvas-header">
-                    <a class="sb-brand" href="/?landing=1">
-                        <img src="{{ url_for('static', filename='logo.png') }}" alt="TEXTQAI" />
-                    </a>
-                    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-                </div>
+                <h5 class="oc-menu-title" id="landingOffcanvasLabel">
+                    <i class="bi bi-grid-3x3-gap-fill"></i>
+                    {{ 'Menu' if current_lang == 'en' else 'Danh mục' }}
+                </h5>
+                <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+            </div>
             <div class="offcanvas-body">
                 <nav class="nav flex-column">
+                    <div class="oc-group-label">{{ 'Navigation' if current_lang == 'en' else 'Điều hướng' }}</div>
                     <div class="offcanvas-section">
                         <div class="offcanvas-section-inner">
-                            <a class="nav-link" href="#features"><i class="bi bi-lightning-charge"></i>{{ 'Features' if current_lang == 'en' else 'Tính năng' }}</a>
-                            <a class="nav-link" href="#showcase"><i class="bi bi-grid"></i>{{ 'Showcase' if current_lang == 'en' else 'Minh họa' }}</a>
-                            <a class="nav-link" href="#workflow"><i class="bi bi-diagram-3"></i>{{ 'Workflow' if current_lang == 'en' else 'Quy trình' }}</a>
-                            <a class="nav-link" href="#support"><i class="bi bi-headset"></i>{{ 'Support' if current_lang == 'en' else 'Hỗ trợ' }}</a>
-                        </div>
-                    </div>
-                    <div class="offcanvas-section">
-                        <div class="offcanvas-section-inner">
-                            <a class="nav-link" href="/user-guide"><i class="bi bi-book"></i>{{ 'User Guide' if current_lang == 'en' else 'Hướng dẫn sử dụng' }}</a>
+                            <a class="nav-link oc-dismiss" href="#showcase"><i class="bi bi-grid"></i>{{ 'Showcase' if current_lang == 'en' else 'Minh họa' }}</a>
+                            <a class="nav-link oc-dismiss" href="#workflow"><i class="bi bi-diagram-3"></i>{{ 'Workflow' if current_lang == 'en' else 'Quy trình' }}</a>
+                            <a class="nav-link oc-dismiss" href="#support"><i class="bi bi-headset"></i>{{ 'Support' if current_lang == 'en' else 'Hỗ trợ' }}</a>
                         </div>
                     </div>
 
+                    <div class="oc-group-label">{{ 'Resources' if current_lang == 'en' else 'Tài liệu' }}</div>
+                    <div class="offcanvas-section">
+                        <div class="offcanvas-section-inner">
+                            <a class="nav-link oc-dismiss" href="/user-guide"><i class="bi bi-book"></i>{{ 'User Guide' if current_lang == 'en' else 'Hướng dẫn sử dụng' }}</a>
+                        </div>
+                    </div>
+
+                    <div class="oc-group-label">{{ 'Account' if current_lang == 'en' else 'Tài khoản' }}</div>
                     <div class="offcanvas-section">
                         <div class="offcanvas-section-inner">
                         {% if current_user.is_authenticated %}
-                            <a class="nav-link" href="{{ url_for('index') }}">{{ 'Workspace' if current_lang == 'en' else 'Trang làm việc' }}</a>
-                            <a class="nav-link text-danger" href="{{ url_for('logout', next='/?landing=1') }}">{{ 'Logout' if current_lang == 'en' else 'Đăng xuất' }}</a>
+                            <a class="nav-link oc-dismiss" href="{{ url_for('index') }}"><i class="bi bi-house-door"></i>{{ 'Workspace' if current_lang == 'en' else 'Trang làm việc' }}</a>
+                            <div class="oc-divider"></div>
+                            <a class="nav-link text-danger oc-dismiss" href="{{ url_for('logout', next='/?landing=1') }}"><i class="bi bi-box-arrow-right"></i>{{ 'Logout' if current_lang == 'en' else 'Đăng xuất' }}</a>
                         {% else %}
-                            <a class="nav-link" href="{{ url_for('login') }}">{{ 'Sign In' if current_lang == 'en' else 'Đăng nhập' }}</a>
-                            <a class="nav-link" href="{{ url_for('register') }}">{{ 'Register' if current_lang == 'en' else 'Đăng ký' }}</a>
+                            <a class="nav-link oc-dismiss" href="{{ url_for('login') }}"><i class="bi bi-box-arrow-in-right"></i>{{ 'Sign In' if current_lang == 'en' else 'Đăng nhập' }}</a>
+                            <a class="nav-link oc-dismiss" href="{{ url_for('register') }}"><i class="bi bi-person-plus"></i>{{ 'Register' if current_lang == 'en' else 'Đăng ký' }}</a>
                         {% endif %}
-                        </div>
-                    </div>
-
-                    <div class="offcanvas-section">
-                        <div class="offcanvas-section-inner">
-                            <div class="d-flex gap-2">
-                                <a class="lang-btn lang-btn--primary" href="/set-language/en?next=/?landing=1">🇺🇸 English</a>
-                                <a class="lang-btn lang-btn--secondary" href="/set-language/vi?next=/?landing=1">🇻🇳 Tiếng Việt</a>
-                            </div>
                         </div>
                     </div>
                 </nav>
@@ -1254,7 +1455,7 @@
                     <!-- Cột 1: Brand -->
                     <div class="col-lg-4">
                         <div class="mb-3">
-                            <img src="{{ url_for('static', filename='logo.png') }}" alt="TEXTQAI" style="height:48px;filter:brightness(0) invert(1);">
+                            <img src="{{ url_for('static', filename=site_logo_file) }}?v={{ branding_v }}" alt="{{ site_name }}" style="height:48px;filter:brightness(0) invert(1);">
                         </div>
                         <p style="font-size:0.93rem;color:rgba(255,255,255,0.55);line-height:1.7;max-width:280px;">
                             {{ 'Automatic question generation based on Bloom taxonomy — helping educators build tests rapidly, accurately, and aligned with standard pedagogy.' if current_lang == 'en' else 'Hệ thống sinh câu hỏi tự động theo thang Bloom — hỗ trợ giảng viên tạo đề thi nhanh, chính xác và đúng chuẩn giáo dục.' }}
@@ -1306,8 +1507,7 @@
                         <form id="feedbackForm" onsubmit="submitFeedback(event)">
                             <div class="mb-3">
                                 {% if current_user.is_authenticated %}
-                                    {% set _is_google = current_user.auth_providers.filter_by(provider='google').first() %}
-                                    {% if _is_google and current_user.email %}
+                                    {% if current_user.has_google_auth and current_user.email %}
                                 <input type="email" id="fbEmail" value="{{ current_user.email }}"
                                     style="width:100%;padding:10px 14px;border-radius:10px;border:1.5px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.07);color:#fff;font-size:0.9rem;outline:none;transition:border .2s;"
                                     onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='rgba(255,255,255,0.12)'" required>
@@ -1415,11 +1615,22 @@
 
         // App language toggle: fetch to set session, then reload current page
         function setAppLang(lang) {
-            fetch('/set-language/' + lang, { redirect: 'follow', credentials: 'same-origin' })
+            var next = window.location.pathname + window.location.search;
+            fetch('/set-language/' + lang + '?next=' + encodeURIComponent(next), { redirect: 'follow', credentials: 'same-origin' })
                 .then(() => location.reload())
                 .catch(() => location.reload());
         }
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.querySelectorAll('.oc-dismiss').forEach(function(link) {
+            link.addEventListener('click', function() {
+                var el = document.getElementById('landingOffcanvas');
+                if (!el || !window.bootstrap) return;
+                var oc = bootstrap.Offcanvas.getInstance(el) || bootstrap.Offcanvas.getOrCreateInstance(el);
+                oc.hide();
+            });
+        });
+    </script>
 </body>
 </html>

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     {% include '_favicon.html' %}
     {% set ua = request.headers.get('User-Agent', '') %}
-    {% set is_app = 'TEXTQAI' in ua %}
+    {% set is_app = 'TEXTQAI' in ua or request.cookies.get('viewappmobie') == 'true' %}
     {% if is_app %}
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <style>
@@ -18,7 +18,11 @@
     {% else %}
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     {% endif %}
-    <title>{{ t('TEXTQAI - Hệ thống sinh câu hỏi tự động') }}</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    {% include '_seo_meta.html' %}
+    <title>{% block title %}{{ site_page_title }}{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -57,19 +61,26 @@
             -webkit-transform: translate3d(0,0,0);
             transform: translate3d(0,0,0);
         }
-        /* iOS WebView: safe-area + no backdrop-filter for app */
+        /* App WebView: Flutter SafeArea handles status bar; fixed navbar height only */
         body.is-app .navbar {
             backdrop-filter: none !important;
             -webkit-backdrop-filter: none !important;
             background: linear-gradient(to right, #fffefb, #fffaf4) !important;
             top: 0 !important;
-            /* Keep inner padding + push below iPhone status bar / notch / Dynamic Island */
-            padding-top: calc(8px + env(safe-area-inset-top, 0px)) !important;
-            padding-bottom: 8px !important;
+            padding-top: 6px !important;
+            padding-bottom: 6px !important;
         }
         body.is-app {
-            /* navbar height (logo 52px + padding ~20px) + safe area */
-            padding-top: calc(80px + env(safe-area-inset-top, 0px)) !important;
+            padding-top: 52px !important;
+        }
+        body.is-app .navbar-brand img {
+            height: 36px !important;
+            max-width: min(200px, 48vw);
+            object-fit: contain;
+        }
+        body.is-app .navbar > .container {
+            flex-wrap: nowrap;
+            gap: 8px;
         }
         
         .navbar-brand {
@@ -447,7 +458,7 @@
     <!-- iOS app back button — fixed, shows only when there's history to go back to -->
     <button id="appBackBtn" onclick="history.back()"
         style="display:none;position:fixed;z-index:2000;
-               top:calc(env(safe-area-inset-top, 0px) + 10px);
+               top:10px;
                left:12px;
                background:rgba(255,255,255,0.92);
                border:1px solid rgba(0,0,0,0.1);
@@ -471,7 +482,7 @@
         <div class="container">
             <a class="navbar-brand" href="/?landing=1"
                style="touch-action:manipulation;-webkit-tap-highlight-color:rgba(0,0,0,0.06);">
-                <img src="{{ url_for('static', filename='logo.png') }}" alt="TEXTQAI Logo" style="height: 52px;">
+                <img src="{{ url_for('static', filename=site_logo_file) }}?v={{ branding_v }}" alt="{{ site_name }}" style="height: 52px;">
             </a>
 
             <!-- Credits badge hiển thị ngay cả khi menu collapsed (mobile) -->
@@ -502,12 +513,12 @@
                             <li><h6 class="dropdown-header" style="font-size:.78rem;">{{ t('Chọn ngôn ngữ') }}</h6></li>
                             <li><hr class="dropdown-divider my-1"></li>
                             <li>
-                                <a class="dropdown-item fw-medium {% if current_lang == 'en' %}active{% endif %}" href="/set-language/en">
+                                <a class="dropdown-item fw-medium {% if current_lang == 'en' %}active{% endif %}" href="{{ url_for('set_language', lang='en', next=request.full_path) }}">
                                     🇺🇸 English
                                 </a>
                             </li>
                             <li>
-                                <a class="dropdown-item fw-medium {% if current_lang == 'vi' %}active{% endif %}" href="/set-language/vi">
+                                <a class="dropdown-item fw-medium {% if current_lang == 'vi' %}active{% endif %}" href="{{ url_for('set_language', lang='vi', next=request.full_path) }}">
                                     🇻🇳 Tiếng Việt
                                 </a>
                             </li>
@@ -541,8 +552,7 @@
                         <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width:180px;">
                             <li><h6 class="dropdown-header text-truncate" style="max-width:170px;">{{ current_user.display }}</h6></li>
                             <li><hr class="dropdown-divider my-1"></li>
-                            {% set is_google_user = current_user.auth_providers.filter_by(provider='google').first() %}
-                            {% if not is_google_user %}
+                            {% if not current_user.has_google_auth %}
                             <li>
                                 <a class="dropdown-item fw-medium text-dark" href="/change-password">
                                     <i class="bi bi-key me-2 text-muted"></i>{{ t('Đổi mật khẩu') }}
@@ -652,10 +662,15 @@
                     } catch(_){}
                     setCookie('lang', lang, 365);
                     try { localStorage.setItem('app_lang', lang); } catch(_){}
-                    // Notify Flutter if available (optional, non-breaking)
                     try { if (window.FlutterBridge && FlutterBridge.postMessage) FlutterBridge.postMessage(JSON.stringify({type:'set-language', lang:lang})); } catch(_){}
-                    // small delay to ensure cookie/localStorage are set before navigating
-                    setTimeout(function(){ location.href = href; }, 60);
+                    setTimeout(function(){
+                        var target = href;
+                        if (target.indexOf('next=') < 0) {
+                            var sep = target.indexOf('?') >= 0 ? '&' : '?';
+                            target = target + sep + 'next=' + encodeURIComponent(location.pathname + location.search);
+                        }
+                        location.href = target;
+                    }, 60);
                 });
             });
         })();

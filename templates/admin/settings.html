@@ -281,6 +281,249 @@
     </div>
 
 
+    <!-- Site shell / branding -->
+    <div class="col-12">
+        <style>
+            .brand-file-drop {
+                position: relative;
+                border: 1.5px dashed var(--border);
+                border-radius: 10px;
+                background: linear-gradient(180deg, #fafbfd 0%, #f8fafc 100%);
+                padding: 12px 14px;
+                transition: border-color .18s, background .18s, box-shadow .18s;
+                overflow: hidden;
+            }
+            .brand-file-drop:hover,
+            .brand-file-drop.is-dragover {
+                border-color: #818cf8;
+                background: #f5f3ff;
+                box-shadow: 0 0 0 3px rgba(99, 102, 241, .08);
+            }
+            .brand-file-drop input[type="file"] {
+                position: absolute;
+                inset: 0;
+                width: 100%;
+                height: 100%;
+                opacity: 0;
+                cursor: pointer;
+                z-index: 2;
+            }
+            .brand-file-inner {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                pointer-events: none;
+            }
+            .brand-file-icon {
+                width: 40px;
+                height: 40px;
+                border-radius: 10px;
+                background: #fff;
+                border: 1px solid #e2e8f0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #6366f1;
+                font-size: 1.1rem;
+                flex-shrink: 0;
+                box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+            }
+            .brand-file-text { flex: 1; min-width: 0; }
+            .brand-file-btn {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 6px 12px;
+                border-radius: 8px;
+                background: #fff;
+                border: 1px solid #c7d2fe;
+                color: #4f46e5;
+                font-size: .78rem;
+                font-weight: 600;
+                white-space: nowrap;
+            }
+            .brand-file-name {
+                display: block;
+                margin-top: 4px;
+                font-size: .76rem;
+                color: #94a3b8;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            .brand-file-name.has-file {
+                color: #334155;
+                font-weight: 500;
+            }
+            .brand-preview-box {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 10px 12px;
+                margin-bottom: 10px;
+                border-radius: 10px;
+                background: #f8fafc;
+                border: 1px solid #e2e8f0;
+                min-height: 72px;
+                height: 72px;
+            }
+            .brand-preview-slot {
+                width: 56px;
+                height: 48px;
+                flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .brand-preview-slot img {
+                max-width: 56px;
+                max-height: 48px;
+                object-fit: contain;
+            }
+            .brand-preview-caption {
+                font-size: .78rem;
+                color: #64748b;
+                line-height: 1.35;
+            }
+            .brand-upload-row {
+                align-items: stretch;
+            }
+            .brand-upload-col {
+                display: flex;
+                flex-direction: column;
+            }
+            .brand-upload-col .brand-file-drop {
+                min-height: 68px;
+                flex: 1;
+                display: flex;
+                align-items: center;
+                width: 100%;
+            }
+            .brand-upload-col .brand-file-inner {
+                width: 100%;
+            }
+            .brand-upload-foot {
+                min-height: 52px;
+                margin-top: 8px;
+            }
+        </style>
+        <div class="card-admin">
+            <div class="card-header">
+                <span><i class="bi bi-palette me-2" style="color:#ec4899;"></i>{{ t('Cấu hình giao diện (Shell)') }}</span>
+            </div>
+            <div class="card-body-pad">
+                <form method="post" enctype="multipart/form-data">
+                    <input type="hidden" name="action" value="branding">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">{{ t('Tên trang web') }}</label>
+                            <input type="text" name="site_name" class="form-control form-control-sm"
+                                value="{{ settings.site_name or 'TEXTQAI' }}" required maxlength="80"
+                                placeholder="TEXTQAI">
+                            <div class="form-text" style="font-size:.75rem;">{{ t('Tên thương hiệu — hiển thị navbar, Google site name') }}</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">{{ t('Tiêu đề tab & Google (Tiếng Việt)') }}</label>
+                            <input type="text" name="site_title_vi" class="form-control form-control-sm"
+                                value="{{ settings.site_title_vi }}" maxlength="120"
+                                placeholder="Hệ thống sinh câu hỏi tự động">
+                            <div class="form-text" style="font-size:.75rem;">{{ t('Dòng xanh trên kết quả Google + tab trình duyệt') }}</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">{{ t('Tiêu đề tab & Google (English)') }}</label>
+                            <input type="text" name="site_title_en" class="form-control form-control-sm"
+                                value="{{ settings.site_title_en }}" maxlength="120"
+                                placeholder="Automatic Question Generation System">
+                            <div class="form-text" style="font-size:.75rem;">{{ t('Blue title on Google results + browser tab') }}</div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">{{ t('Mô tả SEO — Google (Tiếng Việt)') }}</label>
+                            <textarea name="site_description_vi" class="form-control form-control-sm" rows="3"
+                                maxlength="300" placeholder="{{ t('Đoạn mô tả xám dưới tiêu đề trên Google...') }}">{{ settings.site_description_vi }}</textarea>
+                            <div class="form-text" style="font-size:.75rem;">{{ t('Khuyến nghị 120–160 ký tự') }}</div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">{{ t('Mô tả SEO — Google (English)') }}</label>
+                            <textarea name="site_description_en" class="form-control form-control-sm" rows="3"
+                                maxlength="300" placeholder="{{ t('Grey snippet below title on Google...') }}">{{ settings.site_description_en }}</textarea>
+                            <div class="form-text" style="font-size:.75rem;">{{ t('Recommended 120–160 characters') }}</div>
+                        </div>
+
+                        <div class="col-12">
+                            <div class="row g-3 brand-upload-row">
+                        <div class="col-md-6 brand-upload-col">
+                            <label class="form-label mb-2">{{ t('Logo trang web') }}</label>
+                            <div class="brand-preview-box">
+                                <div class="brand-preview-slot">
+                                    <img src="{{ url_for('static', filename=site_logo_file) }}?v={{ branding_v }}" alt="logo" data-brand-preview="logo">
+                                </div>
+                                <span class="brand-preview-caption">{{ t('Xem trước logo hiện tại') }}</span>
+                            </div>
+                            <div class="brand-file-drop" data-file-drop>
+                                <input type="file" id="siteLogoFile" name="site_logo_file"
+                                    accept=".png,.jpg,.jpeg,.webp,.svg,image/*"
+                                    data-file-label="{{ t('Chưa chọn file') }}">
+                                <div class="brand-file-inner">
+                                    <div class="brand-file-icon"><i class="bi bi-image"></i></div>
+                                    <div class="brand-file-text">
+                                        <span class="brand-file-btn"><i class="bi bi-upload"></i>{{ t('Chọn file') }}</span>
+                                        <span class="brand-file-name" data-file-name>{{ t('Chưa chọn file') }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="brand-upload-foot">
+                                <div class="form-text" style="font-size:.75rem;">PNG, JPG, WEBP, SVG — {{ t('tối đa ~2MB') }}</div>
+                                <div class="form-check mt-2 mb-0">
+                                    <input class="form-check-input" type="checkbox" name="reset_logo" value="1" id="resetLogo">
+                                    <label class="form-check-label" for="resetLogo" style="font-size:.82rem;">{{ t('Dùng logo mặc định') }}</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 brand-upload-col">
+                            <label class="form-label mb-2">Favicon</label>
+                            <div class="brand-preview-box">
+                                <div class="brand-preview-slot">
+                                    <img src="{{ url_for('static', filename=site_favicon_file) }}?v={{ branding_v }}" alt="favicon" data-brand-preview="favicon">
+                                </div>
+                                <span class="brand-preview-caption">{{ t('Xem trước favicon hiện tại') }}</span>
+                            </div>
+                            <div class="brand-file-drop" data-file-drop>
+                                <input type="file" id="siteFaviconFile" name="site_favicon_file"
+                                    accept=".ico,.png,.jpg,.jpeg,.webp,.svg,image/*"
+                                    data-file-label="{{ t('Chưa chọn file') }}">
+                                <div class="brand-file-inner">
+                                    <div class="brand-file-icon"><i class="bi bi-app"></i></div>
+                                    <div class="brand-file-text">
+                                        <span class="brand-file-btn"><i class="bi bi-upload"></i>{{ t('Chọn file') }}</span>
+                                        <span class="brand-file-name" data-file-name>{{ t('Chưa chọn file') }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="brand-upload-foot">
+                                <div class="form-text" style="font-size:.75rem;">ICO, PNG — {{ t('khuyến nghị 32×32 hoặc 64×64') }}</div>
+                                <div class="form-check mt-2 mb-0">
+                                    <input class="form-check-input" type="checkbox" name="reset_favicon" value="1" id="resetFavicon">
+                                    <label class="form-check-label" for="resetFavicon" style="font-size:.82rem;">{{ t('Dùng favicon mặc định') }}</label>
+                                </div>
+                            </div>
+                        </div>
+                            </div>
+                        </div>
+
+                        <div class="col-12">
+                            <button type="submit" class="btn btn-sm btn-admin-primary px-4">
+                                <i class="bi bi-check2 me-1"></i>{{ t('Lưu cấu hình giao diện') }}
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+
     <!-- Credit packages -->
     <div class="col-12">
         <div class="card-admin">
@@ -304,14 +547,14 @@
                         <tbody>
                             {% for pkg in packages %}
                             <tr id="row-{{ pkg.id }}" class="{% if not pkg.is_active %}opacity-50{% endif %}">
-                                <td class="fw-semibold">{{ pkg.name }}</td>
+                                <td class="fw-semibold">{{ t(pkg.name) }}</td>
                                 <td><span class="badge" style="background:#ede9fe;color:#5b21b6;font-size:.76rem;">{{
                                         pkg.credits }} cr</span></td>
                                 <td class="fw-semibold" style="color:#059669;">{{ '{:,.0f}'.format(pkg.price_vnd) }}đ
                                 </td>
                                 <td>
                                     {% if pkg.is_popular %}
-                                    <span class="badge" style="background:#fef3c7;color:#92400e;">{{ t('Phỏ bién') }}</span>
+                                    <span class="badge" style="background:#fef3c7;color:#92400e;">{{ t('Phổ biến') }}</span>
                                     {% else %}<span class="text-muted">—</span>{% endif %}
                                 </td>
                                 <td>
@@ -371,7 +614,7 @@
                                                 <input class="form-check-input" type="checkbox" name="pkg_popular"
                                                     id="pop-{{ pkg.id }}" {% if pkg.is_popular %}checked{% endif %}>
                                                 <label class="form-check-label" for="pop-{{ pkg.id }}"
-                                                    style="font-size:.82rem;">{{ t('Phỏ bién') }}</label>
+                                                    style="font-size:.82rem;">{{ t('Phổ biến') }}</label>
                                             </div>
                                         </div>
                                         <div class="col-md-3">
@@ -422,7 +665,7 @@
                             <div class="col-md-2">
                                 <div class="form-check mt-4">
                                     <input class="form-check-input" type="checkbox" name="pkg_popular" id="pkgPopular">
-                                    <label class="form-check-label" style="font-size:.82rem;" for="pkgPopular">{{ t('Phỏ bién') }}</label>
+                                    <label class="form-check-label" style="font-size:.82rem;" for="pkgPopular">{{ t('Phổ biến') }}</label>
                                 </div>
                             </div>
                             <div class="col-md-3">
@@ -460,7 +703,7 @@
                         <tbody>
                             {% for sub in sub_packages %}
                             <tr id="subrow-{{ sub.id }}" class="{% if not sub.is_active %}opacity-50{% endif %}">
-                                <td class="fw-semibold">{{ sub.name }}</td>
+                                <td class="fw-semibold">{{ t(sub.name) }}</td>
                                 <td><span class="badge" style="background:#cffafe;color:#0e7490;font-size:.76rem;">{{
                                         sub.credits }} cr</span></td>
                                 <td class="fw-semibold" style="color:#059669;">{{ '{:,.0f}'.format(sub.price_vnd) }}đ
@@ -686,7 +929,7 @@
                     <div class="row g-3">
                         <div class="col-12">
                             <h6 class="fw-bold text-dark border-bottom pb-2" style="font-size:.88rem;">
-                                <i class="bi bi-key me-2"></i>Flask SECRET_KEY
+                                <i class="bi bi-key me-2"></i>{{ t('Flask SECRET_KEY') }}
                             </h6>
                             <input type="text" name="secret_key" class="form-control form-control-sm font-monospace"
                                 value="{{ settings.secret_key or '' }}"
@@ -696,21 +939,21 @@
 
                         <div class="col-12 mt-2">
                             <h6 class="fw-bold text-dark border-bottom pb-2" style="font-size:.88rem;">
-                                <i class="bi bi-google me-2"></i>Google OAuth (Đăng nhập Google)
+                                <i class="bi bi-google me-2"></i>{{ t('Google OAuth (Đăng nhập Google)') }}
                             </h6>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Client ID</label>
+                            <label class="form-label">{{ t('Client ID') }}</label>
                             <input type="text" name="google_client_id" class="form-control form-control-sm font-monospace"
                                 value="{{ settings.google_client_id or '' }}">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Client Secret</label>
+                            <label class="form-label">{{ t('Client Secret') }}</label>
                             <input type="text" name="google_client_secret" class="form-control form-control-sm font-monospace"
                                 value="{{ settings.google_client_secret or '' }}" placeholder="{{ t('Để trống nếu không đổi') }}">
                         </div>
                         <div class="col-12">
-                            <label class="form-label">Redirect URI (tùy chọn — ngrok/production)</label>
+                            <label class="form-label">{{ t('Redirect URI (tùy chọn — ngrok/production)') }}</label>
                             <input type="url" name="google_redirect_uri" class="form-control form-control-sm font-monospace"
                                 value="{{ settings.google_redirect_uri or '' }}"
                                 placeholder="https://your-domain.com/auth/google/callback">
@@ -722,12 +965,12 @@
                             </h6>
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">TMN Code</label>
+                            <label class="form-label">{{ t('TMN Code') }}</label>
                             <input type="text" name="vnpay_tmn_code" class="form-control form-control-sm font-monospace"
                                 value="{{ settings.vnpay_tmn_code or '' }}">
                         </div>
                         <div class="col-md-8">
-                            <label class="form-label">Hash Secret</label>
+                            <label class="form-label">{{ t('Hash Secret') }}</label>
                             <input type="text" name="vnpay_hash_secret" class="form-control form-control-sm font-monospace"
                                 value="{{ settings.vnpay_hash_secret or '' }}" placeholder="{{ t('Để trống nếu không đổi') }}">
                         </div>
@@ -737,7 +980,7 @@
                                 value="{{ settings.vnpay_url or 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html' }}">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">Return URL</label>
+                            <label class="form-label">{{ t('Return URL') }}</label>
                             <input type="url" name="vnpay_return_url" class="form-control form-control-sm font-monospace"
                                 value="{{ settings.vnpay_return_url or '' }}"
                                 placeholder="https://your-domain.com/payment/vnpay/return">
@@ -745,11 +988,11 @@
 
                         <div class="col-12 mt-2">
                             <h6 class="fw-bold text-dark border-bottom pb-2" style="font-size:.88rem;">
-                                <i class="bi bi-bank me-2"></i>SePay Webhook
+                                <i class="bi bi-bank me-2"></i>{{ t('SePay Webhook') }}
                             </h6>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">SePay API Key</label>
+                            <label class="form-label">{{ t('SePay API Key') }}</label>
                             <input type="text" name="sepay_api_key" class="form-control form-control-sm font-monospace"
                                 value="{{ settings.sepay_api_key or '' }}" placeholder="{{ t('Để trống nếu không đổi') }}">
                         </div>
@@ -889,5 +1132,68 @@
         editRow.style.display = visible ? 'none' : 'table-row';
         dispRow.style.opacity = visible ? '' : '0.4';
     }
+
+    document.querySelectorAll('[data-file-drop]').forEach(function (zone) {
+        var input = zone.querySelector('input[type="file"]');
+        var nameEl = zone.querySelector('[data-file-name]');
+        var emptyLabel = input.getAttribute('data-file-label') || 'No file chosen';
+
+        function setName(file) {
+            if (!nameEl) return;
+            if (file) {
+                nameEl.textContent = file.name;
+                nameEl.classList.add('has-file');
+            } else {
+                nameEl.textContent = emptyLabel;
+                nameEl.classList.remove('has-file');
+            }
+        }
+
+        input.addEventListener('change', function () {
+            var file = input.files && input.files[0] ? input.files[0] : null;
+            setName(file);
+            if (!file || !file.type.startsWith('image/')) return;
+            var kind = input.name === 'site_favicon_file' ? 'favicon' : 'logo';
+            var preview = document.querySelector('[data-brand-preview="' + kind + '"]');
+            if (!preview) return;
+            if (preview._objectUrl) URL.revokeObjectURL(preview._objectUrl);
+            preview._objectUrl = URL.createObjectURL(file);
+            preview.src = preview._objectUrl;
+        });
+
+        ['dragenter', 'dragover'].forEach(function (evt) {
+            zone.addEventListener(evt, function (e) {
+                e.preventDefault();
+                zone.classList.add('is-dragover');
+            });
+        });
+        ['dragleave', 'drop'].forEach(function (evt) {
+            zone.addEventListener(evt, function (e) {
+                e.preventDefault();
+                zone.classList.remove('is-dragover');
+            });
+        });
+        zone.addEventListener('drop', function (e) {
+            var files = e.dataTransfer && e.dataTransfer.files;
+            if (!files || !files.length) return;
+            try {
+                var dt = new DataTransfer();
+                dt.items.add(files[0]);
+                input.files = dt.files;
+            } catch (err) {
+                return;
+            }
+            setName(files[0]);
+            if (files[0].type.startsWith('image/')) {
+                var kind = input.name === 'site_favicon_file' ? 'favicon' : 'logo';
+                var preview = document.querySelector('[data-brand-preview="' + kind + '"]');
+                if (preview) {
+                    if (preview._objectUrl) URL.revokeObjectURL(preview._objectUrl);
+                    preview._objectUrl = URL.createObjectURL(files[0]);
+                    preview.src = preview._objectUrl;
+                }
+            }
+        });
+    });
 </script>
 {% endblock %}

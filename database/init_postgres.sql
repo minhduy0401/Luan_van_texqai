@@ -2,7 +2,9 @@
 -- Chạy với quyền superuser (postgres):
 --   psql -U postgres -f database/init_postgres.sql
 --
--- Sau đó cấu hình instance/bootstrap.json và chạy: python init_db.py
+-- Sau đó tạo bảng:
+--   python init_db.py
+--   hoặc: psql -U postgres -d luanvan_ai -f database/schema_postgres.sql
 
 SELECT 'CREATE DATABASE luanvan_ai ENCODING ''UTF8'''
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'luanvan_ai')\gexec

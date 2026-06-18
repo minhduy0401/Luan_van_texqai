@@ -29,6 +29,17 @@ class User(UserMixin, db.Model):
             return self.email.split('@')[0]
         return f'User {self.id}'
 
+    @property
+    def has_google_auth(self):
+        """True if user linked Google login (query trực tiếp, tránh lazy-load lỗi session)."""
+        try:
+            uid = self.id
+        except Exception:
+            return False
+        return db.session.query(UserAuthProvider.id).filter_by(
+            user_id=uid, provider='google'
+        ).first() is not None
+
 class UserAuthProvider(db.Model):
     """One row per (user, provider) pair.
     provider = 'local' → password_hash is used.
@@ -181,7 +192,11 @@ class Feedback(db.Model):
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    try:
+        uid = int(user_id)
+    except (TypeError, ValueError):
+        return None
+    return db.session.get(User, uid)
 
 
 # --- SYSTEM SETTINGS ---

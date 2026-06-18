@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="{{ current_lang }}">
 
 <head>
     <meta charset="UTF-8">
     {% include '_favicon.html' %}
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>{{ t('Đăng nhập') }} — TEXTQAI</title>
+    <title>{{ t('Đăng nhập') }} — {{ site_name }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link
@@ -281,7 +281,7 @@
         <div class="login-card">
 
             <a href="{{ url_for('index', landing='1') }}" class="brand">
-                <img src="{{ url_for('static', filename='logo.png') }}" alt="TEXTQAI"
+                <img src="{{ url_for('static', filename=site_logo_file) }}?v={{ branding_v }}" alt="{{ site_name }}"
                     style="height:52px;filter:brightness(0) invert(1);">
             </a>
 
@@ -408,7 +408,7 @@
         if (history.length <= 1) return;
         var safeTop = 'calc(env(safe-area-inset-top, 0px) + 10px)';
         var btn = document.createElement('button');
-        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/></svg> <span>Quay l\u1ea1i</span>';
+        btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/></svg> <span>{{ t('Quay lại') | e }}</span>';
         btn.onclick = function(){ history.back(); };
         btn.style.cssText = 'position:fixed;z-index:9999;top:'+safeTop+';left:12px;background:rgba(255,255,255,0.92);border:1px solid rgba(0,0,0,0.1);border-radius:999px;padding:8px 14px 8px 10px;font-size:.88rem;font-weight:600;color:#1d2433;box-shadow:0 2px 12px rgba(0,0,0,0.12);touch-action:manipulation;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:Inter,sans-serif;';
         document.body.appendChild(btn);
