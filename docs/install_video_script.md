@@ -14,6 +14,8 @@
 | Máy dev đã cài Python, DB, venv sẵn — chỉ clone folder mới | **VM / máy sạch** — chưa có Python, Git, XAMPP |
 | Nói “bước này các bạn tự cài” rồi cắt cảnh | **Quay luôn** màn hình tải + Next + Finish installer |
 | Nhảy thẳng vào `bootstrap.json` | Clone vào **folder mới trống** (vd. `D:\TEXTQAI_Setup`) |
+| Gõ `database_uri` vào PowerShell | URI **chỉ ghi trong file** `instance/bootstrap.json` |
+| `pip install` ở folder cha (không thấy requirements.txt) | Terminal phải nằm **cùng folder với `app.py`** |
 | Gộp nhiều bước trong 10 giây | Mỗi bước: nói → làm → chờ xong → chuyển bước |
 
 **Gợi ý kỹ thuật:** VirtualBox / VMware / Hyper-V cài Windows 11, snapshot trước khi quay để quay lại nếu lỗi.
@@ -27,7 +29,7 @@
 | 1 | Python, Git, XAMPP (MySQL) | Sẽ cài **trong video** |
 | 2 | Folder project TEXTQAI | Sẽ **clone mới** trong video |
 | 3 | `instance/bootstrap.json` | Tạo **trong video** bằng `setup_bootstrap.py` |
-| 4 | Database `textqai` | Tạo **trong video** bằng `init_mysql.sql` (phpMyAdmin hoặc lệnh) |
+| 4 | Database `textqai` | Tạo **trong video** bằng SQL ngắn trong phpMyAdmin |
 
 Chỉ cần sẵn: trình duyệt, kết nối mạng, Cursor/VS Code (có thể cài nhanh 1 phút đầu).
 
@@ -41,7 +43,7 @@ Chỉ cần sẵn: trình duyệt, kết nối mạng, Cursor/VS Code (có thể
 ⓪ Giới thiệu
 ① Cài Python          ② Cài Git           ③ Cài XAMPP + bật MySQL
 ④ Clone code (folder mới)    ⑤ venv + pip (+ driver MySQL)
-⑥ Tạo DB MySQL (init_mysql.sql)   ⑦ bootstrap.json    ⑧ init_db.py
+⑥ Tạo DB `textqai` (phpMyAdmin)   ⑦ bootstrap.json (sửa file, không gõ terminal)   ⑧ init_db.py
 ⑨ python app.py       ⑩ create_admin + mở trình duyệt
 ```
 
@@ -91,83 +93,112 @@ Chỉ cần sẵn: trình duyệt, kết nối mạng, Cursor/VS Code (có thể
 
 ---
 
-## PHẦN 4 — CLONE CODE VÀO FOLDER MỚI (10:00 – 13:00)
+## PHẦN 4 — CLONE CODE VÀO FOLDER MỚI (10:00 – 14:00)
 
 | Thời gian | Hình ảnh | Lời thoại | Lệnh |
 |-----------|----------|-----------|------|
-| 10:00–10:30 | File Explorer — folder trống | *"Bước 4: tạo folder mới hoàn toàn — ví dụ D:\\TEXTQAI_Setup. Không dùng folder cũ đang dev."* | — |
-| 10:30–11:30 | PowerShell cd + clone | *"Clone mã nguồn từ GitHub vào folder này."* | `cd D:\`<br>`mkdir TEXTQAI_Setup`<br>`cd TEXTQAI_Setup`<br>`git clone https://github.com/minhduy0401/Luan_van_texqai.git .` |
-| 11:30–12:30 | Mở folder bằng Cursor | *"Mở thư mục bằng Cursor hoặc VS Code — viewer thấy đúng cấu trúc project."* | — |
-| 12:30–13:00 | Show `database\`, `app.py` | *"Đây là mã nguồn đầy đủ. Từ đây trở đi mọi lệnh chạy trong folder này."* | — |
+| 10:00–10:30 | File Explorer — folder trống | *"Bước 4: tạo folder mới — ví dụ D:\\TEXTQAI_Setup."* | — |
+| 10:30–11:30 | PowerShell cd + clone | *"Clone từ GitHub. **Quan trọng:** dấu chấm `.` ở cuối — code nằm thẳng trong folder này, không tạo folder con."* | `cd D:\`<br>`mkdir TEXTQAI_Setup`<br>`cd TEXTQAI_Setup`<br>`git clone https://github.com/minhduy0401/Luan_van_texqai.git .` |
+| 11:30–12:00 | `dir` — thấy `app.py`, `requirements.txt` | *"Kiểm tra: phải thấy app.py và requirements.txt ngay tại đây. Nếu chỉ thấy folder Luan_van_texqai bên trong — nghĩa là quên dấu chấm, cd vào folder con đó."* | `dir app.py`<br>`dir requirements.txt` |
+| 12:00–13:00 | Mở folder bằng Cursor/VS Code | *"Open Folder → chọn đúng thư mục có app.py — terminal trong IDE sẽ đúng chỗ."* | — |
+| 13:00–14:00 | Show `database\`, `instance\` | *"Từ bước 5 trở đi, mọi lệnh chạy trong folder có app.py."* | — |
+
+> **Nếu đã clone không có dấu `.`:** `cd D:\TEXTQAI_Setup\Luan_van_texqai` — làm tiếp từ folder đó.
 
 ---
 
-## PHẦN 5 — PYTHON VENV + PIP (13:00 – 16:30)
+## PHẦN 5 — PYTHON VENV + PIP (14:00 – 17:30)
 
 | Thời gian | Hình ảnh | Lời thoại | Lệnh |
 |-----------|----------|-----------|------|
-| 13:00–13:30 | Terminal trong folder clone | *"Bước 5: tạo môi trường ảo Python trong project."* | `python -m venv venv` |
-| 13:30–14:00 | Activate | *"Kích hoạt — thấy (venv) đầu dòng."* | `venv\Scripts\activate` |
-| 14:00–16:00 | pip install | *"Cài thư viện — đợi 2–5 phút, có thể tua nhanh khi dựng video nhưng phải thấy lệnh chạy đủ."* | `pip install -r requirements.txt` |
-| 16:00–16:30 | pip mysql driver | *"Dùng MySQL nên cài thêm driver — không có sẵn trong requirements."* | `pip install mysql-connector-python` |
+| 14:00–14:15 | Terminal — pwd / prompt | *"Bước 5: xác nhận đang ở folder project — prompt phải là …\\TEXTQAI_Setup hoặc …\\Luan_van_texqai (có app.py)."* | `dir requirements.txt` |
+| 14:15–14:45 | Tạo venv | *"Tạo môi trường ảo **trong folder project**, không tạo ở folder cha."* | `python -m venv venv` |
+| 14:45–15:15 | Activate | *"Kích hoạt — thấy (venv) đầu dòng."* | `venv\Scripts\activate` |
+| 15:15–17:00 | pip install | *"Cài thư viện — có thể tua nhanh khi dựng nhưng phải thấy lệnh chạy đủ."* | `pip install -r requirements.txt` |
+| 17:00–17:30 | Driver MySQL | *"MySQL cần driver riêng — không có trong requirements.txt."* | `pip install mysql-connector-python` |
 
 ---
 
-## PHẦN 6 — TẠO DATABASE MYSQL (16:30 – 20:00)
+## PHẦN 6 — TẠO DATABASE MYSQL (17:30 – 21:00)
 
-> **Cách A — phpMyAdmin (khuyên quay):** trực quan, ít lỗi gõ lệnh. **Cách B — lệnh:** dành cho viewer quen terminal.
+> **Khuyên quay:** chỉ tạo database bằng SQL ngắn trong phpMyAdmin — **không** chạy `CREATE USER` trên XAMPP (hay lỗi `#1034 global_priv corrupt`).
 
 | Thời gian | Hình ảnh | Lời thoại | Lệnh / thao tác |
 |-----------|----------|-----------|-----------------|
-| 16:30–17:00 | Mở `database\init_mysql.sql` trong Cursor | *"Bước 6: file này tạo database textqai và user textqai_user. Trong repo mặc định là luanvan_ai — đổi thành textqai (Find & Replace) và sửa mật khẩu your_password nếu cần."* | — |
-| 17:00–18:30 | phpMyAdmin → tab SQL | *"Mở phpMyAdmin, chọn tab SQL, copy toàn bộ nội dung init_mysql.sql, bấm Go — thấy database textqai là xong."* | `http://localhost/phpmyadmin` → SQL → Execute |
-| 18:30–19:00 | Sidebar: database `textqai` | *"Kiểm tra bên trái đã có database textqai."* | — |
-| 19:00–20:00 | (Tùy chọn) Lệnh XAMPP | *"Hoặc chạy lệnh — XAMPP root thường không mật khẩu, Enter khi hỏi password."* | `Get-Content database\init_mysql.sql \| & "C:\xampp\mysql\bin\mysql.exe" -u root` |
+| 17:30–18:00 | XAMPP — MySQL Start (xanh) | *"Bước 6: MySQL phải đang chạy."* | — |
+| 18:00–19:30 | phpMyAdmin → tab SQL | *"Mở phpMyAdmin, tab SQL, dán và chạy **chỉ** lệnh tạo database — XAMPP dev dùng user root, không cần tạo user riêng."* | Xem khối SQL bên dưới |
+| 19:30–20:00 | Sidebar: database `textqai` | *"Kiểm tra bên trái đã có database textqai."* | — |
+| 20:00–21:00 | (Tùy chọn) File init_mysql.sql | *"File init_mysql.sql trong repo mặc định tên luanvan_ai — nếu dùng file đó, Find & Replace thành textqai. Hoặc bỏ qua CREATE USER nếu XAMPP báo lỗi quyền."* | — |
 
-**Lưu ý trên video:** MySQL trong XAMPP phải đang **Start** (màu xanh) trước khi làm bước này.
+**SQL chạy trong phpMyAdmin (copy-paste, khuyên dùng):**
+
+```sql
+CREATE DATABASE IF NOT EXISTS textqai
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+```
+
+**Lưu ý trên video:** MySQL XAMPP phải **Start** trước. Lỗi `global_priv corrupt` → bỏ qua CREATE USER, chỉ chạy khối SQL trên.
 
 ---
 
-## PHẦN 7 — CẤU HÌNH BOOTSTRAP (20:00 – 23:00)
+## PHẦN 7 — CẤU HÌNH BOOTSTRAP (21:00 – 25:00)
+
+> **Quan trọng:** `database_uri` là **nội dung file JSON**, không gõ vào PowerShell.
+
+| Thời gian | Hình ảnh | Lời thoại | Lệnh / nội dung |
+|-----------|----------|-----------|-----------------|
+| 21:00–21:30 | Giải thích bootstrap | *"Bước 7: file instance/bootstrap.json — app đọc kết nối DB từ đây."* | — |
+| 21:30–22:00 | Terminal | *"Tạo file mẫu."* | `python setup_bootstrap.py` |
+| 22:00–23:30 | **Mở và sửa** `instance/bootstrap.json` trong editor | *"Mở file trong VS Code — sửa hai trường. database_uri: chuỗi kết nối MySQL. secret_key: chuỗi bí mật tự đặt cho Flask session — dev có thể dùng chuỗi dài bất kỳ, không phải API key."* | Xem JSON mẫu bên dưới |
+| 23:30–24:30 | Zoom JSON — **không** gõ URI vào terminal | *"Lưu file Ctrl+S. **Không** paste mysql+mysqlconnector://… vào PowerShell — đó không phải lệnh."* | — |
+| 24:30–25:00 | URL-encode note | *"Mật khẩu MySQL có @ # % phải encode URL trong URI."* | — |
+
+**Nội dung mẫu `instance/bootstrap.json` (XAMPP, root không mật khẩu):**
+
+```json
+{
+  "database_uri": "mysql+mysqlconnector://root@127.0.0.1:3306/textqai",
+  "secret_key": "a8fK2mP9xQ7vL4nR1wT6yU3zB0cD5eG8"
+}
+```
+
+| Trường | Ý nghĩa |
+|--------|---------|
+| `database_uri` | Kết nối MySQL — tên DB phải khớp bước 6 (`textqai`) |
+| `secret_key` | Bí mật Flask (session đăng nhập) — tự đặt, giữ cố định trên máy |
+
+---
+
+## PHẦN 8 — TẠO BẢNG (init_db) (25:00 – 27:00)
 
 | Thời gian | Hình ảnh | Lời thoại | Lệnh |
 |-----------|----------|-----------|------|
-| 20:00–20:30 | Giải thích bootstrap | *"Bước 7: file instance/bootstrap.json — kết nối DB và secret key."* | — |
-| 20:30–21:00 | setup_bootstrap | *"Tạo file mẫu."* | `python setup_bootstrap.py` |
-| 21:00–22:30 | Sửa bootstrap.json | *"Sửa database_uri sang MySQL — dùng user textqai_user và mật khẩu đã đặt trong init_mysql.sql. XAMPP dev có thể dùng root không mật khẩu."* | `mysql+mysqlconnector://textqai_user:your_password@127.0.0.1:3306/textqai`<br>hoặc `mysql+mysqlconnector://root@127.0.0.1:3306/textqai` |
-| 22:30–23:00 | URL-encode note | *"Mật khẩu có @ # % phải encode URL."* | — |
+| 25:00–25:30 | Giải thích | *"Bước 8: sau khi bootstrap.json đã lưu — script Python tạo 12 bảng + seed cài đặt mặc định."* | — |
+| 25:30–27:00 | Terminal — venv active | *"Chạy một lần — thấy danh sách bảng có dấu ✓ là thành công."* | `python init_db.py` |
 
 ---
 
-## PHẦN 8 — TẠO BẢNG (init_db) (23:00 – 25:00)
+## PHẦN 9 — CHẠY ỨNG DỤNG (27:00 – 30:00)
 
 | Thời gian | Hình ảnh | Lời thoại | Lệnh |
 |-----------|----------|-----------|------|
-| 23:00–23:30 | Giải thích | *"Bước 8: tạo 12 bảng + seed cài đặt mặc định."* | — |
-| 23:30–25:00 | Chạy init_db | *"Chạy một lần — thấy OK là được."* | `python init_db.py` |
+| 27:00–28:00 | venv + app.py | *"Bước 9: khởi động server."* | `python app.py` |
+| 28:00–30:00 | Browser localhost:5000 | *"Mở trình duyệt — thấy landing page là thành công."* | `http://localhost:5000` |
 
 ---
 
-## PHẦN 9 — CHẠY ỨNG DỤNG (25:00 – 28:00)
+## PHẦN 10 — TẠO ADMIN (30:00 – 34:00)
 
 | Thời gian | Hình ảnh | Lời thoại | Lệnh |
 |-----------|----------|-----------|------|
-| 25:00–26:00 | venv + app.py | *"Bước 9: khởi động server."* | `python app.py` |
-| 26:00–28:00 | Browser localhost:5000 | *"Mở trình duyệt — thấy landing page là thành công."* | `http://localhost:5000` |
+| 30:00–31:30 | Terminal 2 — cùng folder project | *"Bước 10: không có admin mặc định — tạo bằng script."* | `python create_admin.py` |
+| 31:30–33:00 | Login → /admin | *"Đăng nhập, vào Admin, cấu hình API key / OAuth nếu cần."* | — |
+| 33:00–34:00 | Tóm tắt 10 bước | *"Xong — từ máy trắng đến website chạy được."* | — |
 
 ---
 
-## PHẦN 10 — TẠO ADMIN (28:00 – 32:00)
-
-| Thời gian | Hình ảnh | Lời thoại | Lệnh |
-|-----------|----------|-----------|------|
-| 28:00–29:30 | Terminal 2 | *"Bước 10: không có admin mặc định — tạo bằng script."* | `python create_admin.py` |
-| 29:30–31:00 | Login → /admin | *"Đăng nhập, vào Admin, cấu hình API key / OAuth nếu cần."* | — |
-| 31:00–32:00 | Tóm tắt 10 bước | *"Xong — từ máy trắng đến website chạy được."* | — |
-
----
-
-## PHẦN 11 — NGROK (TÙY CHỌN) (32:00 – 34:00)
+## PHẦN 11 — NGROK (TÙY CHỌN) (34:00 – 36:00)
 
 | Hình ảnh | Lời thoại | Lệnh |
 |----------|-----------|------|
@@ -177,7 +208,7 @@ Chỉ cần sẵn: trình duyệt, kết nối mạng, Cursor/VS Code (có thể
 
 ---
 
-## PHẦN 12 — KẾT & LỖI THƯỜNG GẶP (34:00 – 38:00)
+## PHẦN 12 — KẾT & LỖI THƯỜNG GẶP (36:00 – 40:00)
 
 | Hình ảnh | Lời thoại |
 |----------|-----------|
@@ -186,13 +217,15 @@ Chỉ cần sẵn: trình duyệt, kết nối mạng, Cursor/VS Code (có thể
 
 | Lỗi trên màn hình | Cách xử lý (nói nhanh trên video) |
 |-------------------|-----------------------------------|
+| `No such file or directory: requirements.txt` | Sai folder — `cd` vào chỗ có `app.py`, hoặc clone thiếu dấu `.` → vào `Luan_van_texqai` |
+| `The term 'mysql+mysqlconnector://…' is not recognized` | Gõ URI vào PowerShell — phải ghi vào `instance/bootstrap.json` |
+| `#1034 global_priv corrupt` (CREATE USER) | XAMPP lỗi bảng hệ thống — chỉ chạy `CREATE DATABASE textqai`, dùng `root` trong bootstrap |
 | `python` không nhận lệnh | Chưa tick Add to PATH — cài lại Python |
 | `ModuleNotFoundError` | Chưa `venv\Scripts\activate` |
-| `could not connect to server` / `Can't connect to MySQL` | MySQL chưa chạy — bật Start trong XAMPP Control Panel |
-| `Table 'textqai.users' doesn't exist` | Chưa chạy `python init_db.py` |
-| `Access denied for user` | Sai user/mật khẩu trong `bootstrap.json` |
+| `Can't connect to MySQL` | MySQL chưa Start trong XAMPP Control Panel |
+| `Table 'textqai.users' doesn't exist` | Chưa chạy `python init_db.py` hoặc chưa lưu bootstrap.json |
 | `No module named 'mysql'` | Chưa `pip install mysql-connector-python` |
-| `Unknown database 'textqai'` | Chưa chạy `init_mysql.sql` ở bước 6 |
+| `Unknown database 'textqai'` | Chưa tạo DB ở bước 6 — hoặc tên DB không khớp URI |
 
 ---
 
@@ -215,13 +248,29 @@ Chỉ cần sẵn: trình duyệt, kết nối mạng, Cursor/VS Code (có thể
 [2] Cài Git → git --version
 [3] Cài XAMPP → Start MySQL → mở phpMyAdmin
 
-[4] Folder mới D:\TEXTQAI_Setup → git clone ... .
-[5] venv → activate → pip install -r requirements.txt
-    → pip install mysql-connector-python
-[6] phpMyAdmin: chạy database\init_mysql.sql (hoặc lệnh mysql XAMPP)
-[7] setup_bootstrap.py → sửa bootstrap.json (URI MySQL)
-[8] python init_db.py
-[9] python app.py → localhost:5000
+[4] D:\TEXTQAI_Setup
+    git clone https://github.com/minhduy0401/Luan_van_texqai.git .
+    dir app.py          ← phải thấy file
+    Open Folder trong VS Code (folder có app.py)
+
+[5] python -m venv venv
+    venv\Scripts\activate
+    pip install -r requirements.txt
+    pip install mysql-connector-python
+
+[6] phpMyAdmin → SQL → chỉ CREATE DATABASE textqai
+    (không CREATE USER trên XAMPP)
+
+[7] python setup_bootstrap.py
+    Sửa instance/bootstrap.json (KHÔNG gõ URI vào terminal):
+    {
+      "database_uri": "mysql+mysqlconnector://root@127.0.0.1:3306/textqai",
+      "secret_key": "chuoi-bi-mat-tu-dat"
+    }
+    Ctrl+S lưu file
+
+[8] python init_db.py   ← tạo 12 bảng
+[9] python app.py → http://localhost:5000
 [10] python create_admin.py → /admin
 
 [KẾT] Xong!
@@ -233,9 +282,10 @@ Chỉ cần sẵn: trình duyệt, kết nối mạng, Cursor/VS Code (có thể
 
 1. **Mỗi bước = 1 cảnh quay liên tục** — tránh cắt giữa lệnh đang chạy.  
 2. **Pause 2 giây** sau mỗi lệnh thành công để viewer chép.  
-3. **Blur** mật khẩu thật trong bootstrap.json khi quay.  
-4. **Phụ đề** chèn lệnh copy-paste ở cuối mỗi phần.  
-5. Đính kèm mô tả video: link GitHub + link `install_guide.md`.
+3. **Quay rõ:** `dir app.py` sau clone; mở `bootstrap.json` trong editor (không paste URI vào terminal).  
+4. **Blur** mật khẩu / secret_key thật khi publish.  
+5. **Phụ đề** chèn lệnh copy-paste ở cuối mỗi phần.  
+6. Đính kèm mô tả video: link GitHub + link `install_guide.md`.
 
 ---
 

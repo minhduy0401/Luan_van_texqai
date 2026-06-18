@@ -50,14 +50,45 @@
 - macOS: `brew install git` hoặc cài Xcode Command Line Tools
 
 #### Bước 2 – Clone repository
-Mở terminal/cmd, chọn thư mục muốn đặt dự án, rồi chạy:
+
+Mở terminal/cmd, chọn thư mục muốn đặt dự án, rồi chạy **một trong hai cách**:
+
+**Cách A — Clone thẳng vào folder đích (khuyến nghị):**
+
+```bash
+mkdir TEXTQAI_Setup
+cd TEXTQAI_Setup
+git clone https://github.com/minhduy0401/Luan_van_texqai.git .
+```
+
+**Cách B — Clone tạo folder con:**
 
 ```bash
 git clone https://github.com/minhduy0401/Luan_van_texqai.git
 cd Luan_van_texqai
 ```
 
-#### Bước 3 – (Tùy chọn) Cập nhật code sau này
+#### Bước 3 – Kiểm tra đúng thư mục project
+
+Trước khi `pip install` hoặc `python app.py`, terminal phải nằm **cùng folder với `app.py` và `requirements.txt`**:
+
+```bash
+# Windows
+dir app.py
+dir requirements.txt
+
+# macOS / Linux
+ls app.py requirements.txt
+```
+
+| Triệu chứng | Nguyên nhân | Cách xử lý |
+|-------------|-------------|------------|
+| `No such file or directory: requirements.txt` | Đang ở folder cha (chỉ thấy `Luan_van_texqai/` bên trong) | `cd Luan_van_texqai` hoặc clone lại với dấu `.` (Cách A) |
+| VS Code/Cursor mở nhầm folder cha | Terminal IDE sai cwd | **File → Open Folder** → chọn folder có `app.py` |
+
+> Mở project bằng VS Code/Cursor: chọn folder **có trực tiếp** `app.py`, không phải folder bọc ngoài.
+
+#### Bước 4 – (Tùy chọn) Cập nhật code sau này
 Khi repository có phiên bản mới:
 
 ```bash
@@ -69,6 +100,8 @@ git pull
 ---
 
 ### 3. Cài đặt môi trường Python
+
+> Chạy các lệnh dưới đây **trong folder project** (có `app.py`) — xem [mục 2 bước 3](#bước-3--kiểm-tra-đúng-thư-mục-project).
 
 #### Bước 1 – Tạo môi trường ảo
 ```bash
@@ -89,7 +122,8 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-> ⏱️ Quá trình cài đặt mất khoảng 2–5 phút tùy tốc độ mạng.
+> ⏱️ Quá trình cài đặt mất khoảng 2–5 phút tùy tốc độ mạng.  
+> **MySQL:** sau bước này chạy thêm `pip install mysql-connector-python` ([mục 5](#5-cài-đặt-mysql--mariadb--xampp)).
 
 ---
 
@@ -202,6 +236,24 @@ TEXTQAI kết nối MySQL qua SQLAlchemy URI `mysql+mysqlconnector://...`. Cùng
 
 #### Bước 2 – Tạo database và user
 
+##### XAMPP (Windows — khuyến nghị cho người mới)
+
+1. XAMPP Control Panel → **Start** MySQL (màu xanh)
+2. Mở `http://localhost/phpmyadmin` → tab **SQL**
+3. Chạy **chỉ** lệnh tạo database (XAMPP dev dùng `root`, không cần `CREATE USER`):
+
+```sql
+CREATE DATABASE IF NOT EXISTS textqai
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+```
+
+4. Kiểm tra sidebar trái đã có database `textqai`
+
+> **Lỗi `#1034 - Index for table 'global_priv' is corrupt`** khi chạy `CREATE USER`: do bảng hệ thống XAMPP hỏng — **bỏ qua** `CREATE USER`, chỉ tạo database như trên, dùng `root` trong `bootstrap.json` ([mục 7](#7-cấu-hình-bootstrap-instancebootstrapjson)).
+
+##### MySQL / MariaDB cài riêng (hoặc Docker)
+
 File: `database/init_mysql.sql`
 
 > **Tên database:** hướng dẫn này dùng `textqai`. File SQL trong repo mặc định là `luanvan_ai` — mở file, Find & Replace `luanvan_ai` → `textqai` trước khi chạy.
@@ -210,19 +262,19 @@ File: `database/init_mysql.sql`
 mysql -u root -p < database/init_mysql.sql
 ```
 
-**XAMPP (Windows):**
+**XAMPP (lệnh terminal, tùy chọn):**
 
 ```powershell
 "C:\xampp\mysql\bin\mysql.exe" -u root -p < database\init_mysql.sql
 ```
 
-**phpMyAdmin:** `http://localhost/phpmyadmin` → SQL → dán nội dung `database/init_mysql.sql` → Execute.
+**phpMyAdmin (file đầy đủ):** dán nội dung `database/init_mysql.sql` → Execute — nếu lỗi `CREATE USER`, dùng khối SQL ngắn ở trên.
 
 | Thành phần | Giá trị mặc định |
 |------------|------------------|
 | Database | `textqai` (utf8mb4_unicode_ci) |
-| User app | `textqai_user` / `your_password` (sửa trong file SQL) |
-| User dev XAMPP | `root` — thường không mật khẩu |
+| User app | `textqai_user` / `your_password` (chỉ khi chạy được `init_mysql.sql` đầy đủ) |
+| User dev XAMPP | `root` — thường không mật khẩu (**khuyên dùng**) |
 
 #### Bước 3 – Cài driver Python
 
@@ -245,21 +297,25 @@ Charset:  utf8mb4
 
 #### Bước 5 – Cấu hình `instance/bootstrap.json`
 
+Chi tiết đầy đủ: [mục 7](#7-cấu-hình-bootstrap-instancebootstrapjson). **XAMPP (khuyến nghị):**
+
 ```json
 {
-  "database_uri": "mysql+mysqlconnector://textqai_user:your_password@127.0.0.1:3306/textqai",
+  "database_uri": "mysql+mysqlconnector://root@127.0.0.1:3306/textqai",
   "secret_key": "your-secret-key-change-this"
 }
 ```
 
 | Trường hợp | URI mẫu |
 |------------|---------|
-| User + mật khẩu | `mysql+mysqlconnector://textqai_user:your_password@127.0.0.1:3306/textqai` |
 | XAMPP `root` không mật khẩu | `mysql+mysqlconnector://root@127.0.0.1:3306/textqai` |
+| User + mật khẩu | `mysql+mysqlconnector://textqai_user:your_password@127.0.0.1:3306/textqai` |
 
 #### Bước 6 – Tạo bảng (schema + PK/FK)
 
-**Cách A — Python (seed mặc định):**
+> Cần đã lưu `instance/bootstrap.json` trước khi chạy.
+
+**Cách A — Python (seed mặc định, khuyến nghị):**
 
 ```bash
 python init_db.py
@@ -444,6 +500,8 @@ Agent 3 thêm: `target_bloom`, `generated_bloom`, `validated_bloom`, `bloom_matc
 
 App chỉ cần **một file bootstrap** để biết cách kết nối DB lần đầu. **Không dùng `.env`** cho database URI.
 
+> ⚠️ **`database_uri` là nội dung file JSON** — mở `instance/bootstrap.json` trong editor, sửa và **Ctrl+S lưu**. **Không** gõ/paste chuỗi `mysql+mysqlconnector://...` vào PowerShell/CMD (đó không phải lệnh terminal).
+
 #### Bước 1 – Tạo file bootstrap
 
 ```bash
@@ -452,6 +510,8 @@ python setup_bootstrap.py
 
 #### Bước 2 – Sửa `instance/bootstrap.json`
 
+**PostgreSQL:**
+
 ```json
 {
   "database_uri": "postgresql+psycopg2://postgres:your_password@127.0.0.1:5432/textqai",
@@ -459,14 +519,31 @@ python setup_bootstrap.py
 }
 ```
 
+**MySQL / XAMPP (khuyến nghị dev local):**
+
+```json
+{
+  "database_uri": "mysql+mysqlconnector://root@127.0.0.1:3306/textqai",
+  "secret_key": "a8fK2mP9xQ7vL4nR1wT6yU3zB0cD5eG8"
+}
+```
+
 | Trường | Ý nghĩa |
 |--------|---------|
-| `database_uri` | Chuỗi kết nối SQLAlchemy — PostgreSQL: [mục 4](#4-cài-đặt-postgresql) · MySQL: [mục 5](#5-cài-đặt-mysql--mariadb--xampp) |
-| `secret_key` | Khóa session Flask (có thể ghi đè sau trong Admin) |
+| `database_uri` | Chuỗi kết nối SQLAlchemy — PostgreSQL: [mục 4](#4-cài-đặt-postgresql) · MySQL: [mục 5](#5-cài-đặt-mysql--mariadb--xampp). Tên database phải khớp bước tạo DB (`textqai`). |
+| `secret_key` | Chuỗi bí mật **tự đặt** cho Flask mã hóa session đăng nhập — **không phải** API key AI. Dev: chuỗi dài bất kỳ; production: random mạnh, không commit Git. |
 
-> Mật khẩu có ký tự đặc biệt (`@`, `#`, `%`…) phải [URL-encode](https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls) trong URI.
+> Mật khẩu DB có ký tự đặc biệt (`@`, `#`, `%`…) phải [URL-encode](https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls) trong URI.
 
-#### Bước 3 – Cấu hình còn lại qua Admin
+#### Bước 3 – Tạo bảng (nếu chưa chạy)
+
+```bash
+python init_db.py
+```
+
+Tạo 12 bảng + seed `system_settings`. Chỉ chạy **sau** khi `bootstrap.json` đã lưu đúng.
+
+#### Bước 4 – Cấu hình còn lại qua Admin
 
 Sau khi app chạy được, vào **Admin → Cài đặt hệ thống** (`system_settings`):
 
@@ -581,6 +658,9 @@ server {
 
 | Lỗi | Nguyên nhân | Giải pháp |
 |-----|-------------|-----------|
+| `No such file or directory: requirements.txt` | Terminal sai folder (folder cha, không có `app.py`) | `cd` vào folder có `app.py`; hoặc clone với dấu `.` ([mục 2](#2-clone-mã-nguồn-từ-github)) |
+| `The term 'mysql+mysqlconnector://…' is not recognized` | Gõ URI vào PowerShell thay vì file JSON | Ghi URI vào `instance/bootstrap.json`, lưu file, rồi `python init_db.py` |
+| `#1034 global_priv corrupt` (CREATE USER) | Bảng hệ thống XAMPP hỏng | Chỉ `CREATE DATABASE textqai` trong phpMyAdmin; dùng `root` trong bootstrap |
 | `ModuleNotFoundError: psycopg2` | Chưa cài driver PostgreSQL | `pip install -r requirements.txt` hoặc `python -m pip install psycopg2-binary` |
 | `No module named 'mysql'` / `mysql.connector` | Dùng MySQL nhưng thiếu driver | `pip install mysql-connector-python` |
 | `ModuleNotFoundError` (khác) | Chưa kích hoạt venv | `venv\Scripts\activate` (Windows) |
@@ -885,14 +965,45 @@ Bảng dưới liệt kê **toàn bộ công nghệ, thư viện và dịch vụ
 - macOS: `brew install git` or install Xcode Command Line Tools
 
 #### Step 2 – Clone the repository
-Open a terminal, navigate to your desired folder, then run:
+
+Open a terminal, navigate to your desired folder, then use **one of these approaches**:
+
+**Option A — Clone directly into target folder (recommended):**
+
+```bash
+mkdir TEXTQAI_Setup
+cd TEXTQAI_Setup
+git clone https://github.com/minhduy0401/Luan_van_texqai.git .
+```
+
+**Option B — Clone into a subfolder:**
 
 ```bash
 git clone https://github.com/minhduy0401/Luan_van_texqai.git
 cd Luan_van_texqai
 ```
 
-#### Step 3 – (Optional) Pull updates later
+#### Step 3 – Verify project directory
+
+Before `pip install` or `python app.py`, your terminal must be **in the same folder as `app.py` and `requirements.txt`**:
+
+```bash
+# Windows
+dir app.py
+dir requirements.txt
+
+# macOS / Linux
+ls app.py requirements.txt
+```
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `No such file or directory: requirements.txt` | Parent folder (only `Luan_van_texqai/` inside) | `cd Luan_van_texqai` or re-clone with `.` (Option A) |
+| VS Code/Cursor opened parent folder | IDE terminal wrong cwd | **File → Open Folder** → pick folder containing `app.py` |
+
+> Open the project in VS Code/Cursor: select the folder that **directly contains** `app.py`, not the outer wrapper.
+
+#### Step 4 – (Optional) Pull updates later
 When new code is pushed to the repository:
 
 ```bash
@@ -904,6 +1015,8 @@ git pull
 ---
 
 ### 3. Set Up Python Environment
+
+> Run commands below **inside the project folder** (where `app.py` lives) — see [Section 2 Step 3](#step-3--verify-project-directory).
 
 #### Step 1 – Create virtual environment
 ```bash
@@ -924,7 +1037,8 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-> ⏱️ Installation takes approximately 2–5 minutes depending on network speed.
+> ⏱️ Installation takes approximately 2–5 minutes depending on network speed.  
+> **MySQL:** also run `pip install mysql-connector-python` afterward ([Section 5](#5-set-up-mysql--mariadb--xampp)).
 
 ---
 
@@ -1037,6 +1151,24 @@ TEXTQAI connects to MySQL via SQLAlchemy URI `mysql+mysqlconnector://...`. Same 
 
 #### Step 2 – Create database and user
 
+##### XAMPP (Windows — recommended for beginners)
+
+1. XAMPP Control Panel → **Start** MySQL (green)
+2. Open `http://localhost/phpmyadmin` → **SQL** tab
+3. Run **only** the database creation (XAMPP dev uses `root`, no `CREATE USER` needed):
+
+```sql
+CREATE DATABASE IF NOT EXISTS textqai
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+```
+
+4. Confirm `textqai` appears in the left sidebar
+
+> **`#1034 - Index for table 'global_priv' is corrupt`** on `CREATE USER`: XAMPP system table issue — **skip** `CREATE USER`, create DB only as above, use `root` in `bootstrap.json` ([Section 7](#7-bootstrap-config-instancebootstrapjson)).
+
+##### Standalone MySQL / MariaDB (or Docker)
+
 File: `database/init_mysql.sql`
 
 > **Database name:** this guide uses `textqai`. Repo SQL files default to `luanvan_ai` — open the file and Find & Replace `luanvan_ai` → `textqai` before running.
@@ -1045,19 +1177,19 @@ File: `database/init_mysql.sql`
 mysql -u root -p < database/init_mysql.sql
 ```
 
-**XAMPP (Windows):**
+**XAMPP (terminal, optional):**
 
 ```powershell
 "C:\xampp\mysql\bin\mysql.exe" -u root -p < database\init_mysql.sql
 ```
 
-**phpMyAdmin:** `http://localhost/phpmyadmin` → SQL → paste `database/init_mysql.sql` → Execute.
+**phpMyAdmin (full file):** paste `database/init_mysql.sql` → Execute — if `CREATE USER` fails, use the short SQL block above.
 
 | Item | Default value |
 |------|---------------|
 | Database | `textqai` (utf8mb4_unicode_ci) |
-| App user | `textqai_user` / `your_password` (edit SQL file) |
-| XAMPP dev user | `root` — often no password |
+| App user | `textqai_user` / `your_password` (only if full `init_mysql.sql` succeeds) |
+| XAMPP dev user | `root` — often no password (**recommended**) |
 
 #### Step 3 – Install Python driver
 
@@ -1080,21 +1212,25 @@ Charset:  utf8mb4
 
 #### Step 5 – Configure `instance/bootstrap.json`
 
+Full details: [Section 7](#7-bootstrap-config-instancebootstrapjson). **XAMPP (recommended):**
+
 ```json
 {
-  "database_uri": "mysql+mysqlconnector://textqai_user:your_password@127.0.0.1:3306/textqai",
+  "database_uri": "mysql+mysqlconnector://root@127.0.0.1:3306/textqai",
   "secret_key": "your-secret-key-change-this"
 }
 ```
 
 | Case | Sample URI |
 |------|------------|
-| User + password | `mysql+mysqlconnector://textqai_user:your_password@127.0.0.1:3306/textqai` |
 | XAMPP passwordless `root` | `mysql+mysqlconnector://root@127.0.0.1:3306/textqai` |
+| User + password | `mysql+mysqlconnector://textqai_user:your_password@127.0.0.1:3306/textqai` |
 
 #### Step 6 – Create tables (schema + PK/FK)
 
-**Option A — Python (seeds defaults):**
+> Save `instance/bootstrap.json` before running.
+
+**Option A — Python (seeds defaults, recommended):**
 
 ```bash
 python init_db.py
@@ -1213,6 +1349,8 @@ erDiagram
 
 The app needs **only one bootstrap file** for the initial DB connection. **Do not use `.env`** for the database URI.
 
+> ⚠️ **`database_uri` belongs in the JSON file** — edit `instance/bootstrap.json` in your editor and **save**. Do **not** paste `mysql+mysqlconnector://...` into PowerShell/CMD (that is not a shell command).
+
 #### Step 1 – Create bootstrap file
 
 ```bash
@@ -1221,6 +1359,8 @@ python setup_bootstrap.py
 
 #### Step 2 – Edit `instance/bootstrap.json`
 
+**PostgreSQL:**
+
 ```json
 {
   "database_uri": "postgresql+psycopg2://postgres:your_password@127.0.0.1:5432/textqai",
@@ -1228,14 +1368,31 @@ python setup_bootstrap.py
 }
 ```
 
+**MySQL / XAMPP (recommended for local dev):**
+
+```json
+{
+  "database_uri": "mysql+mysqlconnector://root@127.0.0.1:3306/textqai",
+  "secret_key": "a8fK2mP9xQ7vL4nR1wT6yU3zB0cD5eG8"
+}
+```
+
 | Field | Meaning |
 |-------|---------|
-| `database_uri` | SQLAlchemy connection string — PostgreSQL: [Section 4](#4-set-up-postgresql-database) · MySQL: [Section 5](#5-set-up-mysql--mariadb--xampp) |
-| `secret_key` | Flask session key (can be overridden later in Admin) |
+| `database_uri` | SQLAlchemy connection string — PostgreSQL: [Section 4](#4-set-up-postgresql-database) · MySQL: [Section 5](#5-set-up-mysql--mariadb--xampp). DB name must match creation step (`textqai`). |
+| `secret_key` | **Self-chosen** secret for Flask login sessions — **not** an AI API key. Dev: any long string; production: strong random, never commit to Git. |
 
-> URL-encode special characters in the password (`@`, `#`, `%`, …) in the URI.
+> URL-encode special characters in the DB password (`@`, `#`, `%`, …) in the URI.
 
-#### Step 3 – Configure everything else in Admin
+#### Step 3 – Create tables (if not done yet)
+
+```bash
+python init_db.py
+```
+
+Creates 12 tables + seeds `system_settings`. Run only **after** saving a valid `bootstrap.json`.
+
+#### Step 4 – Configure everything else in Admin
 
 After the app starts, open **Admin → System Settings** (`system_settings`):
 
@@ -1345,6 +1502,9 @@ server {
 
 | Error | Cause | Solution |
 |-------|-------|----------|
+| `No such file or directory: requirements.txt` | Wrong folder (parent dir, no `app.py`) | `cd` into folder with `app.py`; or clone with `.` ([Section 2](#2-clone-source-from-github)) |
+| `The term 'mysql+mysqlconnector://…' is not recognized` | URI typed in PowerShell instead of JSON file | Put URI in `instance/bootstrap.json`, save, then `python init_db.py` |
+| `#1034 global_priv corrupt` (CREATE USER) | Corrupt XAMPP system table | Only `CREATE DATABASE textqai` in phpMyAdmin; use `root` in bootstrap |
 | `ModuleNotFoundError: psycopg2` | PostgreSQL driver missing | `pip install -r requirements.txt` or `python -m pip install psycopg2-binary` |
 | `No module named 'mysql'` / `mysql.connector` | Using MySQL without driver | `pip install mysql-connector-python` |
 | `ModuleNotFoundError` (other) | Virtual env not activated | Run `venv\Scripts\activate` (Windows) |
