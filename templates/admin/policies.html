@@ -1,0 +1,329 @@
+{% extends 'admin/base.html' %}
+
+{% block title %}{{ t('Cấu hình chính sách') }}{% endblock %}
+
+{% block page_title %}{{ t('Cấu hình chính sách') }}{% endblock %}
+
+
+
+{% block content %}
+
+<div class="row g-3">
+
+    <div class="col-lg-3">
+
+        <div class="card-admin">
+
+            <div class="card-header">
+
+                <span><i class="bi bi-file-earmark-text me-2" style="color:#6366f1;"></i>{{ t('Trang chính sách') }}</span>
+
+            </div>
+
+            <div class="list-group list-group-flush">
+
+                {% for p in policies %}
+
+                <a href="{{ url_for('admin_policies', slug=p.slug) }}"
+
+                   class="list-group-item list-group-item-action {% if p.slug == active_slug %}active{% endif %}"
+
+                   style="font-size:.84rem;{% if p.slug == active_slug %}background:#eef2ff;border-color:#e0e7ff;color:#4338ca;{% endif %}">
+
+                    <i class="bi bi-shield-check me-2"></i>{{ p.title }}
+
+                </a>
+
+                {% endfor %}
+
+            </div>
+
+        </div>
+
+
+
+        <div class="card-admin mt-3">
+
+            <div class="card-header">
+
+                <span><i class="bi bi-calendar3 me-2" style="color:#6366f1;"></i>{{ t('Ngày cập nhật hiển thị') }}</span>
+
+            </div>
+
+            <div class="card-body-pad">
+
+                <p class="text-muted mb-2" style="font-size:.78rem;">{{ t('Lưu trong file instance/legal_updated.txt — không dùng database.') }}</p>
+
+                <form method="post">
+
+                    <input type="hidden" name="action" value="legal_date">
+
+                    <input type="hidden" name="slug" value="{{ active_slug }}">
+
+                    <input type="text" name="legal_updated" class="form-control form-control-sm mb-2"
+
+                           value="{{ legal_updated }}" placeholder="dd/mm/yyyy">
+
+                    <button type="submit" class="btn btn-sm btn-outline-secondary w-100">
+
+                        <i class="bi bi-save me-1"></i>{{ t('Lưu ngày') }}
+
+                    </button>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <div class="col-lg-9">
+
+        <div class="card-admin">
+
+            <div class="card-header">
+
+                <div>
+
+                    <span><i class="bi bi-pencil-square me-2" style="color:#6366f1;"></i>{{ active_policy.title }}</span>
+
+                    <div class="text-muted mt-1" style="font-size:.75rem;font-weight:400;">
+
+                        {{ t('Chỉnh nội dung hiển thị — hệ thống tự ghi file HTML phía sau') }}
+
+                    </div>
+
+                </div>
+
+                <a href="{{ url_for(active_policy.endpoint) }}" target="_blank" rel="noopener"
+
+                   class="btn btn-sm btn-outline-secondary">
+
+                    <i class="bi bi-box-arrow-up-right me-1"></i>{{ t('Xem trang') }}
+
+                </a>
+
+            </div>
+
+            <div class="card-body-pad">
+
+                <div class="alert alert-info py-2 mb-3" style="font-size:.8rem;">
+
+                    <i class="bi bi-info-circle me-1"></i>
+
+                    {{ t('Soạn thảo như Word — in đậm, danh sách, tiêu đề. Email sẽ tự chuyển thành liên kết mailto khi lưu. Lưu sẽ cập nhật file templates/policies/content/ — không qua database.') }}
+
+                </div>
+
+
+
+                <form method="post" id="policyForm">
+
+                    <input type="hidden" name="action" value="save_content">
+
+                    <input type="hidden" name="slug" value="{{ active_slug }}">
+
+                    <input type="hidden" name="content_vi" id="contentViInput">
+
+                    <input type="hidden" name="content_en" id="contentEnInput">
+
+
+
+                    <ul class="nav nav-tabs mb-3" role="tablist">
+
+                        <li class="nav-item">
+
+                            <button class="nav-link active" type="button" data-bs-toggle="tab" data-bs-target="#tabVi" id="tabViBtn">
+
+                                🇻🇳 Tiếng Việt
+
+                            </button>
+
+                        </li>
+
+                        <li class="nav-item">
+
+                            <button class="nav-link" type="button" data-bs-toggle="tab" data-bs-target="#tabEn" id="tabEnBtn">
+
+                                🇬🇧 English
+
+                            </button>
+
+                        </li>
+
+                    </ul>
+
+
+
+                    <div class="tab-content policy-editor-wrap">
+
+                        <div class="tab-pane fade show active" id="tabVi">
+
+                            <textarea id="editorVi"></textarea>
+
+                        </div>
+
+                        <div class="tab-pane fade" id="tabEn">
+
+                            <textarea id="editorEn"></textarea>
+
+                        </div>
+
+                    </div>
+
+
+
+                    <div class="d-flex justify-content-end mt-3">
+
+                        <button type="submit" class="btn btn-admin-primary">
+
+                            <i class="bi bi-save me-1"></i>{{ t('Lưu nội dung') }}
+
+                        </button>
+
+                    </div>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
+
+
+
+{% block scripts %}
+
+<script src="https://cdn.jsdelivr.net/npm/tinymce@6.8.5/tinymce.min.js"></script>
+
+<script>
+
+(function () {
+
+    const POLICY_VI = {{ content_vi | tojson }};
+
+    const POLICY_EN = {{ content_en | tojson }};
+
+
+
+    const editorStyle = [
+
+        'body { font-family: Inter, Segoe UI, system-ui, sans-serif; font-size: 14px; line-height: 1.75; color: #374151; }',
+
+        'h5 { font-size: 1rem; font-weight: 700; margin: 0 0 0.5rem; }',
+
+        'ul, ol { padding-left: 1.5rem; margin-bottom: 1rem; }',
+
+        'li { margin-bottom: 0.25rem; }',
+
+        'p { margin-bottom: 0.75rem; }',
+
+        'hr { margin: 1rem 0; opacity: 0.15; }',
+
+        'a { color: #2563eb; text-decoration: underline; }',
+
+    ].join(' ');
+
+
+
+    const tinymceBase = {
+
+        height: 420,
+
+        menubar: false,
+
+        statusbar: false,
+
+        branding: false,
+
+        promotion: false,
+
+        plugins: 'lists link autolink code',
+
+        toolbar: 'blocks | bold italic underline | bullist numlist | link hr | removeformat',
+
+        block_formats: 'Mục nhỏ= h5; Đoạn văn=p',
+
+        content_style: editorStyle,
+
+        valid_elements: 'h5,p,br,strong/b,em/i,u,a[href|target|rel|class|style],ul,ol,li,hr,i[class|style]',
+        extended_valid_elements: 'i[class|style],a[href|target|rel|class|style]',
+        link_default_protocol: 'https',
+        link_assume_external_targets: true,
+
+        entity_encoding: 'raw',
+
+        convert_urls: false,
+
+    };
+
+
+
+    let editorEnReady = false;
+
+
+
+    tinymce.init(Object.assign({}, tinymceBase, {
+
+        selector: '#editorVi',
+
+        init_instance_callback: function (editor) {
+
+            editor.setContent(POLICY_VI);
+
+        },
+
+    }));
+
+
+
+    document.getElementById('tabEnBtn').addEventListener('shown.bs.tab', function () {
+
+        if (!editorEnReady) {
+
+            tinymce.init(Object.assign({}, tinymceBase, {
+
+                selector: '#editorEn',
+
+                init_instance_callback: function (editor) {
+
+                    editor.setContent(POLICY_EN);
+
+                },
+
+            }));
+
+            editorEnReady = true;
+
+        }
+
+    });
+
+
+
+    document.getElementById('policyForm').addEventListener('submit', function () {
+
+        document.getElementById('contentViInput').value = tinymce.get('editorVi').getContent();
+
+        document.getElementById('contentEnInput').value = editorEnReady
+
+            ? tinymce.get('editorEn').getContent()
+
+            : POLICY_EN;
+
+    });
+
+})();
+
+</script>
+
+{% endblock %}
+

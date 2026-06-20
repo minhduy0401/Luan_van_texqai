@@ -104,6 +104,29 @@
             transform: translateY(-5px);
             box-shadow: 0 20px 60px rgba(102, 126, 234, 0.25), 0 0 0 1px rgba(102, 126, 234, 0.1);
         }
+
+        /* Nội dung trang chính sách (include HTML) */
+        .policy-prose h5 {
+            font-size: 1rem;
+            font-weight: 700;
+            margin: 0 0 0.5rem;
+        }
+        .policy-prose ul,
+        .policy-prose ol {
+            padding-left: 1.5rem !important;
+            margin-bottom: 1rem !important;
+            list-style-position: outside !important;
+        }
+        .policy-prose li {
+            display: list-item !important;
+            margin-bottom: 0.25rem;
+        }
+        .policy-prose ul > li { list-style-type: disc !important; }
+        .policy-prose ol > li { list-style-type: decimal !important; }
+        .policy-prose p { margin-bottom: 0.75rem; }
+        .policy-prose hr { margin: 1rem 0; opacity: 0.15; }
+        .policy-prose a { color: #2563eb; text-decoration: underline; }
+        .policy-prose a:hover { color: #1d4ed8; }
         
         .badge-bloom { 
             font-size: 0.85em;

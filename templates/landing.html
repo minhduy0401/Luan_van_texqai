@@ -1315,12 +1315,12 @@
                                     <p>{{ 'Send us a message and we\'ll get back to you as soon as possible.' if current_lang == 'en' else 'Gửi tin nhắn và chúng tôi sẽ phản hồi sớm nhất có thể.' }}</p>
                                 </div>
                                 <div style="display:flex;flex-direction:column;gap:12px;margin-top:auto;">
-                                    <a href="mailto:duy226466@student.nctu.edu.vn"
+                                    <a href="mailto:{{ contact_info.support_email }}"
                                        style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:12px;background:rgba(16,185,129,0.08);border:1.5px solid rgba(16,185,129,0.18);color:#065f46;text-decoration:none;font-weight:600;font-size:.92rem;transition:all .2s;"
                                        onmouseover="this.style.background='rgba(16,185,129,0.14)'"
                                        onmouseout="this.style.background='rgba(16,185,129,0.08)'">
                                         <i class="bi bi-envelope-fill" style="color:#10b981;font-size:1.1rem;"></i>
-                                        duy226466@student.nctu.edu.vn
+                                        {{ contact_info.support_email }}
                                     </a>
                                     <a href="/support"
                                        style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:12px;background:rgba(59,130,246,0.08);border:1.5px solid rgba(59,130,246,0.18);color:#1e3a8a;text-decoration:none;font-weight:600;font-size:.92rem;transition:all .2s;"
@@ -1331,7 +1331,7 @@
                                     </a>
                                     <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:10px;background:rgba(29,36,51,0.04);border:1px solid rgba(29,36,51,0.08);font-size:.85rem;color:var(--muted);">
                                         <i class="bi bi-clock" style="color:var(--accent);"></i>
-                                        {{ 'Mon–Fri · 8:00–17:00 (GMT+7)' if current_lang == 'en' else 'Thứ 2–6 · 8:00–17:00 (GMT+7)' }}
+                                        {{ contact_info.hours }}
                                     </div>
                                 </div>
                             </div>
@@ -1458,18 +1458,22 @@
                             <img src="{{ url_for('static', filename=site_logo_file) }}?v={{ branding_v }}" alt="{{ site_name }}" style="height:48px;filter:brightness(0) invert(1);">
                         </div>
                         <p style="font-size:0.93rem;color:rgba(255,255,255,0.55);line-height:1.7;max-width:280px;">
-                            {{ 'Automatic question generation based on Bloom taxonomy — helping educators build tests rapidly, accurately, and aligned with standard pedagogy.' if current_lang == 'en' else 'Hệ thống sinh câu hỏi tự động theo thang Bloom — hỗ trợ giảng viên tạo đề thi nhanh, chính xác và đúng chuẩn giáo dục.' }}
+                            {{ contact_info.footer_desc }}
                         </p>
                         <div class="d-flex gap-3 mt-4">
-                            <a href="mailto:duy226466@nctu.edu.vn" style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.7);text-decoration:none;transition:background .2s;" onmouseover="this.style.background='var(--accent)';this.style.color='#fff'" onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'">
+                            <a href="mailto:{{ contact_info.support_email }}" style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.7);text-decoration:none;transition:background .2s;" onmouseover="this.style.background='var(--accent)';this.style.color='#fff'" onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'">
                                 <i class="bi bi-envelope-fill"></i>
                             </a>
-                            <a href="https://www.facebook.com/babyduytv0401/" target="_blank" style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.7);text-decoration:none;transition:background .2s;" onmouseover="this.style.background='#1877f2';this.style.color='#fff'" onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'">
+                            {% if contact_info.facebook_url %}
+                            <a href="{{ contact_info.facebook_url }}" target="_blank" rel="noopener" style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.7);text-decoration:none;transition:background .2s;" onmouseover="this.style.background='#1877f2';this.style.color='#fff'" onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'">
                                 <i class="bi bi-facebook"></i>
                             </a>
-                            <a href="https://github.com/minhduy0401" target="_blank" style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.7);text-decoration:none;transition:background .2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)';this.style.color='#fff'" onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'">
+                            {% endif %}
+                            {% if contact_info.github_url %}
+                            <a href="{{ contact_info.github_url }}" target="_blank" rel="noopener" style="width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.7);text-decoration:none;transition:background .2s;" onmouseover="this.style.background='rgba(255,255,255,0.2)';this.style.color='#fff'" onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.color='rgba(255,255,255,0.7)'">
                                 <i class="bi bi-github"></i>
                             </a>
+                            {% endif %}
                         </div>
                     </div>
 
@@ -1481,23 +1485,27 @@
                                 <i class="bi bi-envelope" style="color:var(--accent);margin-top:2px;flex-shrink:0;"></i>
                                 <div>
                                     <div style="font-size:0.82rem;color:rgba(255,255,255,0.45);margin-bottom:2px;">{{ 'Support Email' if current_lang == 'en' else 'Email hỗ trợ' }}</div>
-                                    <a href="mailto:contact@textqai.edu.vn" style="color:rgba(255,255,255,0.85);text-decoration:none;font-size:0.93rem;">duy226466@nctu.edu.vn</a>
+                                    <a href="mailto:{{ contact_info.support_email }}" style="color:rgba(255,255,255,0.85);text-decoration:none;font-size:0.93rem;">{{ contact_info.support_email }}</a>
                                 </div>
                             </li>
+                            {% if contact_info.phone_display %}
                             <li style="display:flex;align-items:flex-start;gap:12px;">
                                 <i class="bi bi-telephone" style="color:var(--accent);margin-top:2px;flex-shrink:0;"></i>
                                 <div>
                                     <div style="font-size:0.82rem;color:rgba(255,255,255,0.45);margin-bottom:2px;">{{ 'Phone Number' if current_lang == 'en' else 'Điện thoại' }}</div>
-                                    <a href="tel:+84931183550" style="color:rgba(255,255,255,0.85);text-decoration:none;font-size:0.93rem;">+84 93 118 3550</a>
+                                    <a href="tel:{{ contact_info.phone_tel }}" style="color:rgba(255,255,255,0.85);text-decoration:none;font-size:0.93rem;">{{ contact_info.phone_display }}</a>
                                 </div>
                             </li>
+                            {% endif %}
+                            {% if contact_info.address %}
                             <li style="display:flex;align-items:flex-start;gap:12px;">
                                 <i class="bi bi-geo-alt" style="color:var(--accent);margin-top:2px;flex-shrink:0;"></i>
                                 <div>
                                     <div style="font-size:0.82rem;color:rgba(255,255,255,0.45);margin-bottom:2px;">{{ 'Address' if current_lang == 'en' else 'Địa chỉ' }}</div>
-                                    <span style="color:rgba(255,255,255,0.85);font-size:0.93rem;">{{ 'Nam Can Tho University' if current_lang == 'en' else 'Trường Đại học Nam Cần Thơ' }}</span>
+                                    <span style="color:rgba(255,255,255,0.85);font-size:0.93rem;">{{ contact_info.address }}</span>
                                 </div>
                             </li>
+                            {% endif %}
                         </ul>
                     </div>
 

@@ -294,6 +294,14 @@ body {
        class="sb-link {% if request.endpoint == 'admin_settings' %}active{% endif %}">
         <i class="bi bi-gear-wide-connected"></i> {{ t('Cài đặt') }}
     </a>
+    <a href="{{ url_for('admin_policies') }}"
+       class="sb-link {% if request.endpoint == 'admin_policies' %}active{% endif %}">
+        <i class="bi bi-file-earmark-richtext"></i> {{ t('Cấu hình chính sách') }}
+    </a>
+    <a href="{{ url_for('admin_contact') }}"
+       class="sb-link {% if request.endpoint == 'admin_contact' %}active{% endif %}">
+        <i class="bi bi-telephone-fill"></i> {{ t('Cấu hình trang liên hệ') }}
+    </a>
 
     <div class="sb-footer">
         <a href="{{ url_for('index') }}" class="sb-link" style="margin:0;">

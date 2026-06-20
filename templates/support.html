@@ -20,11 +20,11 @@
         <div class="card p-3 text-center h-100">
           <i class="bi bi-envelope-fill fs-2 mb-2" style="color:#667eea;"></i>
           <div class="fw-semibold mb-1">{{ 'Support Email' if current_lang == 'en' else 'Email hỗ trợ' }}</div>
-          <a href="mailto:duy226466@student.nctu.edu.vn" class="text-decoration-none" style="color:#667eea;font-size:.9rem;">
-            duy226466@student.nctu.edu.vn
+          <a href="mailto:{{ contact_info.support_email }}" class="text-decoration-none" style="color:#667eea;font-size:.9rem;">
+            {{ contact_info.support_email }}
           </a>
           <small class="text-muted d-block mt-1">
-            {{ 'Response within 1–2 business days' if current_lang == 'en' else 'Phản hồi trong 1–2 ngày làm việc' }}
+            {{ contact_info.response_note }}
           </small>
         </div>
       </div>
@@ -32,7 +32,7 @@
         <div class="card p-3 text-center h-100">
           <i class="bi bi-clock-fill fs-2 mb-2" style="color:#10b981;"></i>
           <div class="fw-semibold mb-1">{{ 'Support Hours' if current_lang == 'en' else 'Giờ hỗ trợ' }}</div>
-          <div style="font-size:.9rem;color:#374151;">{{ 'Monday – Friday' if current_lang == 'en' else 'Thứ 2 – Thứ 6' }}</div>
+          <div style="font-size:.9rem;color:#374151;">{{ contact_info.hours }}</div>
           <small class="text-muted d-block mt-1">8:00 – 17:00 (GMT+7)</small>
         </div>
       </div>
@@ -145,6 +145,7 @@
 <script>
 (function(){
   var _lang = '{{ current_lang }}';
+  var _supportEmail = {{ contact_info.support_email|tojson }};
   document.getElementById('supportForm').addEventListener('submit', function(e) {
     e.preventDefault();
     var email  = document.getElementById('supportEmail').value.trim();
@@ -169,7 +170,7 @@
       }
     })
     .catch(function() {
-      result.innerHTML = '<div class="alert alert-danger">' + (_lang === 'en' ? 'Connection error. Please email duy226466@student.nctu.edu.vn directly.' : 'Lỗi kết nối. Vui lòng email trực tiếp tới duy226466@student.nctu.edu.vn') + '</div>';
+      result.innerHTML = '<div class="alert alert-danger">' + (_lang === 'en' ? 'Connection error. Please email ' + _supportEmail + ' directly.' : 'Lỗi kết nối. Vui lòng email trực tiếp tới ' + _supportEmail) + '</div>';
     });
   });
 })();

@@ -1010,6 +1010,130 @@ TRANSLATIONS = {
         "en": "Settings",
         "vi": "Cài đặt"
     },
+    "Cấu hình chính sách": {
+        "en": "Policy configuration",
+        "vi": "Cấu hình chính sách"
+    },
+    "Cấu hình trang liên hệ": {
+        "en": "Contact page configuration",
+        "vi": "Cấu hình trang liên hệ"
+    },
+    "Thông tin liên hệ": {
+        "en": "Contact information",
+        "vi": "Thông tin liên hệ"
+    },
+    "Lưu trong file instance/contact_page.json — hiển thị ở footer trang chủ và trang Hỗ trợ.": {
+        "en": "Stored in instance/contact_page.json — shown on the homepage footer and Support page.",
+        "vi": "Lưu trong file instance/contact_page.json — hiển thị ở footer trang chủ và trang Hỗ trợ."
+    },
+    "Số điện thoại hiển thị": {
+        "en": "Display phone number",
+        "vi": "Số điện thoại hiển thị"
+    },
+    "Số gọi (tel:)": {
+        "en": "Dial number (tel:)",
+        "vi": "Số gọi (tel:)"
+    },
+    "Để trống sẽ tự lấy từ số hiển thị": {
+        "en": "Leave blank to derive from display number",
+        "vi": "Để trống sẽ tự lấy từ số hiển thị"
+    },
+    "Giờ hỗ trợ (Tiếng Việt)": {
+        "en": "Support hours (Vietnamese)",
+        "vi": "Giờ hỗ trợ (Tiếng Việt)"
+    },
+    "Giờ hỗ trợ (English)": {
+        "en": "Support hours (English)",
+        "vi": "Giờ hỗ trợ (English)"
+    },
+    "Ghi chú phản hồi (Tiếng Việt)": {
+        "en": "Response note (Vietnamese)",
+        "vi": "Ghi chú phản hồi (Tiếng Việt)"
+    },
+    "Ghi chú phản hồi (English)": {
+        "en": "Response note (English)",
+        "vi": "Ghi chú phản hồi (English)"
+    },
+    "Địa chỉ (Tiếng Việt)": {
+        "en": "Address (Vietnamese)",
+        "vi": "Địa chỉ (Tiếng Việt)"
+    },
+    "Địa chỉ (English)": {
+        "en": "Address (English)",
+        "vi": "Địa chỉ (English)"
+    },
+    "Mô tả footer (Tiếng Việt)": {
+        "en": "Footer description (Vietnamese)",
+        "vi": "Mô tả footer (Tiếng Việt)"
+    },
+    "Mô tả footer (English)": {
+        "en": "Footer description (English)",
+        "vi": "Mô tả footer (English)"
+    },
+    "Lưu cấu hình": {
+        "en": "Save configuration",
+        "vi": "Lưu cấu hình"
+    },
+    "Xem trước": {
+        "en": "Preview",
+        "vi": "Xem trước"
+    },
+    "Cập nhật hiển thị ngay sau khi lưu.": {
+        "en": "Updates appear immediately after saving.",
+        "vi": "Cập nhật hiển thị ngay sau khi lưu."
+    },
+    "Email hỗ trợ": {
+        "en": "Support email",
+        "vi": "Email hỗ trợ"
+    },
+    "Điện thoại": {
+        "en": "Phone",
+        "vi": "Điện thoại"
+    },
+    "Địa chỉ": {
+        "en": "Address",
+        "vi": "Địa chỉ"
+    },
+    "Trang chính sách": {
+        "en": "Policy pages",
+        "vi": "Trang chính sách"
+    },
+    "Ngày cập nhật hiển thị": {
+        "en": "Display last updated",
+        "vi": "Ngày cập nhật hiển thị"
+    },
+    "Lưu trong file instance/legal_updated.txt — không dùng database.": {
+        "en": "Stored in instance/legal_updated.txt — not in the database.",
+        "vi": "Lưu trong file instance/legal_updated.txt — không dùng database."
+    },
+    "Lưu ngày": {
+        "en": "Save date",
+        "vi": "Lưu ngày"
+    },
+    "Xem trang": {
+        "en": "View page",
+        "vi": "Xem trang"
+    },
+    "Chỉnh sửa trực tiếp file HTML template. Thay đổi được ghi vào templates/ — không lưu database. Sao lưu trước khi sửa nếu cần.": {
+        "en": "Edit the HTML template file directly. Changes are written to templates/ — not stored in the database. Back up before editing if needed.",
+        "vi": "Chỉnh sửa trực tiếp file HTML template. Thay đổi được ghi vào templates/ — không lưu database. Sao lưu trước khi sửa nếu cần."
+    },
+    "Nội dung HTML (Jinja2)": {
+        "en": "HTML content (Jinja2)",
+        "vi": "Nội dung HTML (Jinja2)"
+    },
+    "Lưu nội dung": {
+        "en": "Save content",
+        "vi": "Lưu nội dung"
+    },
+    "Soạn thảo như Word — in đậm, danh sách, tiêu đề. Lưu sẽ cập nhật file templates/policies/content/ — không qua database.": {
+        "en": "Edit like a document — bold, lists, headings. Saving updates templates/policies/content/ files — not the database.",
+        "vi": "Soạn thảo như Word — in đậm, danh sách, tiêu đề. Lưu sẽ cập nhật file templates/policies/content/ — không qua database."
+    },
+    "Chỉnh nội dung hiển thị — hệ thống tự ghi file HTML phía sau": {
+        "en": "Edit visible content — the system writes HTML files in the background",
+        "vi": "Chỉnh nội dung hiển thị — hệ thống tự ghi file HTML phía sau"
+    },
     "hôm nay": {
         "en": "today",
         "vi": "hôm nay"

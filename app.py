@@ -67,7 +67,7 @@ from models import (
     User, Document, QAResult,
     Agent1EvaluationLog, Agent2EvaluationLog,
     Agent3EvaluationLog,
-    UserAuthProvider, Feedback,
+    UserAuthProvider, Feedback, SystemSetting,
 )
 from utils.bloom import normalize_bloom_level, aggregate_bloom_stats, bloom_short_label
 from utils.helpers import (
@@ -88,6 +88,17 @@ from utils.helpers import (
 from services.pdf import extract_pdf_text_plain, extract_pdf_text_with_ocr
 from services.pipeline import run_agent_pipeline
 from services.user_cleanup import delete_user_account
+from utils.policy_pages import (
+    POLICY_PAGES,
+    get_legal_updated,
+    set_legal_updated,
+    read_policy_content,
+    write_policy_contents,
+    list_policies_for_admin,
+    ensure_policy_split,
+)
+from utils.account_deletion import create_deletion_request, confirm_deletion_request
+from utils.contact_page import get_contact_for_lang, get_contact_config, save_contact_config
 
 # ── Flask app setup ───────────────────────────────────────────────────────────
 app = Flask(__name__)
@@ -189,6 +200,7 @@ def inject_translations():
         t_both=bilingual,
         current_lang=lang,
         asset_v=_asset_version(),
+        contact_info=get_contact_for_lang(lang),
         **branding,
     )
 
@@ -2021,12 +2033,16 @@ def register():
 
 
 # ── SMTP Mail Sender Helper ───────────────────────────────────────────────────
-def send_email_smtp(to_email, subject, body_content):
+def send_email_smtp(to_email, subject, body_content, html_body=None):
     smtp_server = SystemSetting.get('smtp_server', '').strip()
     smtp_port_str = SystemSetting.get('smtp_port', '587').strip()
     smtp_user   = SystemSetting.get('smtp_user', '').strip()
     smtp_pass   = SystemSetting.get('smtp_password', '').strip()
     sender_name = SystemSetting.get('smtp_sender_name', 'TEXTQAI Support').strip()
+
+    to_email = (to_email or '').strip()
+    if not to_email:
+        return False, 'Thiếu địa chỉ người nhận.'
 
     if not smtp_server or not smtp_user or not smtp_pass:
         print(f"[SMTP WARNING] SMTP is not configured. Recipient: {to_email}", flush=True)
@@ -2039,23 +2055,132 @@ def send_email_smtp(to_email, subject, body_content):
 
     import smtplib
     from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
     from email.header import Header
+    from email.utils import formataddr
 
-    msg = MIMEText(body_content, 'plain', 'utf-8')
+    if html_body:
+        msg = MIMEMultipart('alternative')
+        msg.attach(MIMEText(body_content, 'plain', 'utf-8'))
+        msg.attach(MIMEText(html_body, 'html', 'utf-8'))
+    else:
+        msg = MIMEText(body_content, 'plain', 'utf-8')
+
     msg['Subject'] = Header(subject, 'utf-8')
-    msg['From'] = Header(f"{sender_name} <{smtp_user}>", 'utf-8')
+    msg['From'] = formataddr((sender_name, smtp_user))
     msg['To'] = to_email
+    msg['Reply-To'] = smtp_user
 
     try:
-        server = smtplib.SMTP(smtp_server, smtp_port, timeout=10)
-        server.starttls()
+        if smtp_port == 465:
+            server = smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=20)
+        else:
+            server = smtplib.SMTP(smtp_server, smtp_port, timeout=20)
+            server.ehlo()
+            if smtp_port != 25:
+                server.starttls()
+                server.ehlo()
         server.login(smtp_user, smtp_pass)
-        server.sendmail(smtp_user, [to_email], msg.as_string())
+        refused = server.sendmail(smtp_user, [to_email], msg.as_string())
         server.quit()
+        if refused:
+            print(f"[SMTP ERROR] Recipients refused: {refused}", flush=True)
+            return False, f'Máy chủ SMTP từ chối gửi tới {to_email}.'
+        print(f"[SMTP OK] Sent to {to_email}: {subject}", flush=True)
         return True, None
     except Exception as e:
         print(f"[SMTP ERROR] Failed to send email to {to_email}: {e}", flush=True)
         return False, str(e)
+
+
+def _admin_notify_email() -> str:
+    return SystemSetting.get('smtp_user', '').strip() or 'duy226466@student.nctu.edu.vn'
+
+
+def _notify_admin_deletion_request(
+    user,
+    email: str,
+    reason: str,
+    notes: str,
+    status_tag: str,
+    subject: str,
+    extra: str = '',
+    confirm_url: str = '',
+) -> None:
+    """Ghi Feedback + gửi email thông báo cho admin."""
+    reason = reason or '—'
+    notes = notes or '—'
+    body = (
+        f'[{status_tag}]\n'
+        f'Email đăng ký: {email}\n'
+        f'Tài khoản: {user.display if user else "—"} (ID: {user.id if user else "—"})\n'
+        f'Lý do: {reason}\n'
+        f'Ghi chú: {notes}\n'
+    )
+    if confirm_url:
+        body += f'Liên kết xác nhận (chuyển cho người dùng nếu họ chưa nhận email):\n{confirm_url}\n'
+    if extra:
+        body += extra.rstrip() + '\n'
+
+    db.session.add(Feedback(
+        email=email,
+        message=body,
+        user_id=user.id if user else None,
+        is_read=False,
+    ))
+    db.session.commit()
+    send_email_smtp(_admin_notify_email(), subject, body)
+
+
+def _build_deletion_confirm_email(user, recipient: str, confirm_url: str, lang: str):
+    """Soạn email xác nhận xóa tài khoản (text + HTML)."""
+    if lang == 'en':
+        subject = 'Confirm your TEXTQAI account deletion request'
+        text = (
+            f'Hello {user.display},\n\n'
+            f'We received a request to delete your TEXTQAI account ({recipient}).\n\n'
+            f'To confirm, open this link within 48 hours:\n{confirm_url}\n\n'
+            f'If you did not request this, please ignore this email.\n\n'
+            f'Regards,\nTEXTQAI Support'
+        )
+        html = (
+            f'<p>Hello <strong>{user.display}</strong>,</p>'
+            f'<p>We received a request to delete your TEXTQAI account '
+            f'(<strong>{recipient}</strong>).</p>'
+            f'<p>To confirm, click the button below within <strong>48 hours</strong>:</p>'
+            f'<p style="margin:24px 0;">'
+            f'<a href="{confirm_url}" style="background:#ef4444;color:#fff;padding:12px 24px;'
+            f'text-decoration:none;border-radius:8px;font-weight:600;display:inline-block;">'
+            f'Confirm account deletion</a></p>'
+            f'<p style="font-size:13px;color:#64748b;">Or copy this link:<br>'
+            f'<a href="{confirm_url}">{confirm_url}</a></p>'
+            f'<p>If you did not request this, please ignore this email.</p>'
+            f'<p>Regards,<br>TEXTQAI Support</p>'
+        )
+    else:
+        subject = 'Xác nhận yêu cầu xóa tài khoản TEXTQAI'
+        text = (
+            f'Chào {user.display},\n\n'
+            f'Chúng tôi đã nhận yêu cầu xóa tài khoản TEXTQAI của bạn ({recipient}).\n\n'
+            f'Để xác nhận, mở liên kết sau trong vòng 48 giờ:\n{confirm_url}\n\n'
+            f'Nếu bạn không gửi yêu cầu này, hãy bỏ qua email.\n\n'
+            f'Trân trọng,\nTEXTQAI Support'
+        )
+        html = (
+            f'<p>Chào <strong>{user.display}</strong>,</p>'
+            f'<p>Chúng tôi đã nhận yêu cầu xóa tài khoản TEXTQAI '
+            f'(<strong>{recipient}</strong>).</p>'
+            f'<p>Để xác nhận, bấm nút bên dưới trong vòng <strong>48 giờ</strong>:</p>'
+            f'<p style="margin:24px 0;">'
+            f'<a href="{confirm_url}" style="background:#ef4444;color:#fff;padding:12px 24px;'
+            f'text-decoration:none;border-radius:8px;font-weight:600;display:inline-block;">'
+            f'Xác nhận xóa tài khoản</a></p>'
+            f'<p style="font-size:13px;color:#64748b;">Hoặc copy liên kết:<br>'
+            f'<a href="{confirm_url}">{confirm_url}</a></p>'
+            f'<p>Nếu bạn không gửi yêu cầu này, hãy bỏ qua email.</p>'
+            f'<p>Trân trọng,<br>TEXTQAI Support</p>'
+        )
+    return subject, text, html
 
 
 def generate_random_password(length=8):
@@ -3575,6 +3700,129 @@ def api_feedback():
     return {'ok': True}, 201
 
 
+@app.route('/api/account-deletion-request', methods=['POST'])
+def api_account_deletion_request():
+    """Nhận yêu cầu xóa tài khoản — gửi email xác nhận tới email đăng ký."""
+    data = request.get_json(silent=True) or {}
+    email = (data.get('email') or '').strip().lower()
+    reason = (data.get('reason') or '').strip()
+    notes = (data.get('notes') or '').strip()
+    lang = session.get('lang', 'vi')
+
+    if not email or '@' not in email or len(email) > 255:
+        msg = _bi('Please enter a valid registered email.', 'Vui lòng nhập email đăng ký hợp lệ.')
+        return jsonify({'ok': False, 'error': msg}), 400
+
+    user = User.query.filter(db.func.lower(User.email) == email).first()
+    if not user:
+        msg = _bi('This email is not registered in the system.', 'Email này chưa được đăng ký trong hệ thống.')
+        return jsonify({'ok': False, 'error': msg}), 404
+
+    if user.is_admin:
+        msg = _bi('Admin accounts cannot be deleted via this form.', 'Tài khoản Admin không thể xóa qua form này.')
+        return jsonify({'ok': False, 'error': msg}), 403
+
+    try:
+        token, record = create_deletion_request(email, reason, notes)
+    except ValueError as exc:
+        if str(exc) == 'cooldown':
+            msg = _bi(
+                'A confirmation email was sent recently. Please check your inbox or wait a few minutes.',
+                'Email xác nhận đã được gửi gần đây. Vui lòng kiểm tra hộp thư hoặc thử lại sau vài phút.',
+            )
+            return jsonify({'ok': False, 'error': msg}), 429
+        msg = _bi('Invalid email.', 'Email không hợp lệ.')
+        return jsonify({'ok': False, 'error': msg}), 400
+
+    confirm_url = url_for('data_deletion_confirm', token=token, _external=True)
+    recipient = (user.email or email).strip()
+    subject, body, html_body = _build_deletion_confirm_email(user, recipient, confirm_url, lang)
+
+    sent_ok, err_msg = send_email_smtp(recipient, subject, body, html_body=html_body)
+    if not sent_ok:
+        msg = _bi(
+            f'Could not send confirmation email to {recipient}. {err_msg or "Please try again later."}',
+            f'Không gửi được email xác nhận tới {recipient}. {err_msg or "Vui lòng thử lại sau."}',
+        )
+        return jsonify({'ok': False, 'error': msg}), 503
+
+    _notify_admin_deletion_request(
+        user,
+        recipient,
+        reason,
+        notes,
+        status_tag='YÊU CẦU XÓA TÀI KHOẢN — CHỜ NGƯỜI DÙNG XÁC NHẬN',
+        subject=f'[TEXTQAI] Yêu cầu xóa tài khoản mới — {recipient}',
+        extra=(
+            f'Thời gian gửi: {record.get("created_at", "")}\n'
+            f'Email xác nhận đã gửi tới: {recipient}\n'
+            f'Trạng thái: Chờ người dùng bấm liên kết (48h).'
+        ),
+        confirm_url=confirm_url,
+    )
+
+    msg = _bi(
+        f'A confirmation link has been sent to {recipient}. Please check your inbox and spam folder.',
+        f'Liên kết xác nhận đã gửi tới {recipient}. Vui lòng kiểm tra hộp thư và mục spam.',
+    )
+    return jsonify({'ok': True, 'message': msg}), 201
+
+
+@app.route('/data-deletion/confirm/<token>')
+def data_deletion_confirm(token):
+    lang = session.get('lang', 'vi')
+    try:
+        record = confirm_deletion_request(token)
+    except ValueError as exc:
+        code = str(exc)
+        if code == 'expired':
+            flash(_bi('This confirmation link has expired. Please submit a new request.', 'Liên kết xác nhận đã hết hạn. Vui lòng gửi yêu cầu mới.'), 'warning')
+        else:
+            flash(_bi('Invalid or expired confirmation link.', 'Liên kết xác nhận không hợp lệ hoặc đã hết hạn.'), 'danger')
+        return redirect(url_for('data_deletion'))
+
+    email = record.get('email', '')
+    user = User.query.filter(db.func.lower(User.email) == email).first()
+    reason = record.get('reason') or ''
+    notes = record.get('notes') or ''
+
+    recipient = ((user.email if user else None) or email).strip()
+
+    _notify_admin_deletion_request(
+        user,
+        recipient,
+        reason,
+        notes,
+        status_tag='YÊU CẦU XÓA TÀI KHOẢN — ĐÃ XÁC NHẬN QUA EMAIL',
+        subject=f'[TEXTQAI] Xóa tài khoản đã xác nhận — {recipient}',
+        extra=f'Xác nhận lúc: {record.get("confirmed_at", "")}\nHành động: Xử lý xóa tài khoản trong vòng 30 ngày.',
+    )
+
+    if lang == 'en':
+        user_subject = 'Your account deletion request has been confirmed'
+        user_body = (
+            f'Hello,\n\n'
+            f'Your account deletion request for {recipient} has been confirmed.\n'
+            f'We will process it within 30 days as stated in our Data Deletion Policy.\n\n'
+            f'Regards,\nTEXTQAI Support'
+        )
+    else:
+        user_subject = 'Yêu cầu xóa tài khoản đã được xác nhận'
+        user_body = (
+            f'Chào bạn,\n\n'
+            f'Yêu cầu xóa tài khoản {recipient} đã được xác nhận.\n'
+            f'Chúng tôi sẽ xử lý trong vòng 30 ngày theo Chính sách xoá dữ liệu.\n\n'
+            f'Trân trọng,\nTEXTQAI Support'
+        )
+    send_email_smtp(recipient, user_subject, user_body)
+
+    flash(_bi(
+        'Your deletion request is confirmed. We will process it within 30 days.',
+        'Yêu cầu xóa tài khoản đã được xác nhận. Chúng tôi sẽ xử lý trong vòng 30 ngày.',
+    ), 'success')
+    return redirect(url_for('data_deletion'))
+
+
 # ── ADMIN: xem danh sách phản hồi ─────────────────────────────────────────────
 @app.route('/admin/feedback')
 @login_required
@@ -3615,28 +3863,131 @@ def admin_feedback_delete(fb_id):
     return redirect(url_for('admin_feedback'))
 
 
+@app.route('/admin/policies', methods=['GET', 'POST'])
+@app.route('/admin/policies/<slug>', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def admin_policies(slug=None):
+    """Chỉnh sửa file HTML chính sách — ghi thẳng templates/, không qua database."""
+    if not slug:
+        slug = POLICY_PAGES[0]['slug']
+
+    valid_slugs = {p['slug'] for p in POLICY_PAGES}
+    if slug not in valid_slugs:
+        flash('Trang chính sách không hợp lệ.', 'danger')
+        return redirect(url_for('admin_policies'))
+
+    if request.method == 'POST':
+        action = request.form.get('action', 'save_html')
+        if action == 'legal_date':
+            date_val = request.form.get('legal_updated', '').strip()
+            if date_val:
+                try:
+                    set_legal_updated(date_val)
+                    flash('Đã cập nhật ngày hiển thị (file instance/legal_updated.txt).', 'success')
+                except OSError as e:
+                    flash(f'Không ghi được ngày cập nhật: {e}', 'danger')
+            else:
+                flash('Ngày cập nhật không được để trống.', 'warning')
+            return redirect(url_for('admin_policies', slug=slug))
+
+        content_vi = request.form.get('content_vi', '')
+        content_en = request.form.get('content_en', '')
+        try:
+            write_policy_contents(slug, content_vi, content_en)
+            flash('Đã lưu nội dung chính sách (Tiếng Việt + English).', 'success')
+        except ValueError as e:
+            flash(str(e), 'danger')
+        except OSError as e:
+            flash(f'Không ghi được file: {e}', 'danger')
+        except KeyError:
+            flash('Trang chính sách không hợp lệ.', 'danger')
+        return redirect(url_for('admin_policies', slug=slug))
+
+    try:
+        ensure_policy_split(slug)
+        content_vi = read_policy_content(slug, 'vi')
+        content_en = read_policy_content(slug, 'en')
+    except (KeyError, FileNotFoundError, ValueError) as e:
+        flash(f'Không đọc được nội dung chính sách: {e}', 'danger')
+        return redirect(url_for('admin_dashboard'))
+
+    lang = session.get('lang', 'vi')
+    policies = list_policies_for_admin(lang)
+    active_policy = next(p for p in policies if p['slug'] == slug)
+
+    return render_template(
+        'admin/policies.html',
+        policies=policies,
+        active_slug=slug,
+        active_policy=active_policy,
+        content_vi=content_vi,
+        content_en=content_en,
+        legal_updated=get_legal_updated(),
+    )
+
+
+@app.route('/admin/contact', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def admin_contact():
+    """Cấu hình thông tin liên hệ — ghi file instance/contact_page.json."""
+    if request.method == 'POST':
+        try:
+            save_contact_config(request.form)
+            flash('Đã lưu cấu hình trang liên hệ.', 'success')
+        except ValueError as e:
+            flash(str(e), 'danger')
+        except OSError as e:
+            flash(f'Không ghi được file: {e}', 'danger')
+        return redirect(url_for('admin_contact'))
+
+    return render_template('admin/contact.html', contact=get_contact_config())
+
+
 # ── Legal / Store pages ───────────────────────────────────────────────────────
-_LEGAL_UPDATED = '13/06/2026'
+_DEFAULT_LEGAL_UPDATED = '13/06/2026'
+
+
+def _legal_last_updated():
+    return get_legal_updated(_DEFAULT_LEGAL_UPDATED)
+
+
+def _render_policy_page(template_name: str, slug: str):
+    from markupsafe import Markup
+
+    ensure_policy_split(slug)
+    return render_template(
+        template_name,
+        last_updated=_legal_last_updated(),
+        policy_body_vi=Markup(read_policy_content(slug, 'vi')),
+        policy_body_en=Markup(read_policy_content(slug, 'en')),
+    )
+
 
 @app.route('/privacy')
 def privacy():
-    return render_template('privacy.html', last_updated=_LEGAL_UPDATED)
+    return _render_policy_page('privacy.html', 'privacy')
+
 
 @app.route('/terms')
 def terms():
-    return render_template('terms.html', last_updated=_LEGAL_UPDATED)
+    return _render_policy_page('terms.html', 'terms')
+
 
 @app.route('/data-deletion')
 def data_deletion():
-    return render_template('data_deletion.html', last_updated=_LEGAL_UPDATED)
+    return _render_policy_page('data_deletion.html', 'data-deletion')
+
 
 @app.route('/payment-policy')
 def payment_policy():
-    return render_template('payment_policy.html', last_updated=_LEGAL_UPDATED)
+    return _render_policy_page('payment_policy.html', 'payment-policy')
+
 
 @app.route('/ai-policy')
 def ai_policy():
-    return render_template('ai_policy.html', last_updated=_LEGAL_UPDATED)
+    return _render_policy_page('ai_policy.html', 'ai-policy')
 
 @app.route('/support')
 def support():

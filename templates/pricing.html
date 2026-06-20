@@ -256,11 +256,12 @@
             </div>
             <div>
               <span class="text-muted small d-block" style="font-size: 11px;">{{ 'Support Email' if current_lang == 'en' else 'Email hỗ trợ' }}</span>
-              <a href="mailto:duy226466@nctu.edu.vn"
-                class="fw-semibold text-dark text-decoration-none small">duy226466@nctu.edu.vn</a>
+              <a href="mailto:{{ contact_info.support_email }}"
+                class="fw-semibold text-dark text-decoration-none small">{{ contact_info.support_email }}</a>
             </div>
           </div>
 
+          {% if contact_info.phone_display %}
           <div class="d-flex align-items-center mb-3">
             <div class="rounded-circle p-2 me-3 d-flex align-items-center justify-content-center"
               style="width: 38px; height: 38px; background: rgba(245, 158, 11, 0.1);">
@@ -268,10 +269,12 @@
             </div>
             <div>
               <span class="text-muted small d-block" style="font-size: 11px;">{{ 'Phone' if current_lang == 'en' else 'Điện thoại' }}</span>
-              <a href="tel:+84931183550" class="fw-semibold text-dark text-decoration-none small">+84 93 118 3550</a>
+              <a href="tel:{{ contact_info.phone_tel }}" class="fw-semibold text-dark text-decoration-none small">{{ contact_info.phone_display }}</a>
             </div>
           </div>
+          {% endif %}
 
+          {% if contact_info.address %}
           <div class="d-flex align-items-center">
             <div class="rounded-circle p-2 me-3 d-flex align-items-center justify-content-center"
               style="width: 38px; height: 38px; background: rgba(59, 130, 246, 0.1);">
@@ -279,9 +282,10 @@
             </div>
             <div>
               <span class="text-muted small d-block" style="font-size: 11px;">{{ 'Address' if current_lang == 'en' else 'Địa chỉ' }}</span>
-              <span class="fw-semibold text-dark small">{{ 'Nam Can Tho University' if current_lang == 'en' else 'Trường Đại học Nam Cần Thơ' }}</span>
+              <span class="fw-semibold text-dark small">{{ contact_info.address }}</span>
             </div>
           </div>
+          {% endif %}
 
         </div>
       </div>

@@ -1,0 +1,35 @@
+<h5 class="mt-0">1. Purpose</h5>
+        <p><strong>TEXTQAI</strong> uses large language models (LLMs) to analyze documents, generate exam questions and answers aligned with Bloom's taxonomy, validate output quality, and optionally translate Q&amp;A to match your interface language.</p>
+
+        <hr class="my-3">
+        <h5>2. How AI Is Used</h5>
+        <ul>
+          <li><strong>Document analysis:</strong> chapter/section structure is inferred from extracted PDF text.</li>
+          <li><strong>Question generation (Agent 2):</strong> section content is sent to the configured LLM to produce questions and answers.</li>
+          <li><strong>Quality validation (Agent 3):</strong> generated Q&amp;A is checked against source content and Bloom-level rules.</li>
+          <li><strong>Translation (optional):</strong> when document language differs from UI language, Q&amp;A may be translated by the same LLM provider.</li>
+        </ul>
+
+        <hr class="my-3">
+        <h5>3. Third-Party Providers</h5>
+        <p>Depending on admin configuration, requests may be routed through <strong>OpenRouter</strong>, <strong>OpenAI</strong>, or <strong>Google Gemini</strong> APIs. Only the minimum text needed for each step is transmitted. We select providers that offer data non-retention or limited-retention terms where available.</p>
+
+        <hr class="my-3">
+        <h5>4. Your Responsibilities</h5>
+        <ul>
+          <li>Upload only documents you have the right to use for educational or research purposes.</li>
+          <li>Do not upload unlawful, confidential, or personal data of third parties without consent.</li>
+          <li>Review AI-generated output before use in exams or official assessments.</li>
+        </ul>
+
+        <hr class="my-3">
+        <h5>5. Limitations & Disclaimer</h5>
+        <p>AI output may contain inaccuracies, omissions, or misclassified Bloom levels. TEXTQAI provides results on an <strong>"as-is"</strong> basis for academic assistance — not as a substitute for professional or legal advice. Service availability depends on third-party API uptime and rate limits.</p>
+
+        <hr class="my-3">
+        <h5>6. Contact</h5>
+        <p>
+          Questions about AI usage:<br>
+          <i class="bi bi-envelope-fill me-1 text-primary"></i>
+          <a href="mailto:duy226466@student.nctu.edu.vn">duy226466@student.nctu.edu.vn</a>
+        </p>
