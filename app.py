@@ -746,10 +746,12 @@ def process():
         except Exception:
             points, count = 0, 0
         if count > 0:
+            lo_raw = (request.form.get(f'bloom{i}_learning_outcome') or '').strip()
             bloom_configs.append({
                 'bloom_level': bloom_name_map[f'Bloom {i}'],
                 'points':      points if points > 0 else None,
                 'count':       count,
+                'learning_outcome': lo_raw[:2000] if lo_raw else None,
             })
             total_questions += count
 
@@ -885,6 +887,7 @@ def process():
                             total_points    = res['total_points'],
                             sub_points_count= res['sub_points_count'],
                             points_breakdown= res['points_breakdown'],
+                            learning_outcome= res.get('learning_outcome') or None,
                             batch_id        = _batch_id,
                             user_id         = _user_id,
                             document_id     = doc_id,
@@ -1099,6 +1102,7 @@ def export_pdf():
             lbl_write = "Answer:"
             lbl_points = "points"
             lbl_question = "Question"
+            lbl_learning_outcome = "Learning outcome"
         else:
             title_text = "ĐỀ KIỂM TRA"
             lbl_date = "Ngày xuất"
@@ -1112,6 +1116,7 @@ def export_pdf():
             lbl_write = "Trả lời:"
             lbl_points = "điểm"
             lbl_question = "Câu"
+            lbl_learning_outcome = "Chuẩn đầu ra"
 
         # ── Header band ─────────────────────────────────────────
         header_band = Table([
@@ -1162,6 +1167,14 @@ def export_pdf():
                 )
             cell.append(hdr)
             cell.append(Spacer(1, 6))
+            if include_answers:
+                _lo = (q.learning_outcome or '').strip()
+                if _lo:
+                    cell.append(Paragraph(
+                        f'<i>{lbl_learning_outcome}: {esc(_lo)}</i>',
+                        sMeta
+                    ))
+                    cell.append(Spacer(1, 4))
             cell.append(Paragraph(esc(q_text), sQBody))
 
             if include_answers and q.section_mapping:
@@ -1388,6 +1401,7 @@ def export_pdf_both():
             lbl_section = "Textbook Section"; lbl_suggested_ans = "Suggested Answer"
             lbl_no_ans = "No answer key available"; lbl_question_no_content = "No question content"
             lbl_write = "Answer:"; lbl_points = "points"; lbl_question = "Question"
+            lbl_learning_outcome = "Learning outcome"
         else:
             title_text = "ĐỀ KIỂM TRA"
             lbl_date = "Ngày xuất"; lbl_count = "Số câu"; lbl_mode = "Chế độ"
@@ -1395,6 +1409,7 @@ def export_pdf_both():
             lbl_section = "Mục tài liệu"; lbl_suggested_ans = "Đáp án gợi ý"
             lbl_no_ans = "Không có đáp án"; lbl_question_no_content = "Không có nội dung câu hỏi"
             lbl_write = "Trả lời:"; lbl_points = "điểm"; lbl_question = "Câu"
+            lbl_learning_outcome = "Chuẩn đầu ra"
 
         generated_time = time.strftime('%d/%m/%Y  %H:%M:%S')
 
@@ -1423,6 +1438,14 @@ def export_pdf_both():
                 hdr = Paragraph(f'<b>{lbl_question} {idx}:</b>  <b>{pts:.2f} {lbl_points}</b>', sQHead)
             cell.append(hdr)
             cell.append(Spacer(1, 6))
+            if include_answers:
+                _lo = (q.learning_outcome or '').strip()
+                if _lo:
+                    cell.append(Paragraph(
+                        f'<i>{lbl_learning_outcome}: {esc(_lo)}</i>',
+                        sMeta
+                    ))
+                    cell.append(Spacer(1, 4))
             cell.append(Paragraph(esc(q_text), sQBody))
 
             if include_answers and q.section_mapping:
@@ -1714,9 +1737,13 @@ def export_exam():
                 pts    = q.total_points or 0
                 q_text = (q.question or '').strip()
                 pts_vn = f'{pts:.1f}'.replace('.', ',')
-                head   = f'<b>Câu {idx} ({pts_vn} điểm).</b>  {e(q_text)}'
-                para   = Paragraph(head, sQHead)
-                story.append(KeepTogether([para, Spacer(1, 12)]))
+                q_block = [Paragraph(f'<b>Câu {idx} ({pts_vn} điểm).</b>  {e(q_text)}', sQHead)]
+                bloom_text = bloom_short_label(normalize_bloom_level(q.bloom_level or ''))
+                if bloom_text:
+                    q_block.append(Spacer(1, 2))
+                    q_block.append(Paragraph(f'<i>Bloom: {e(bloom_text)}</i>', sNote))
+                q_block.append(Spacer(1, 12))
+                story.append(KeepTogether(q_block))
 
             # ── 1f. Hết ───────────────────────────────────────────
             story.append(Spacer(1, 16))
@@ -1816,19 +1843,30 @@ def export_exam():
                     pts    = q.total_points or 0
                     pts_vn = f'{pts:.1f}'.replace('.', ',')
                     ans    = (q.answer or 'Không có đáp án').strip()
-                    story.append(Paragraph(
-                        f'<b>Câu {idx} ({pts_vn} điểm).</b>  {e(q.question or "")}',
-                        sQHead
-                    ))
-                    story.append(Spacer(1, 3))
-                    story.append(Paragraph(e(ans), S(f'sAns{idx}', fontName=F,
+                    ans_block = [
+                        Paragraph(
+                            f'<b>Câu {idx} ({pts_vn} điểm).</b>  {e(q.question or "")}',
+                            sQHead
+                        ),
+                    ]
+                    bloom_text = bloom_short_label(normalize_bloom_level(q.bloom_level or ''))
+                    if bloom_text:
+                        ans_block.append(Spacer(1, 2))
+                        ans_block.append(Paragraph(f'<i>Bloom: {e(bloom_text)}</i>', sNote))
+                    _lo = (q.learning_outcome or '').strip()
+                    if _lo:
+                        ans_block.append(Spacer(1, 2))
+                        ans_block.append(Paragraph(f'<i>Chuẩn đầu ra: {e(_lo)}</i>', sNote))
+                    ans_block.append(Spacer(1, 3))
+                    ans_block.append(Paragraph(e(ans), S(f'sAns{idx}', fontName=F,
                                   fontSize=10.5, leading=17, alignment=TA_LEFT,
                                   textColor=DGRAY, leftIndent=16,
                                   borderPad=6, borderColor=BLINE,
                                   borderWidth=0, backColor=colors.HexColor('#f7f7f7'))))
-                    story.append(Spacer(1, 10))
-                    story.append(HRFlowable(width=CW, thickness=0.4, color=BLINE, hAlign='CENTER'))
-                    story.append(Spacer(1, 8))
+                    ans_block.append(Spacer(1, 10))
+                    ans_block.append(HRFlowable(width=CW, thickness=0.4, color=BLINE, hAlign='CENTER'))
+                    ans_block.append(Spacer(1, 8))
+                    story.extend(ans_block)
 
             doc.build(story)
             out.seek(0)
@@ -4037,6 +4075,7 @@ if __name__ == '__main__':
         from utils.db_schema import ensure_column
         try:
             ensure_column(db.engine, 'users', 'terms_agreed_at', 'terms_agreed_at TIMESTAMP NULL')
+            ensure_column(db.engine, 'qa_results', 'learning_outcome', 'learning_outcome TEXT NULL')
         except Exception:
             pass
     # Khởi động background thread tự huỷ pending transactions

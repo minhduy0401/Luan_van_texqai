@@ -396,7 +396,9 @@
                                         <label class="form-label small mb-1">{{ 'Number of questions' if current_lang == 'en' else 'Số lượng câu hỏi' }}</label>
                                         <input type="number" name="bloom1_count" class="form-control form-control-sm bloom-count mb-2" placeholder="0" min="0" max="50" value="0">
                                         <label class="form-label small mb-1">{{ 'Points / Q' if current_lang == 'en' else 'Số điểm / câu' }}</label>
-                                        <input type="number" name="bloom1_points" class="form-control form-control-sm bloom-points" placeholder="0" min="0" max="10" step="0.25" value="0">
+                                        <input type="number" name="bloom1_points" class="form-control form-control-sm bloom-points mb-2" placeholder="0" min="0" max="10" step="0.25" value="0">
+                                        <label class="form-label small mb-1">{{ 'Learning outcome' if current_lang == 'en' else 'Chuẩn đầu ra' }} <span class="text-muted fw-normal">({{ 'optional' if current_lang == 'en' else 'tùy chọn' }})</span></label>
+                                        <textarea name="bloom1_learning_outcome" class="form-control form-control-sm bloom-lo-input" rows="2" maxlength="2000" placeholder="{{ 'Enter the learning outcome to assess, e.g. Analyze the role of data normalization in database design...' if current_lang == 'en' else 'Nhập chuẩn đầu ra cần đánh giá, ví dụ: Phân tích được vai trò của chuẩn hóa dữ liệu...' }}"></textarea>
                                     </div>
                                 </div>
                             </div>
@@ -408,7 +410,9 @@
                                         <label class="form-label small mb-1">{{ 'Number of questions' if current_lang == 'en' else 'Số lượng câu hỏi' }}</label>
                                         <input type="number" name="bloom2_count" class="form-control form-control-sm bloom-count mb-2" placeholder="0" min="0" max="50" value="0">
                                         <label class="form-label small mb-1">{{ 'Points / Q' if current_lang == 'en' else 'Số điểm / câu' }}</label>
-                                        <input type="number" name="bloom2_points" class="form-control form-control-sm bloom-points" placeholder="0" min="0" max="10" step="0.25" value="0">
+                                        <input type="number" name="bloom2_points" class="form-control form-control-sm bloom-points mb-2" placeholder="0" min="0" max="10" step="0.25" value="0">
+                                        <label class="form-label small mb-1">{{ 'Learning outcome' if current_lang == 'en' else 'Chuẩn đầu ra' }} <span class="text-muted fw-normal">({{ 'optional' if current_lang == 'en' else 'tùy chọn' }})</span></label>
+                                        <textarea name="bloom2_learning_outcome" class="form-control form-control-sm bloom-lo-input" rows="2" maxlength="2000" placeholder="{{ 'Enter the learning outcome to assess, e.g. Analyze the role of data normalization in database design...' if current_lang == 'en' else 'Nhập chuẩn đầu ra cần đánh giá, ví dụ: Phân tích được vai trò của chuẩn hóa dữ liệu...' }}"></textarea>
                                     </div>
                                 </div>
                             </div>
@@ -420,7 +424,9 @@
                                         <label class="form-label small mb-1">{{ 'Number of questions' if current_lang == 'en' else 'Số lượng câu hỏi' }}</label>
                                         <input type="number" name="bloom3_count" class="form-control form-control-sm bloom-count mb-2" placeholder="0" min="0" max="50" value="0">
                                         <label class="form-label small mb-1">{{ 'Points / Q' if current_lang == 'en' else 'Số điểm / câu' }}</label>
-                                        <input type="number" name="bloom3_points" class="form-control form-control-sm bloom-points" placeholder="0" min="0" max="10" step="0.25" value="0">
+                                        <input type="number" name="bloom3_points" class="form-control form-control-sm bloom-points mb-2" placeholder="0" min="0" max="10" step="0.25" value="0">
+                                        <label class="form-label small mb-1">{{ 'Learning outcome' if current_lang == 'en' else 'Chuẩn đầu ra' }} <span class="text-muted fw-normal">({{ 'optional' if current_lang == 'en' else 'tùy chọn' }})</span></label>
+                                        <textarea name="bloom3_learning_outcome" class="form-control form-control-sm bloom-lo-input" rows="2" maxlength="2000" placeholder="{{ 'Enter the learning outcome to assess, e.g. Analyze the role of data normalization in database design...' if current_lang == 'en' else 'Nhập chuẩn đầu ra cần đánh giá, ví dụ: Phân tích được vai trò của chuẩn hóa dữ liệu...' }}"></textarea>
                                     </div>
                                 </div>
                             </div>
@@ -432,7 +438,9 @@
                                         <label class="form-label small mb-1">{{ 'Number of questions' if current_lang == 'en' else 'Số lượng câu hỏi' }}</label>
                                         <input type="number" name="bloom4_count" class="form-control form-control-sm bloom-count mb-2" placeholder="0" min="0" max="50" value="0">
                                         <label class="form-label small mb-1">{{ 'Points / Q' if current_lang == 'en' else 'Số điểm / câu' }}</label>
-                                        <input type="number" name="bloom4_points" class="form-control form-control-sm bloom-points" placeholder="0" min="0" max="10" step="0.25" value="0">
+                                        <input type="number" name="bloom4_points" class="form-control form-control-sm bloom-points mb-2" placeholder="0" min="0" max="10" step="0.25" value="0">
+                                        <label class="form-label small mb-1">{{ 'Learning outcome' if current_lang == 'en' else 'Chuẩn đầu ra' }} <span class="text-muted fw-normal">({{ 'optional' if current_lang == 'en' else 'tùy chọn' }})</span></label>
+                                        <textarea name="bloom4_learning_outcome" class="form-control form-control-sm bloom-lo-input" rows="2" maxlength="2000" placeholder="{{ 'Enter the learning outcome to assess, e.g. Analyze the role of data normalization in database design...' if current_lang == 'en' else 'Nhập chuẩn đầu ra cần đánh giá, ví dụ: Phân tích được vai trò của chuẩn hóa dữ liệu...' }}"></textarea>
                                     </div>
                                 </div>
                             </div>
@@ -444,7 +452,9 @@
                                         <label class="form-label small mb-1">{{ 'Number of questions' if current_lang == 'en' else 'Số lượng câu hỏi' }}</label>
                                         <input type="number" name="bloom5_count" class="form-control form-control-sm bloom-count mb-2" placeholder="0" min="0" max="50" value="0">
                                         <label class="form-label small mb-1">{{ 'Points / Q' if current_lang == 'en' else 'Số điểm / câu' }}</label>
-                                        <input type="number" name="bloom5_points" class="form-control form-control-sm bloom-points" placeholder="0" min="0" max="10" step="0.25" value="0">
+                                        <input type="number" name="bloom5_points" class="form-control form-control-sm bloom-points mb-2" placeholder="0" min="0" max="10" step="0.25" value="0">
+                                        <label class="form-label small mb-1">{{ 'Learning outcome' if current_lang == 'en' else 'Chuẩn đầu ra' }} <span class="text-muted fw-normal">({{ 'optional' if current_lang == 'en' else 'tùy chọn' }})</span></label>
+                                        <textarea name="bloom5_learning_outcome" class="form-control form-control-sm bloom-lo-input" rows="2" maxlength="2000" placeholder="{{ 'Enter the learning outcome to assess, e.g. Analyze the role of data normalization in database design...' if current_lang == 'en' else 'Nhập chuẩn đầu ra cần đánh giá, ví dụ: Phân tích được vai trò của chuẩn hóa dữ liệu...' }}"></textarea>
                                     </div>
                                 </div>
                             </div>
@@ -456,7 +466,9 @@
                                         <label class="form-label small mb-1">{{ 'Number of questions' if current_lang == 'en' else 'Số lượng câu hỏi' }}</label>
                                         <input type="number" name="bloom6_count" class="form-control form-control-sm bloom-count mb-2" placeholder="0" min="0" max="50" value="0">
                                         <label class="form-label small mb-1">{{ 'Points / Q' if current_lang == 'en' else 'Số điểm / câu' }}</label>
-                                        <input type="number" name="bloom6_points" class="form-control form-control-sm bloom-points" placeholder="0" min="0" max="10" step="0.25" value="0">
+                                        <input type="number" name="bloom6_points" class="form-control form-control-sm bloom-points mb-2" placeholder="0" min="0" max="10" step="0.25" value="0">
+                                        <label class="form-label small mb-1">{{ 'Learning outcome' if current_lang == 'en' else 'Chuẩn đầu ra' }} <span class="text-muted fw-normal">({{ 'optional' if current_lang == 'en' else 'tùy chọn' }})</span></label>
+                                        <textarea name="bloom6_learning_outcome" class="form-control form-control-sm bloom-lo-input" rows="2" maxlength="2000" placeholder="{{ 'Enter the learning outcome to assess, e.g. Analyze the role of data normalization in database design...' if current_lang == 'en' else 'Nhập chuẩn đầu ra cần đánh giá, ví dụ: Phân tích được vai trò của chuẩn hóa dữ liệu...' }}"></textarea>
                                     </div>
                                 </div>
                             </div>

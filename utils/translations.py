@@ -274,6 +274,10 @@ TRANSLATIONS = {
         "en": "Textbook Section",
         "vi": "Mục tài liệu"
     },
+    "Chuẩn đầu ra": {
+        "en": "Learning outcome",
+        "vi": "Chuẩn đầu ra"
+    },
     "Điểm": {
         "en": "Score",
         "vi": "Điểm"

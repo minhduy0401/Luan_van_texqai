@@ -2,6 +2,12 @@
     <div class="small text-muted fw-semibold mb-1">{{ t('Câu hỏi') }}</div>
     <div class="fw-semibold" style="line-height:1.55;">{{ item.question }}</div>
 </div>
+{% if item.learning_outcome %}
+<div class="mb-2">
+    <div class="small text-muted fw-semibold mb-1">{{ t('Chuẩn đầu ra') }}</div>
+    <div style="line-height:1.45;color:#0f766e;">{{ item.learning_outcome }}</div>
+</div>
+{% endif %}
 <div class="mb-2">
     <div class="small text-muted fw-semibold mb-1">{{ t('Đáp án') }}</div>
     <div class="qa-answer-body">{{ item.answer }}</div>

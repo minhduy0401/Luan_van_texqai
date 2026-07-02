@@ -2,7 +2,7 @@
 import hmac
 import hashlib
 import urllib.parse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from utils.app_settings import get_vnpay_config
 
@@ -14,24 +14,24 @@ def _vnpay_sign(params: dict, hash_secret: str) -> str:
     return hmac.new(hash_secret.encode('utf-8'), query.encode('utf-8'), hashlib.sha512).hexdigest()
 
 
-def vnpay_create_payment_url(order_code: str, amount_vnd: int, order_info: str,
-                              ip_addr: str, return_url: str) -> str:
-    """Tạo URL thanh toán VNPAY."""
+def vnpay_create_payment_url(order_code: str, amount_vnd: int, order_info: str, ip_addr: str, return_url: str) -> str:
+    """Tạo URL thanh toán VNPay."""
     cfg = get_vnpay_config()
-    now = datetime.now()
-    expire = now + timedelta(minutes=15)
+    VN_TZ = timezone(timedelta(hours=7))
+    now = datetime.now(VN_TZ)
+    expire = now + timedelta(minutes=30)
     params = {
-        'vnp_Version':    '2.1.0',
-        'vnp_Command':    'pay',
-        'vnp_TmnCode':    cfg['tmn_code'],
-        'vnp_Amount':     str(amount_vnd * 100),
-        'vnp_CurrCode':   'VND',
-        'vnp_TxnRef':     order_code,
-        'vnp_OrderInfo':  order_info,
-        'vnp_OrderType':  'other',
-        'vnp_Locale':     'vn',
-        'vnp_ReturnUrl':  return_url,
-        'vnp_IpAddr':     ip_addr,
+        'vnp_Version': '2.1.0',
+        'vnp_Command': 'pay',
+        'vnp_TmnCode': cfg['tmn_code'],
+        'vnp_Amount': str(amount_vnd * 100),
+        'vnp_CurrCode': 'VND',
+        'vnp_TxnRef': order_code,
+        'vnp_OrderInfo': order_info,
+        'vnp_OrderType': 'other',
+        'vnp_Locale': 'vn',
+        'vnp_ReturnUrl': return_url,
+        'vnp_IpAddr': ip_addr,
         'vnp_CreateDate': now.strftime('%Y%m%d%H%M%S'),
         'vnp_ExpireDate': expire.strftime('%Y%m%d%H%M%S'),
     }

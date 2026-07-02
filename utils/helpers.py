@@ -102,30 +102,39 @@ def calculate_points_from_bloom(bloom_level, custom_points=None):
     return total, sub_count, breakdown_text
 
 def _get_pdf_font_name_for_windows():
-    """Đăng ký font Unicode để PDF hiển thị tiếng Việt tốt hơn."""
+    """Đăng ký font Unicode để PDF hiển thị tiếng Việt tốt trên Windows và Azure Linux."""
     try:
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
 
-        if 'ArialUnicodeVN' in pdfmetrics.getRegisteredFontNames():
-            return 'ArialUnicodeVN'
+        font_name = 'DejaVuSansVN'
+
+        if font_name in pdfmetrics.getRegisteredFontNames():
+            return font_name
+
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
         candidate_paths = [
+            os.path.join(base_dir, 'static', 'fonts', 'DejaVuSans.ttf'),
+            os.path.join(base_dir, 'static', 'fonts', 'NotoSans-Regular.ttf'),
+
+            # Fallback khi chạy local Windows
             r"C:\Windows\Fonts\arial.ttf",
-            r"C:\Windows\Fonts\times.ttf",
             r"C:\Windows\Fonts\tahoma.ttf",
+            r"C:\Windows\Fonts\times.ttf",
         ]
 
         for font_path in candidate_paths:
             if os.path.exists(font_path):
-                pdfmetrics.registerFont(TTFont('ArialUnicodeVN', font_path))
-                return 'ArialUnicodeVN'
+                pdfmetrics.registerFont(TTFont(font_name, font_path))
+                return font_name
+
     except Exception as e:
         print(f"⚠️ Không đăng ký được font Unicode cho PDF: {e}")
 
     return 'Helvetica'
 
-def _draw_wrapped_pdf_text(pdf_canvas, text, x, y, max_width, font_name='Helvetica', font_size=11, line_height=16):
+def _draw_wrapped_pdf_text(pdf_canvas, text, x, y, max_width, font_name=None, font_size=11, line_height=16):
     """Vẽ text nhiều dòng trong PDF và trả về toạ độ y sau khi vẽ."""
     try:
         from reportlab.pdfbase import pdfmetrics
@@ -134,6 +143,11 @@ def _draw_wrapped_pdf_text(pdf_canvas, text, x, y, max_width, font_name='Helveti
 
     if not text:
         return y
+
+    if font_name is None:
+        font_name = _get_pdf_font_name_for_windows()
+
+    pdf_canvas.setFont(font_name, font_size)
 
     words = str(text).replace('\n', ' \n ').split()
     current_line = []

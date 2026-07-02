@@ -81,6 +81,7 @@ class QAResult(db.Model):
     sub_points_count = db.Column(db.Integer, default=0)  # Số ý (mỗi ý 0.25 điểm)
     points_breakdown = db.Column(db.Text)  # Chi tiết điểm từng ý
     batch_id = db.Column(db.String(20), nullable=True)  # ID nhóm lần sinh (YYYYMMDDHHMMSS)
+    learning_outcome = db.Column(db.Text, nullable=True)  # Chuẩn đầu ra (CLO) nhập thủ công
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     document_id = db.Column(db.Integer, db.ForeignKey('documents.id'))  # Liên kết với Document
 

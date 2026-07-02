@@ -2350,9 +2350,487 @@ def _get_section_bloom_ceiling(section_content: str, section_title: str) -> int:
     return 3  # mặc định: Bloom 3 (cho cơ hội thử)
 
 
+def _normalize_learning_outcome(value):
+    """Chuẩn hóa chuẩn đầu ra (CLO) từ form — None nếu rỗng."""
+    if value is None:
+        return None
+    s = str(value).strip()
+    return s[:2000] if s else None
+
+
+def _parse_agent_llm_decision(raw: str):
+    """Parse output LLM dạng decision/reason/feedback."""
+    raw = (raw or '').strip()
+    decision = 'fail'
+    reason = ''
+    feedback = ''
+    d_m = re.search(r'decision:\s*(pass|fail)', raw, re.I)
+    if d_m:
+        decision = d_m.group(1).lower()
+    r_m = re.search(r'reason:\s*(.+?)(?:\n\s*feedback:|\Z)', raw, re.I | re.S)
+    if r_m:
+        reason = r_m.group(1).strip()
+    f_m = re.search(r'feedback:\s*(.+)', raw, re.I | re.S)
+    if f_m:
+        feedback = f_m.group(1).strip()
+    return decision, reason, feedback
+
+
+def _section_lo_mismatch_penalty(section: dict, learning_outcome: str) -> float:
+    """Phạt mục lệch loại năng lực CLO (VD CLO khái niệm cơ bản vs mục xây dựng hệ thống)."""
+    title = (section.get('title') or '').lower()
+    content = (section.get('content') or '').strip()
+    lo = (learning_outcome or '').lower()
+    penalty = 0.0
+    if re.match(r'^(chương|chapter)\s*[\divxlcdm]+', title) and len(content) < 1500:
+        penalty += 0.40
+    concept_clo = any(t in lo for t in (
+        'khái niệm', 'định nghĩa', 'thuật ngữ', 'cơ bản', 'concept', 'definition', 'terminology',
+    ))
+    build_title = any(t in title for t in (
+        'xây dựng', 'triển khai', 'nghiên cứu thị trường', 'đối thủ', 'mục tiêu và yêu cầu',
+        'implement', 'deploy', 'build',
+    ))
+    if concept_clo and build_title:
+        penalty += 0.30
+    if concept_clo:
+        advanced = any(t in title for t in (
+            'omni', '6.', 'xây dựng', 'triển khai', 'bán hàng trên sàn',
+            'lưu ý khi áp dụng', 'marketing', 'seo',
+        ))
+        basic = any(t in title for t in (
+            'khái niệm', 'giới thiệu', '1.', '2.1', 'mô hình', 'thuật ngữ', 'tổng quan',
+        ))
+        if advanced and not basic:
+            penalty += 0.35
+    risk_clo = any(t in lo for t in ('rủi ro', 'risk', 'an ninh', 'bảo mật', 'pháp lý'))
+    risk_title = any(t in title for t in ('omni channel', 'omni-channel', 'bán hàng', 'marketing', 'seo', 'từ khóa'))
+    if risk_clo and risk_title and 'rủi ro' not in title and 'an ninh' not in title:
+        penalty += 0.20
+    return penalty
+
+
+def _section_lo_score(section: dict, chapter_content_map: dict, learning_outcome: str) -> float:
+    """Điểm trùng CLO với tiêu đề + nội dung mục (0–1). Không cộng cả chương — tránh Chương 6 = 100%."""
+    if not learning_outcome:
+        return 0.0
+    title = section.get('title', '') or ''
+    content = (section.get('content') or '')[:8000]
+    title_sc = _lo_keyword_overlap(title, learning_outcome)
+    content_sc = _lo_keyword_overlap(content, learning_outcome)
+    raw = title_sc * 0.55 + content_sc * 0.45
+    title_lo = title.lower()
+    lo = learning_outcome.lower()
+    if 'khái niệm' in lo and 'khái niệm' in title_lo:
+        raw = min(1.0, raw + 0.12)
+    if 'mô hình' in lo and 'mô hình' in title_lo:
+        raw = min(1.0, raw + 0.10)
+    if 'thuật ngữ' in lo and any(t in title_lo for t in ('thuật ngữ', 'khái niệm', 'giới thiệu')):
+        raw = min(1.0, raw + 0.08)
+    topic_hits = _clo_topic_hits_in_text(f"{title}\n{content}", learning_outcome)
+    if topic_hits:
+        raw = min(1.0, raw + 0.06 * len(topic_hits))
+    return max(0.0, raw - _section_lo_mismatch_penalty(section, learning_outcome))
+
+
+def _lo_keyword_overlap(text: str, learning_outcome: str) -> float:
+    """Độ trùng từ khóa đơn giản giữa CLO và nguồn (section/chương)."""
+    def _terms(s):
+        words = re.findall(r'[\wÀ-ỹ]{3,}', (s or '').lower(), re.UNICODE)
+        stop = {
+            'và', 'của', 'cho', 'trong', 'theo', 'được', 'các', 'một', 'này', 'that',
+            'with', 'from', 'have', 'been', 'the', 'for', 'are', 'was',
+        }
+        return {w for w in words if w not in stop}
+
+    lo_terms = _terms(learning_outcome)
+    if not lo_terms:
+        return 0.0
+    src_terms = _terms(text)
+    if not src_terms:
+        return 0.0
+    return len(lo_terms & src_terms) / len(lo_terms)
+
+
+# Khía cạnh năng lực thường gặp trong CLO — dùng kiểm tra Q&A có bám CLO không
+_CLO_SKILL_ASPECTS = frozenset({'phan_tich', 'danh_gia', 'so_sanh', 'van_dung'})
+_CLO_BLOOM_DEFAULT_SKILL = {3: 'van_dung', 4: 'phan_tich', 5: 'danh_gia', 6: 'danh_gia'}
+
+_CLO_TOPIC_SIGNALS = {
+    'rui_ro': (
+        ['rủi ro', 'risk'],
+        ['rủi ro', 'risk', 'nguy cơ', 'threat', 'đe dọa', 'gian lận'],
+    ),
+    'an_ninh': (
+        ['an ninh', 'security', 'bảo mật'],
+        ['an ninh', 'security', 'bảo mật', 'mật', 'hack', 'xâm nhập'],
+    ),
+    'thanh_toan': (
+        ['thanh toán', 'payment'],
+        ['thanh toán', 'payment', 'giao dịch', 'thẻ', 'cổng thanh toán'],
+    ),
+    'phap_ly': (
+        ['pháp lý', 'legal'],
+        ['pháp lý', 'legal', 'quy định', 'luật', 'tuân thủ', 'trách nhiệm'],
+    ),
+}
+
+_CLO_ASPECT_SIGNALS = {
+    'loi_ich': (
+        ['lợi ích', 'ưu điểm', 'tác dụng', 'benefit', 'advantage'],
+        ['lợi ích', 'ưu điểm', 'tác dụng', 'giúp', 'benefit', 'advantage'],
+    ),
+    'han_che': (
+        ['hạn chế', 'nhược điểm', 'khó khăn', 'limitation', 'drawback', 'nhược'],
+        ['hạn chế', 'nhược', 'khó khăn', 'điểm yếu', 'limitation', 'drawback'],
+    ),
+    'vai_tro': (
+        ['vai trò', 'ý nghĩa', 'vị trí', 'role', 'significance'],
+        ['vai trò', 'ý nghĩa', 'vị trí', 'đóng góp', 'role'],
+    ),
+    'khai_niem': (
+        ['khái niệm', 'định nghĩa', 'concept', 'define', 'definition', 'cơ bản'],
+        ['khái niệm', 'định nghĩa', 'là gì', 'concept', 'definition', 'cơ bản',
+         'thương mại điện tử', 'tmđt', 'e-commerce', 'ecommerce'],
+    ),
+    'hoat_dong': (
+        ['hoạt động', 'quy trình', 'bước', 'process', 'activity'],
+        ['hoạt động', 'quy trình', 'bước', 'process', 'activity'],
+    ),
+    'phan_tich': (
+        ['phân tích', 'analyze', 'analysis'],
+        ['phân tích', 'analyze', 'analysis', 'nguyên nhân', 'hệ quả', 'mối quan hệ',
+         'yếu tố', 'tác động', 'ảnh hưởng', 'vì sao', 'dẫn đến', 'liên quan'],
+    ),
+    'so_sanh': (
+        ['so sánh', 'compare', 'contrast', 'khác biệt'],
+        ['so sánh', 'compare', 'contrast', 'khác biệt', 'khác nhau'],
+    ),
+    'van_dung': (
+        ['vận dụng', 'áp dụng', 'apply', 'implement'],
+        ['vận dụng', 'áp dụng', 'apply', 'implement', 'triển khai'],
+    ),
+    'danh_gia': (
+        ['đánh giá', 'evaluate', 'assess', 'nhận xét'],
+        ['đánh giá', 'evaluate', 'assess', 'nhận xét'],
+    ),
+    'mo_hinh': (
+        ['mô hình', 'model', 'framework'],
+        ['mô hình', 'model', 'framework', 'loại hình', 'hình thức',
+         'b2b', 'b2c', 'c2c', 'c2b', 'b2g', 'c2g', 'marketplace', 'sàn tmđt'],
+    ),
+    'thuat_ngu': (
+        ['thuật ngữ', 'terminology', 'term', 'liên quan'],
+        ['thuật ngữ', 'terminology', 'term', 'ký hiệu', 'viết tắt',
+         'edi', 'url', 'http', 'https', 'ssl', 'vpn', 'internet', 'website',
+         'online', 'offline', 'giao dịch điện tử', 'tmđt', 'e-commerce'],
+    ),
+    **_CLO_TOPIC_SIGNALS,
+}
+
+_CLO_ASPECT_LABELS = {
+    'loi_ich': 'lợi ích',
+    'han_che': 'hạn chế',
+    'vai_tro': 'vai trò',
+    'khai_niem': 'khái niệm/định nghĩa',
+    'hoat_dong': 'hoạt động/quy trình',
+    'phan_tich': 'phân tích',
+    'so_sanh': 'so sánh',
+    'van_dung': 'vận dụng',
+    'danh_gia': 'đánh giá',
+    'mo_hinh': 'mô hình',
+    'thuat_ngu': 'thuật ngữ',
+    'rui_ro': 'rủi ro',
+    'an_ninh': 'an ninh',
+    'thanh_toan': 'thanh toán',
+    'phap_ly': 'pháp lý',
+}
+
+
+def _clo_topic_hits_in_text(text: str, learning_outcome: str) -> list[str]:
+    """Chủ đề CLO có trong text (dùng boost chọn mục)."""
+    lo = (learning_outcome or '').lower()
+    t = (text or '').lower()
+    hits = []
+    for key, (triggers, _) in _CLO_TOPIC_SIGNALS.items():
+        if any(tr in lo for tr in triggers) and any(tr in t for tr in triggers):
+            hits.append(key)
+    return hits
+
+
+def _extract_clo_aspects(learning_outcome: str) -> list[str]:
+    """Trích khía cạnh CLO — bỏ 'triển khai' chỉ là ngữ cảnh, không coi là vận dụng."""
+    lo = (learning_outcome or '').lower()
+    aspects = []
+    for key, (triggers, _) in _CLO_ASPECT_SIGNALS.items():
+        if key == 'van_dung':
+            if any(t in lo for t in ('vận dụng', 'áp dụng', 'apply', 'implement')):
+                aspects.append(key)
+            continue
+        if any(t in lo for t in triggers):
+            aspects.append(key)
+    return aspects
+
+
+def _text_hits_clo_aspects(text: str, aspects: list[str]) -> set[str]:
+    t = (text or '').lower()
+    hit = set()
+    for asp in aspects:
+        _, markers = _CLO_ASPECT_SIGNALS[asp]
+        if any(m in t for m in markers):
+            hit.add(asp)
+    return hit
+
+
+def _section_supports_clo_aspect(aspect: str, section_text: str) -> bool:
+    """Mục nguồn có nội dung phục vụ khía cạnh CLO không."""
+    _, markers = _CLO_ASPECT_SIGNALS.get(aspect, ([], []))
+    t = (section_text or '').lower()
+    return any(m in t for m in markers)
+
+
+def _clo_relevant_content_aspects(content_aspects, section_title, section_content,
+                                    question, answer, bloom_num):
+    """B1–B2: CLO thường liệt kê nhiều chủ đề — chỉ bắt khía cạnh mục nguồn phục vụ được."""
+    if bloom_num > 2 or not content_aspects:
+        return content_aspects
+    section_text = f"{section_title or ''}\n{(section_content or '')[:6000]}"
+    qa_hit = _text_hits_clo_aspects(
+        f"{question or ''}\n{answer or ''}", content_aspects,
+    )
+    relevant = [
+        asp for asp in content_aspects
+        if asp in qa_hit or _section_supports_clo_aspect(asp, section_text)
+    ]
+    if relevant:
+        return relevant
+    title_lo = (section_title or '').lower()
+    if 'khai_niem' in content_aspects and any(
+        t in title_lo for t in ('khái niệm', 'giới thiệu', 'tổng quan', 'chung')
+    ):
+        return ['khai_niem']
+    if 'mo_hinh' in content_aspects and 'mô hình' in title_lo:
+        return ['mo_hinh']
+    if 'thuat_ngu' in content_aspects and 'thuật ngữ' in title_lo:
+        return ['thuat_ngu']
+    return content_aspects[:1]
+
+
+def _clo_skill_aspect_satisfied(aspect: str, gap: dict, bloom_num: int) -> bool:
+    """Động từ năng lực CLO — coi đạt nếu câu hỏi có hoặc mức Bloom khớp."""
+    if aspect in gap.get('q_hit', set()):
+        return True
+    default_skill = _CLO_BLOOM_DEFAULT_SKILL.get(bloom_num)
+    if aspect == default_skill:
+        return True
+    if aspect == 'phan_tich' and bloom_num >= 4:
+        return True
+    if aspect == 'danh_gia' and bloom_num >= 5:
+        return True
+    if aspect == 'van_dung' and bloom_num == 3:
+        return True
+    if aspect == 'so_sanh' and bloom_num >= 4:
+        return True
+    return False
+
+
+def _clo_aspect_gap(question, answer, learning_outcome, section_title=None,
+                    section_content=None, bloom_num=2):
+    """So khớp Q/A với khía cạnh CLO. Trả None nếu CLO không có aspect rõ."""
+    aspects = _extract_clo_aspects(learning_outcome)
+    if not aspects:
+        return None
+    q_hit = _text_hits_clo_aspects(question, aspects)
+    a_hit = _text_hits_clo_aspects(answer, aspects)
+    combined = q_hit | a_hit
+    skill_aspects = [a for a in aspects if a in _CLO_SKILL_ASPECTS]
+    content_aspects = [a for a in aspects if a not in _CLO_SKILL_ASPECTS]
+    if content_aspects and bloom_num <= 2:
+        content_aspects = _clo_relevant_content_aspects(
+            content_aspects, section_title, section_content, question, answer, bloom_num,
+        )
+    n = len(aspects)
+    n_content = len(content_aspects) or 1
+    q_content = q_hit & set(content_aspects)
+    a_content = a_hit & set(content_aspects)
+    combined_content = q_content | a_content
+    return {
+        'aspects': aspects,
+        'skill_aspects': skill_aspects,
+        'content_aspects': content_aspects,
+        'q_hit': q_hit,
+        'a_hit': a_hit,
+        'combined_hit': combined,
+        'combined_content_hit': combined_content,
+        'q_missing': [a for a in aspects if a not in q_hit],
+        'a_missing': [a for a in aspects if a not in a_hit],
+        'combined_missing': [a for a in aspects if a not in combined],
+        'content_missing': [a for a in content_aspects if a not in combined_content],
+        'q_coverage': len(q_hit) / n,
+        'a_coverage': len(a_hit) / n,
+        'combined_coverage': len(combined) / n,
+        'content_coverage': len(combined_content) / n_content if content_aspects else 1.0,
+        'a_content_coverage': len(a_content) / n_content if content_aspects else 1.0,
+    }
+
+
+def _clo_qa_aspect_passes(gap, bloom_num=2):
+    """Kiểm tra Q+A bám CLO — skill aspect qua câu hỏi/Bloom; content aspect qua Q+A gộp."""
+    if not gap or not gap.get('aspects'):
+        return True, None
+    skill_aspects = gap.get('skill_aspects') or []
+    content_aspects = gap.get('content_aspects') or []
+
+    for asp in skill_aspects:
+        if not _clo_skill_aspect_satisfied(asp, gap, bloom_num):
+            return False, f"câu hỏi thiếu năng lực: {_clo_aspect_labels([asp])}"
+
+    if not content_aspects:
+        return True, None
+
+    combined_content = gap.get('combined_content_hit') or set()
+    n_active = len(content_aspects)
+
+    if bloom_num <= 2:
+        if len(combined_content) < 1:
+            return False, f"thiếu chủ đề CLO: {_clo_aspect_labels(gap['content_missing'])}"
+        return True, None
+
+    combined_cov = gap['content_coverage']
+    if combined_cov < 0.34:
+        return False, f"thiếu chủ đề CLO: {_clo_aspect_labels(gap['content_missing'])}"
+
+    if bloom_num <= 4:
+        if gap['a_content_coverage'] < 0.34 and len(combined_content) < max(1, n_active // 2):
+            return False, f"đáp án thiếu chủ đề CLO: {_clo_aspect_labels(gap['content_missing'])}"
+    else:
+        if gap['a_content_coverage'] < 0.34:
+            return False, f"đáp án thiếu: {_clo_aspect_labels(gap['content_missing'])}"
+        if len(gap['q_hit'] & set(content_aspects)) == 0 and gap['q_coverage'] < 0.34:
+            return False, f"câu hỏi thiếu: {_clo_aspect_labels(gap['q_missing'])}"
+    return True, None
+
+
+def _clo_aspect_labels(keys: list[str]) -> str:
+    return ', '.join(_CLO_ASPECT_LABELS.get(k, k) for k in keys)
+
+
+def _llm_learning_outcome_section_check(section_content, section_title, target_bloom, learning_outcome,
+                                        chapter_content=None, chapter_key=None):
+    """Agent 1 bổ sung: kiểm tra section có phù hợp Bloom + chuẩn đầu ra (chỉ khi có CLO)."""
+    section_excerpt = (section_content or '')[:3500]
+    chapter_excerpt = (chapter_content or '')[:4500]
+    chapter_block = ''
+    if chapter_excerpt and chapter_excerpt.strip() != section_excerpt.strip():
+        chapter_block = (
+            f"\n--- NGỮ CẢNH CHƯƠNG ({chapter_key or 'Chương'}) ---\n"
+            f"{chapter_excerpt}\n--- HẾT NGỮ CẢNH ---\n"
+        )
+
+    prompt = (
+        f"Bạn là giảng viên đại học. Kiểm tra MỤC NGUỒN có thể dùng để tạo câu hỏi tự luận theo CLO không.\n\n"
+        f"Mức Bloom yêu cầu: {target_bloom}\n\n"
+        f"Chuẩn đầu ra cần đánh giá:\n{learning_outcome}\n\n"
+        f"QUY TẮC (lọc CLO — mọi giáo trình; mức Bloom vẫn được kiểm tra riêng và nghiêm):\n"
+        f"- PASS nếu mục/chương có nội dung TRỰC TIẾP phục vụ năng lực hoặc CHỦ ĐỀ trong CLO.\n"
+        f"- PASS nếu mục chứa khái niệm/thuật ngữ/chủ đề cốt lõi trong CLO.\n"
+        f"- PASS nếu mục có nội dung chủ đề CLO dù chưa 'phân tích sẵn' — câu hỏi Bloom sẽ yêu cầu phân tích/đánh giá.\n"
+        f"- FAIL nếu mục hoàn toàn không liên quan CLO (khác chủ đề/lĩnh vực).\n"
+        f"- Không yêu cầu mục chứa đủ mọi ý CLO trong một đoạn ngắn.\n\n"
+        f"Tiêu đề mục: {section_title}\n"
+        f"--- NỘI DUNG MỤC ---\n{section_excerpt}\n--- HẾT MỤC ---\n"
+        f"{chapter_block}\n"
+        f"Output bắt buộc (chỉ 3 dòng, không thêm text khác):\n"
+        f"decision: PASS hoặc FAIL\n"
+        f"reason: lý do ngắn gọn\n"
+        f"feedback: gợi ý nếu Fail (để trống nếu Pass)"
+    )
+    try:
+        response = ai_client.chat.completions.create(
+            model=_cfg.QUESTION_MODEL,
+            messages=[
+                {"role": "system", "content":
+                 "Trả lời đúng format decision/reason/feedback. "
+                 "Đánh giá theo CLO và nguồn thực tế — không giả định lĩnh vực cụ thể."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.15,
+            max_tokens=400,
+            timeout=45,
+        )
+        raw = response.choices[0].message.content.strip()
+        decision, reason, feedback = _parse_agent_llm_decision(raw)
+        return decision == 'pass', reason, feedback
+    except Exception as exc:
+        print(f"    Agent 1 LO check: fail_api — {exc}")
+        return True, '', ''
+
+
+def _llm_learning_outcome_qa_validate(question, answer, section_content, section_title,
+                                        target_bloom, learning_outcome, bloom_num=2):
+    """Agent 3 bổ sung: kiểm định Q&A có bám chuẩn đầu ra không."""
+    src_excerpt = (section_content or '')[:2500]
+    aspects = _extract_clo_aspects(learning_outcome)
+    aspect_hint = ''
+    if aspects:
+        skill = [a for a in aspects if a in _CLO_SKILL_ASPECTS]
+        content = [a for a in aspects if a not in _CLO_SKILL_ASPECTS]
+        parts = []
+        if skill:
+            parts.append(f"Năng lực (câu hỏi/Bloom): {_clo_aspect_labels(skill)}")
+        if content:
+            parts.append(f"Chủ đề nội dung (Q+A): {_clo_aspect_labels(content)}")
+        aspect_hint = (
+            f"CLO — {'; '.join(parts)}.\n"
+            f"Đáp án Bloom 4+ KHÔNG cần lặp từ 'phân tích'/'đánh giá' nếu câu hỏi đã có và nội dung đáp án bám chủ đề CLO.\n\n"
+        )
+    lo_rules = (
+        "Hãy kiểm tra cặp Q&A có đánh giá đúng chuẩn đầu ra:\n"
+        "1. Câu hỏi có cùng LOẠI năng lực với CLO (VD CLO hỏi lợi ích/hạn chế/vai trò "
+        "→ câu hỏi KHÔNG được chỉ hỏi khái niệm/định nghĩa/hoạt động chung).\n"
+        "2. Đáp án có nội dung phục vụ đánh giá CLO, không chỉ lặp định nghĩa.\n"
+        "3. FAIL nếu câu hỏi lệch hẳn CLO (cùng chủ đề nhưng sai năng lực).\n"
+        "4. FAIL nếu đáp án không chứa thông tin phục vụ CLO.\n\n"
+    )
+    prompt = (
+        f"Bạn là giảng viên đại học. Kiểm định cặp câu hỏi–đáp án có đánh giá chuẩn đầu ra không.\n\n"
+        f"Mức Bloom: {target_bloom}\n"
+        f"Chuẩn đầu ra cần đánh giá:\n{learning_outcome}\n\n"
+        f"{aspect_hint}"
+        f"Nguồn ({section_title}):\n{src_excerpt}\n\n"
+        f"CÂU HỎI:\n{question}\n\n"
+        f"ĐÁP ÁN:\n{answer}\n\n"
+        f"{lo_rules}"
+        f"Ví dụ FAIL: CLO='Giải thích lợi ích, hạn chế, vai trò của X' / "
+        f"Q='Giải thích khái niệm X và các hoạt động' → sai năng lực.\n\n"
+        f"Output bắt buộc:\n"
+        f"decision: PASS hoặc FAIL\n"
+        f"reason: lý do ngắn gọn\n"
+        f"feedback: gợi ý sửa câu hỏi/đáp án nếu Fail"
+    )
+    try:
+        response = ai_client.chat.completions.create(
+            model=_cfg.QUESTION_MODEL,
+            messages=[
+                {"role": "system", "content": "Trả lời đúng format decision/reason/feedback, không thêm markdown."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.1,
+            max_tokens=500,
+            timeout=45,
+        )
+        raw = response.choices[0].message.content.strip()
+        return _parse_agent_llm_decision(raw)
+    except Exception as exc:
+        print(f"    Agent 3 LO check: fail_api — {exc}")
+        return 'pass', '', ''
+
+
 def new_agent1_bloom_feasibility(section_content, section_title, target_bloom,
                                   request_id, user_id, document_id, plan_item_id,
-                                  attempt=1, bloom_ceiling=None, chapter_content=None):
+                                  attempt=1, bloom_ceiling=None, chapter_content=None,
+                                  chapter_key=None, learning_outcome=None,
+                                  lo_overlap=None, check_clo_before_bloom=False):
     """Agent 1: Kiểm tra section có đủ nội dung để sinh câu Bloom yêu cầu không.
     - Nếu quá ngắn hoặc bloom_ceiling < target → trả về feasible=False → bỏ qua section.
     Tham số:
@@ -2428,12 +2906,38 @@ def new_agent1_bloom_feasibility(section_content, section_title, target_bloom,
             found = sum(1 for s in signals if s in content_lower)
             quality = min(0.90, 0.65 + found * 0.04)  # tăng dần theo số tín hiệu
 
-    # ── Kiểm tra 2: Semantic Bloom ceiling (AI đã phân tích trước) ────────────
-    # Nếu nội dung section chỉ hỗ trợ tối đa Bloom 2 mà yêu cầu Bloom 4 → fail ngay
+    # ── Kiểm tra 2: CLO (trước Bloom ceiling — chỉ thay đổi thứ tự, không nới Bloom) ─
+    lo_norm = _normalize_learning_outcome(learning_outcome)
+    lo_overlap_val = lo_overlap
+    if lo_overlap_val is None and lo_norm:
+        lo_overlap_val = _lo_keyword_overlap(
+            f"{section_title}\n{(section_content or '')[:8000]}", lo_norm,
+        )
+
+    if feasible and lo_norm and check_clo_before_bloom:
+        if lo_overlap_val < 0.08:
+            feasible = False
+            reasons.append(f'fail_learning_outcome_low_overlap({lo_overlap_val:.2f})')
+            quality = min(quality, 0.20)
+            print(f"    Agent 1: ❌ CLO — trùng từ khóa quá thấp ({lo_overlap_val:.0%}) → bỏ qua")
+        elif lo_overlap_val >= 0.38:
+            reasons.append(f'lo_high_overlap({lo_overlap_val:.2f})')
+        else:
+            lo_ok, lo_reason, _lo_fb = _llm_learning_outcome_section_check(
+                section_content, section_title, target_bloom, lo_norm,
+                chapter_content=chapter_content,
+                chapter_key=chapter_key,
+            )
+            if not lo_ok:
+                feasible = False
+                reasons.append(f'fail_learning_outcome({(lo_reason or "section_mismatch")[:120]})')
+                quality = min(quality, 0.25)
+                print(f"    Agent 1: ❌ không phù hợp chuẩn đầu ra — {(lo_reason or '')[:100]}")
+
+    # ── Kiểm tra 3: Semantic Bloom ceiling (tiêu chí chính — giữ nguyên độ strict) ─
     if feasible and bloom_ceiling is not None:
         effective_ceiling = _effective_bloom_ceiling(bloom_ceiling, bloom_num, content_len)
         if content_len <= 300 and bloom_num <= 2:
-            # Đoạn ngắn B1–B2: phải khớp đúng cấp (strict)
             if bloom_ceiling != bloom_num:
                 feasible = False
                 reasons.append(f'short_exact_mismatch(exact={bloom_ceiling}!=target={bloom_num})')
@@ -2443,7 +2947,6 @@ def new_agent1_bloom_feasibility(section_content, section_title, target_bloom,
                 quality = min(1.0, quality + 0.05)
                 reasons.append(f'short_exact_match(exact={bloom_ceiling}=target={bloom_num})')
         elif content_len <= 300 and bloom_num in (3, 4):
-            # Đoạn ngắn B3–B4: cho phép lệch theo effective ceiling (tránh reject oan)
             if bloom_num > effective_ceiling:
                 feasible = False
                 reasons.append(f'short_ceiling({bloom_ceiling},eff={effective_ceiling})<target({bloom_num})')
@@ -2461,6 +2964,28 @@ def new_agent1_bloom_feasibility(section_content, section_title, target_bloom,
             reasons.append(f'semantic_ceiling_match({bloom_ceiling},eff={effective_ceiling})')
         else:
             reasons.append(f'semantic_ceiling_above({bloom_ceiling}>={bloom_num},eff={effective_ceiling})')
+
+    # CLO sau Bloom ceiling khi không bật check_clo_before_bloom (tương thích cũ)
+    if feasible and lo_norm and not check_clo_before_bloom:
+        if lo_overlap_val is None:
+            lo_overlap_val = _lo_keyword_overlap(
+                f"{section_title}\n{(section_content or '')[:8000]}", lo_norm,
+            )
+        if lo_overlap_val < 0.08:
+            feasible = False
+            reasons.append(f'fail_learning_outcome_low_overlap({lo_overlap_val:.2f})')
+            quality = min(quality, 0.20)
+        elif lo_overlap_val < 0.38:
+            lo_ok, lo_reason, _lo_fb = _llm_learning_outcome_section_check(
+                section_content, section_title, target_bloom, lo_norm,
+                chapter_content=chapter_content,
+                chapter_key=chapter_key,
+            )
+            if not lo_ok:
+                feasible = False
+                reasons.append(f'fail_learning_outcome({(lo_reason or "section_mismatch")[:120]})')
+                quality = min(quality, 0.25)
+                print(f"    Agent 1: ❌ không phù hợp chuẩn đầu ra — {(lo_reason or '')[:100]}")
 
     decision = 'pass' if feasible else 'fail'
     if user_id is not None:
@@ -2532,7 +3057,7 @@ def _agent2_source_excerpt(section_content: str, bloom_num: int) -> str:
 
 def new_agent2_generate_qa(section_content, section_title, target_bloom, required_points,
                             request_id, user_id, document_id, plan_item_id, attempt=1,
-                            chapter_context=None):
+                            chapter_context=None, learning_outcome=None, agent3_feedback=None):
     """Agent 2: Gọi AI để sinh cặp câu hỏi + đáp án dựa hoàn toàn vào section.
     - Câu hỏi phải dùng đúng động từ Bloom, đáp án phải lấy từ tài liệu.
     Tham số:
@@ -2660,6 +3185,51 @@ def new_agent2_generate_qa(section_content, section_title, target_bloom, require
             'Đặt câu hỏi về ĐÁNH GIÁ ưu/nhược điểm hoặc TÁC ĐỘNG.',
         ]
     retry_note = f"\n⚠️ [Lần thử {attempt}] {_retry_angles[min(attempt-1, len(_retry_angles)-1)]}" if attempt >= 2 else ""
+    if agent3_feedback and str(agent3_feedback).strip():
+        retry_note += f"\n⚠️ PHẢN HỒI AGENT 3 (sửa theo gợi ý): {str(agent3_feedback).strip()[:800]}"
+    lo_norm = _normalize_learning_outcome(learning_outcome)
+    lo_block = ''
+    if lo_norm:
+        clo_aspects = _extract_clo_aspects(lo_norm)
+        aspect_line = ''
+        if clo_aspects:
+            skill = [a for a in clo_aspects if a in _CLO_SKILL_ASPECTS]
+            content = [a for a in clo_aspects if a not in _CLO_SKILL_ASPECTS]
+            lines = []
+            if skill:
+                lines.append(f"Năng lực CLO (đặt trong câu hỏi): {_clo_aspect_labels(skill)}")
+            if content:
+                lines.append(f"Chủ đề CLO (phản ánh trong Q+A): {_clo_aspect_labels(content)}")
+            aspect_line = '\n'.join(lines) + '\n'
+            if bloom_num <= 2:
+                aspect_line += (
+                    "(Bloom 1–2: mỗi câu hỏi chỉ cần bám MỘT khía cạnh CLO phù hợp mục nguồn — "
+                    "không gộp khái niệm + mô hình + thuật ngữ trong một câu.)\n"
+                )
+            elif bloom_num >= 4:
+                aspect_line += (
+                    "(Bloom 4+: đáp án KHÔNG cần lặp 'phân tích'/'đánh giá' trong từng ý; "
+                    "trình bày nội dung cụ thể — rủi ro, nguyên nhân, mối quan hệ, hệ quả… — từ mục nguồn.)\n"
+                )
+        lo_block = (
+            f"\n📎 CHUẨN ĐẦU RA (CLO) — BẮT BUỘC TUÂN THỦ:\n{lo_norm}\n\n"
+            f"{aspect_line}"
+            f"QUY TẮC CLO:\n"
+            f"1. Câu hỏi PHẢI đánh giá ĐÚNG năng lực trong CLO — cùng chủ đề nhưng sai năng lực là SAI.\n"
+            f"2. SAI: CLO yêu cầu 'lợi ích/hạn chế/vai trò' mà câu hỏi chỉ hỏi 'khái niệm/định nghĩa/hoạt động'.\n"
+            f"3. Đáp án mỗi ý phải phục vụ CHỦ ĐỀ CLO (VD CLO về rủi ro an ninh → có ý về an ninh/bảo mật).\n"
+            f"4. Bám mục nguồn; dùng NGỮ CẢNH CHƯƠNG nếu mục lẻ thiếu ý.\n"
+            f"5. Đúng mức Bloom ({target_bloom}) và đủ số ý đáp án.\n"
+        )
+        if bloom_num == 2 and chapter_context:
+            lo_block += (
+                "\n⚠️ Lấy thêm từ NGỮ CẢNH CHƯƠNG để đủ nội dung CLO.\n"
+            )
+        if clo_aspects and attempt >= 2:
+            retry_note += (
+                f"\n⚠️ CLO RETRY: Viết lại câu hỏi để đánh giá: {_clo_aspect_labels(clo_aspects)}. "
+                f"Không hỏi khía cạnh khác ngoài CLO.\n"
+            )
     if attempt >= 2 and bloom_num == 1:
         retry_note += (
             "\n⚠️ BLOOM 1: Chỉ LIỆT KÊ / NÊU / ĐỊNH NGHĨA thuật ngữ hoặc thành phần trong mục. "
@@ -2863,9 +3433,9 @@ def new_agent2_generate_qa(section_content, section_title, target_bloom, require
                 "4. Meta-comment khi thiếu ý: '- (Không có kênh thứ tư...)' → TUYỆT ĐỐI KHÔNG!\n"
                 "   Nếu tài liệu chỉ có 3 điểm, mở rộng 1 ý thành 2 ý con chi tiết hơn từ cùng đoạn.\n"
                 "Mỗi ý đáp án PHẢI có: tiêu đề ngắn (1-3 từ) + dấu hai chấm + thông tin thực tế cụ thể từ tài liệu (≥8 từ mới).\n"
-                "Ví dụ ĐÚNG khi hỏi 'Liệt kê các vấn đề nghiên cứu':\n"
-                "  '- Khái niệm TMĐT: giao dịch mua bán hàng hóa và dịch vụ qua mạng Internet'\n"
-                "  '- Phân loại TMĐT: B2B, B2C, C2C và các mô hình trung gian'\n"
+                "Ví dụ ĐÚNG khi hỏi 'Liệt kê các thành phần chính':\n"
+                "  '- Khái niệm X: định nghĩa cụ thể trích từ tài liệu'\n"
+                "  '- Thành phần A, B, C: mô tả ngắn từng thành phần trong mục nguồn'\n"
             )
         elif bloom_num == 2:
             bloom_low_constraint = (
@@ -2894,9 +3464,8 @@ def new_agent2_generate_qa(section_content, section_title, target_bloom, require
                 "  • 'Vận dụng kiến thức về X, hãy giải thích...'\n"
                 "\n🔴 ĐÁP ÁN BLOOM 3 — TUYỆT ĐỐI TRÁNH:\n"
                 "- Mỗi ý phải là BƯỚC HÀNH ĐỘNG trong tình huống, KHÔNG phải định nghĩa/lặp tên khái niệm.\n"
-                "- SAI: '- Mua sắm trực tuyến: bao gồm các hoạt động như mua sắm trực tuyến'\n"
-                "- SAI: '- Thanh toán điện tử: bao gồm các hoạt động như thanh toán điện tử'\n"
-                "- ĐÚNG: '- Thu hút người mua: tập trung vào người dùng hơn thị trường mục tiêu vì họ quyết định thành công TMĐT'\n"
+                "- SAI: '- Bước 1: bao gồm các hoạt động như bước 1' (lặp mơ hồ)\n"
+                "- ĐÚNG: '- Bước 1 [tên bước]: mô tả hành động cụ thể từ tài liệu'\n"
                 "- ĐÚNG: '- Triển khai thanh toán: áp dụng hình thức thanh toán điện tử để hoàn tất giao dịch trực tuyến'\n"
                 "\n📋 FORMAT ĐÁP ÁN B3 BẮT BUỘC:\n"
                 "- Bước 1 [hành động]: [chi tiết từ mục nguồn]\n"
@@ -2993,6 +3562,7 @@ def new_agent2_generate_qa(section_content, section_title, target_bloom, require
         f"{chapter_ctx_block}\n"
         f"🎯 CẤP ĐỘ BLOOM: {target_bloom}\n"
         f"   Động từ bắt buộc: {verbs}\n"
+        f"{lo_block}"
         f"{retry_note}\n\n"
         f"📋 YÊU CẦU QUAN TRỌNG:\n"
         f"1. Câu hỏi: bắt đầu bằng một trong các động từ trên, 15–50 từ\n"
@@ -3065,6 +3635,16 @@ def new_agent2_generate_qa(section_content, section_title, target_bloom, require
 
         answer = _enforce_point_count(answer, required_points)  # cắt/giữ đúng số ý
         answer = clean_answer_formatting(answer)                 # làm sạch format
+
+        if lo_norm:
+            gap = _clo_aspect_gap(
+                question, answer, lo_norm,
+                section_title=section_title, section_content=section_content, bloom_num=bloom_num,
+            )
+            if gap and gap['aspects']:
+                ok, msg = _clo_qa_aspect_passes(gap, bloom_num)
+                if not ok:
+                    raise ValueError(f"Câu hỏi/đáp án chưa bám CLO — {msg}")
 
         if bloom_num <= 2 and _a3_tautology_score(answer) < 0.65:
             raise ValueError(
@@ -3366,7 +3946,8 @@ def _a3_answer_diversity_score(answer: str) -> tuple[float, float]:
 
 
 def new_agent3_evaluate_qa(question, answer, section_content, section_title, target_bloom,
-                            request_id, user_id, document_id, plan_item_id, attempt=1):
+                            request_id, user_id, document_id, plan_item_id, attempt=1,
+                            learning_outcome=None):
     """Agent 3: Đánh giá chất lượng cặp Q&A do Agent 2 sinh ra.
     Nếu pass → pipeline lưu kết quả. Nếu fail → Agent 2 thử lại (tối đa 5 lần).
     Tham số:
@@ -3516,7 +4097,7 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
     else:
         hard_floor = 0.35
 
-    def _a3_hard_fail(quality_val: float, msg: str):
+    def _a3_hard_fail(quality_val: float, msg: str, feedback: str = ''):
         nonlocal decision
         decision = 'fail'
         print(f"    Agent 3: HARD FAIL — {msg}")
@@ -3532,7 +4113,7 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
                 scoreability_score=round(bloom_verb_score, 4),
             )
             db.session.add(log)
-        return 'fail', round(quality_val, 4)
+        return 'fail', round(quality_val, 4), (feedback or '').strip()
 
     if bloom_num <= 3 and not q_ok:
         return _a3_hard_fail(q_bloom_score, f'câu hỏi sai cấp Bloom ({q_bloom_reason})')
@@ -3591,7 +4172,7 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
                 scoreability_score=round(bloom_verb_score, 4),
             )
             db.session.add(log)
-        return decision, quality
+        return decision, quality, ''
 
     # Bloom 1-2 hard fail: đáp án lặp tiêu đề / không có thông tin cụ thể
     if bloom_num == 1 and tautology_score < 0.78:
@@ -3610,7 +4191,7 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
                 scoreability_score=round(bloom_verb_score, 4),
             )
             db.session.add(log)
-        return decision, quality
+        return decision, quality, ''
 
     if bloom_num == 2 and tautology_score < 0.62:
         quality = round(tautology_score, 4)
@@ -3628,7 +4209,7 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
                 scoreability_score=round(bloom_verb_score, 4),
             )
             db.session.add(log)
-        return decision, quality
+        return decision, quality, ''
 
     # Bloom 3 hard fail: lạc B2, lặp tiêu đề, hoặc không bám mục nguồn
     if bloom_num == 3 and (
@@ -3654,7 +4235,7 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
                 scoreability_score=round(bloom_verb_score, 4),
             )
             db.session.add(log)
-        return decision, quality
+        return decision, quality, ''
 
     # Hard fail trùng ý: chỉ khi overlap RẤT cao (tránh reject oan giáo trình cùng miền từ)
     if bloom_num <= 2:
@@ -3685,7 +4266,36 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
                 scoreability_score=round(bloom_verb_score, 4),
             )
             db.session.add(log)
-        return decision, quality
+        return decision, quality, ''
+
+    lo_norm = _normalize_learning_outcome(learning_outcome)
+    lo_feedback_carry = ''
+    if lo_norm:
+        gap = _clo_aspect_gap(
+            question, answer, lo_norm,
+            section_title=section_title, section_content=section_content, bloom_num=bloom_num,
+        )
+        if gap and gap['aspects']:
+            ok, msg = _clo_qa_aspect_passes(gap, bloom_num)
+            if not ok:
+                return _a3_hard_fail(
+                    0.12,
+                    f'Q/A lệch CLO — {msg}',
+                    f'Bám CLO: {_clo_aspect_labels(gap.get("content_aspects") or gap["aspects"])}',
+                )
+
+        lo_decision, lo_reason, lo_feedback = _llm_learning_outcome_qa_validate(
+            question, answer, section_content, section_title, target_bloom, lo_norm,
+            bloom_num=bloom_num,
+        )
+        if lo_decision == 'fail':
+            reasons.append(f'fail_learning_outcome({(lo_reason or "qa_mismatch")[:120]})')
+            lo_feedback_carry = lo_feedback
+            return _a3_hard_fail(
+                0.15,
+                f'câu hỏi/đáp án lệch chuẩn đầu ra — {(lo_reason or "")[:80]}',
+                lo_feedback,
+            )
 
     # ── Composite score ────────────────────────────────────────────────────────
     # Bloom 1-4: ưu tiên n-gram groundedness (đáp án factual)
@@ -3743,7 +4353,7 @@ def new_agent3_evaluate_qa(question, answer, section_content, section_title, tar
     print(f"    Agent 3: {decision} (q={quality:.3f}, q_faith={q_faithfulness:.3f}, a_ground={a_groundedness:.3f}, bloom_verb={has_bloom_verb}, diversity={diversity_score:.2f}"
           + (f", b3_scenario={bloom3_q_score:.2f}, tautology={tautology_score:.2f}, key_terms={key_term_score:.2f}" if bloom_num == 3 else "")
           + (f", tautology={tautology_score:.2f}" if bloom_num <= 2 else "") + ")")
-    return decision, quality
+    return decision, quality, lo_feedback_carry
 
 
 def classify_bloom_exact(text: str) -> tuple[int, str]:
@@ -3932,6 +4542,7 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
             targets.append({
                 'bloom_level': cfg['bloom_level'],  # VD: 'Bloom 3 (Vận dụng)'
                 'points':      cfg.get('points'),   # điểm người dùng nhập, None = dùng mặc định
+                'learning_outcome': _normalize_learning_outcome(cfg.get('learning_outcome')),
             })
 
     # Điểm mặc định theo Bloom nếu người dùng không nhập
@@ -3950,6 +4561,7 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
     for target_idx, target in enumerate(targets):
         bloom_level  = target['bloom_level']
         custom_points = target['points']
+        learning_outcome = _normalize_learning_outcome(target.get('learning_outcome'))
         plan_item_id = f'plan_{target_idx + 1}'
         item_start   = time.time()
 
@@ -3974,6 +4586,8 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
 
         print(f"\n{'─' * 60}")
         print(f"📋 {plan_item_id}: {bloom_level} — {required_points} ý ({points}đ)")
+        if learning_outcome:
+            print(f"   📎 Chuẩn đầu ra: {learning_outcome[:100]}{'...' if len(learning_outcome) > 100 else ''}")
         print(f"{'─' * 60}")
 
         item_success = False  # cờ đánh dấu câu này đã sinh thành công chưa
@@ -3999,32 +4613,97 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
         def _section_available(i):
             return (i, bloom_num_target) not in used_section_bloom_pairs
 
-        known_exact   = [i for i in range(len(sorted_sections))
-                         if _section_available(i)
-                         and 'bloom_ceiling' in sorted_sections[i]
-                         and sorted_sections[i]['bloom_ceiling'] == bloom_num_target]
-        known_adjacent = [i for i in range(len(sorted_sections))
-                          if _section_available(i)
-                          and 'bloom_ceiling' in sorted_sections[i]
-                          and sorted_sections[i]['bloom_ceiling'] != bloom_num_target]
-        unknown       = [i for i in range(len(sorted_sections))
-                         if _section_available(i)
-                         and 'bloom_ceiling' not in sorted_sections[i]]
-        section_order = (
-            _sort_by_boilerplate(known_exact)
-            + _sort_by_boilerplate(unknown)
-            + _sort_by_boilerplate(known_adjacent)
-        )
+        if learning_outcome:
+            # Lọc mục theo CLO trước (chọn ứng viên); Bloom vẫn kiểm tra đầy đủ ở Agent 1
+            max_sections_per_q = min(max_sections_per_q, 8)
+            lo_ranked = []
+            for i in range(len(sorted_sections)):
+                if not _section_available(i):
+                    continue
+                sec = sorted_sections[i]
+                lo_sc = _section_lo_score(sec, chapter_content_map, learning_outcome)
+                if lo_sc < 0.06:
+                    continue
+                ceiling = sec.get('bloom_ceiling')
+                bdist = abs((ceiling if ceiling is not None else bloom_num_target) - bloom_num_target)
+                lo_ranked.append((i, lo_sc, bdist))
+            # CLO cao nhất trước; cùng CLO thì ưu tiên Bloom khớp hơn (ΔBloom nhỏ hơn)
+            lo_ranked.sort(
+                key=lambda x: (
+                    -x[1],
+                    x[2],
+                    sorted_sections[x[0]].get('boilerplate_score', 1.0),
+                )
+            )
+            section_order = [i for i, _, _ in lo_ranked]
+            for i, sc, bd in lo_ranked:
+                sorted_sections[i]['_lo_score'] = sc
+                sorted_sections[i]['_bloom_dist'] = bd
+            if section_order:
+                top = sorted_sections[section_order[0]]
+                print(
+                    f"  📎 CLO→Bloom: {len(section_order)} mục — "
+                    f"thử '{top.get('title', '')[:50]}' "
+                    f"(CLO={top.get('_lo_score', 0):.0%}, ΔBloom={top.get('_bloom_dist', '?')})"
+                )
+            else:
+                print(f"  ⚠️ Không có mục trùng CLO ≥6% — fallback sắp theo Bloom")
+                section_order = []
+        else:
+            known_exact   = [i for i in range(len(sorted_sections))
+                             if _section_available(i)
+                             and 'bloom_ceiling' in sorted_sections[i]
+                             and sorted_sections[i]['bloom_ceiling'] == bloom_num_target]
+            known_adjacent = [i for i in range(len(sorted_sections))
+                              if _section_available(i)
+                              and 'bloom_ceiling' in sorted_sections[i]
+                              and sorted_sections[i]['bloom_ceiling'] != bloom_num_target]
+            unknown       = [i for i in range(len(sorted_sections))
+                             if _section_available(i)
+                             and 'bloom_ceiling' not in sorted_sections[i]]
+            section_order = (
+                _sort_by_boilerplate(known_exact)
+                + _sort_by_boilerplate(unknown)
+                + _sort_by_boilerplate(known_adjacent)
+            )
 
-        # Fallback: mọi mục đã có câu ở cùng mức Bloom → tái dùng mục, ưu tiên ceiling gần target
+        if learning_outcome and not section_order:
+            # Không lọc được mục theo CLO → fallback thứ tự Bloom
+            known_exact   = [i for i in range(len(sorted_sections))
+                             if _section_available(i)
+                             and 'bloom_ceiling' in sorted_sections[i]
+                             and sorted_sections[i]['bloom_ceiling'] == bloom_num_target]
+            known_adjacent = [i for i in range(len(sorted_sections))
+                              if _section_available(i)
+                              and 'bloom_ceiling' in sorted_sections[i]
+                              and sorted_sections[i]['bloom_ceiling'] != bloom_num_target]
+            unknown       = [i for i in range(len(sorted_sections))
+                             if _section_available(i)
+                             and 'bloom_ceiling' not in sorted_sections[i]]
+            section_order = (
+                _sort_by_boilerplate(known_exact)
+                + _sort_by_boilerplate(unknown)
+                + _sort_by_boilerplate(known_adjacent)
+            )
+
+        # Fallback: mọi mục đã có câu ở cùng mức Bloom → tái dùng mục
         if not section_order:
             print(f"  ♻️ Section pool cạn cho Bloom {bloom_num_target} — fallback tái dùng mục")
-            section_order = sorted(
-                range(len(sorted_sections)),
-                key=lambda i: abs(
-                    (sorted_sections[i].get('bloom_ceiling') or 3) - bloom_num_target
-                ),
-            )
+            avail = [i for i in range(len(sorted_sections)) if _section_available(i)]
+            if learning_outcome:
+                section_order = sorted(
+                    avail,
+                    key=lambda i: -_section_lo_score(
+                        sorted_sections[i], chapter_content_map, learning_outcome,
+                    ),
+                )
+            else:
+                section_order = sorted(
+                    avail,
+                    key=lambda i: abs(
+                        (sorted_sections[i].get('bloom_ceiling') or 3) - bloom_num_target
+                    ),
+                )
         else:
             n_avail = len(section_order)
             n_used_same = sum(
@@ -4080,12 +4759,19 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
                 section['bloom_ceiling'] = _get_section_bloom_ceiling(section_content, section_title)
                 print(f"    🧠 Ngữ nghĩa: Bloom ≤ {section['bloom_ceiling']} | {section_title[:50]}")
 
-            # ── Agent 1: Kiểm tra tính khả thi Bloom (dùng nội dung mục lẻ) ──
+            # ── Agent 1: kiểm CLO trước, Bloom ceiling sau (cả hai đều strict) ─
+            sec_lo_score = section.get('_lo_score')
+            if sec_lo_score is None and learning_outcome:
+                sec_lo_score = _section_lo_score(section, chapter_content_map, learning_outcome)
             feasible, a1_quality, _ = new_agent1_bloom_feasibility(
                 section_content, section_title, bloom_level,
                 request_id, user_id, document_id, plan_item_id,
                 bloom_ceiling=section['bloom_ceiling'],
                 chapter_content=chapter_content,
+                chapter_key=chapter_key,
+                learning_outcome=learning_outcome,
+                lo_overlap=sec_lo_score,
+                check_clo_before_bloom=bool(learning_outcome),
             )
             if not feasible:
                 print(f"  ⛔ Agent 1: Mục không phù hợp cho {bloom_key} → bỏ qua")
@@ -4097,6 +4783,7 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
             sections_tried += 1
 
             # ── Agent 2 → Agent 3 loop ────────────────────────────────────────
+            a3_feedback = ''
             for gen_attempt in range(1, max_gen_attempts + 1):
                 print(f"  🔄 Agent 2 lần {gen_attempt}/{max_gen_attempts}")
 
@@ -4106,6 +4793,8 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
                     section_content, section_title, bloom_level, required_points,
                     request_id, user_id, document_id, plan_item_id, attempt=gen_attempt,
                     chapter_context=chapter_content,
+                    learning_outcome=learning_outcome,
+                    agent3_feedback=a3_feedback,
                 )
 
                 if not question or not answer:
@@ -4114,9 +4803,10 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
 
                 # Agent 3: B3–B4 bám MỤC nguồn; B5–B6 dùng ngữ cảnh chương
                 a3_eval_content = section_content if bloom_num_target in (3, 4) else chapter_content
-                a3_decision, a3_quality = new_agent3_evaluate_qa(
+                a3_decision, a3_quality, a3_feedback = new_agent3_evaluate_qa(
                     question, answer, a3_eval_content, section_title, bloom_level,
                     request_id, user_id, document_id, plan_item_id, attempt=gen_attempt,
+                    learning_outcome=learning_outcome,
                 )
 
                 if a3_decision == 'pass':
@@ -4160,6 +4850,7 @@ def run_agent_pipeline(content, extraction_stats, bloom_configs, question_count,
                         'total_points':     total_pts,
                         'sub_points_count': sub_pts,
                         'points_breakdown': breakdown,
+                        'learning_outcome': learning_outcome,
                         'process_time':     round(time.time() - item_start, 2),
                         'section_content':  section_content,   # nội dung MỤC cụ thể (ngắn, dùng cho BLEU-4 section)
                         'chapter_content':  chapter_content,   # toàn bộ nội dung CHƯƠNG (dùng cho BLEU-4 chapter)
