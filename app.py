@@ -1738,10 +1738,6 @@ def export_exam():
                 q_text = (q.question or '').strip()
                 pts_vn = f'{pts:.1f}'.replace('.', ',')
                 q_block = [Paragraph(f'<b>Câu {idx} ({pts_vn} điểm).</b>  {e(q_text)}', sQHead)]
-                bloom_text = bloom_short_label(normalize_bloom_level(q.bloom_level or ''))
-                if bloom_text:
-                    q_block.append(Spacer(1, 2))
-                    q_block.append(Paragraph(f'<i>Bloom: {e(bloom_text)}</i>', sNote))
                 q_block.append(Spacer(1, 12))
                 story.append(KeepTogether(q_block))
 
